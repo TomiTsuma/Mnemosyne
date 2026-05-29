@@ -1,0 +1,38 @@
+# Mnemosyne .gitignore
+
+# Build outputs
+build/
+bin/
+lib/
+obj/
+
+# IDE
+.vscode/
+.idea/
+*.sln
+*.vs/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake.in
+
+# Logs
+*.log
+
+# Config files (keep example)
+configs/*.yml
+!configs/mnemosyne.example.yml
+configs/*.conf
+!configs/mnemosyne.example.conf
+
+# Backup files
+*.bak
+*.tmp

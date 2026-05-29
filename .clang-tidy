@@ -1,0 +1,36 @@
+---
+# Mnemosyne clang-tidy configuration for C++23
+---
+Checks: >
+  llvm-*,
+  modernize-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  readability-*,
+  cert-*,
+  misc-*
+HeaderFilterRegex: 'src/.*'
+FormatStyle: clang
+Language: Cpp
+WarningsAsErrors: '*'
+
+# ── Required includes ──
+CheckOptions:
+  - Key: readability-container-contains
+    Value: {CheckFind: true}
+  - Key: modernize-use-nullptr
+    Value: {NullMacros: 'NULL'}
+  - Key: modernize-use-equals-default
+    Value: {IgnoreMacros: true}
+  - Key: modernize-use-equals-delete
+    Value: {IgnoreMacros: true}
+  - Key: readability-avoid-nested-conditional
+    Value: {MaxDepth: 2}
+  - Key: bugprone-exception-escape
+    Value: {IgnoreNonVirtualFunctions: true}
+
+# ── Extra checks specific to a DBMS codebase ──
+# Catch double-conversions in arithmetic
+# Avoid raw new/delete via cppcoreguidelines
+# Enforce move semantics
+# Check for resource leaks
