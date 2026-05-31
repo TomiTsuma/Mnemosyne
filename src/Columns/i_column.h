@@ -6,16 +6,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
+#include "Common/span_compat.h"
 #include <string>
 #include <vector>
-#include "core/field.h"
+#include "Core/field.h"
+#include "Core/column.h"
 
 namespace mnesso::columns {
 
 // Re-export from core
 using core::Field;
 using core::IColumn;
+using core::ColumnPtr;
 
 // ── Column metadata extension ──
 enum class ColumnKind : uint8_t {

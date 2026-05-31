@@ -8,6 +8,13 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "Common/span_compat.h"
+#include "field.h"
+
+namespace mnesso::datatypes {
+class IDataType;
+using DataTypePtr = std::shared_ptr<IDataType>;
+}
 
 namespace mnesso::core {
 
@@ -30,6 +37,7 @@ public:
 
     // Insert a value — returns the row index of the inserted value
     virtual auto insert(const Field& value) -> size_t = 0;
+    virtual auto insert_at(size_t row_idx, const Field& value) -> size_t = 0;
     virtual auto insert_default()                       -> size_t = 0;
 
     // Bulk insert from another column
@@ -40,9 +48,11 @@ public:
 
     // Get value at row index
     [[nodiscard]] virtual Field get(size_t row_idx) const = 0;
+    [[nodiscard]] virtual Field get_at(size_t row_idx) const = 0;
 
     // Set value at row index (only for mutable columns)
     virtual void set(size_t row_idx, const Field& value) = 0;
+    [[nodiscard]] virtual datatypes::DataTypePtr get_data_type() const = 0;
 
     // Swap two rows
     virtual void swap_rows(size_t a, size_t b) = 0;

@@ -4,6 +4,8 @@
 #include <vector>
 #include <string_view>
 #include <functional>
+#include <string>
+#include <chrono>
 
 namespace mnesso::common {
 
@@ -32,10 +34,10 @@ using BlockSize   = size_t;
 
 // ── Result status ──
 enum class Status {
-    OK,
-    ERROR,
-    EOF,
-    INCOMPLETE,
+    Ok,
+    Error,
+    Eof,
+    Incomplete,
 };
 
 // ── Byte order ──

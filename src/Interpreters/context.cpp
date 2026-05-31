@@ -51,4 +51,10 @@ void Context::set_setting(std::string_view name, common::SettingValueType value)
     settings_.set(name, std::move(value));
 }
 
+Context::Context(std::shared_ptr<databases::IDatabase> db) {
+    if (db) {
+        databases_["default"] = std::move(db);
+    }
+}
+
 } // namespace mnesso::interpreters

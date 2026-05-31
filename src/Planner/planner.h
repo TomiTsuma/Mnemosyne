@@ -5,6 +5,8 @@
 
 #include "execution_plan.h"
 #include "query_tree.h"
+#include "Interpreters/context.h"
+#include <cstdint>
 #include <memory>
 #include <unordered_map>
 
@@ -13,7 +15,7 @@ namespace mnesso::planner {
 // ── Planner — takes analyzed query tree and produces execution plan ──
 class Planner {
 public:
-    explicit Planner(Context& context);
+    explicit Planner(interpreters::Context& context);
 
     // Main entry — plan a query tree
     auto plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
@@ -44,8 +46,8 @@ public:
         std::shared_ptr<analyzer::FilterNode> filter);
 
 private:
-    Context& context_;
-    uint64_t plan_id_ = 0;
+    interpreters::Context& context_;
+    std::uint64_t plan_id_ = 0;
 };
 
 } // namespace mnesso::planner

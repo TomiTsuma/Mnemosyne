@@ -3,39 +3,46 @@
 
 #pragma once
 
-#include "context.h"
-#include "loggers/logger.h"
+#include "Server/http_types.h"
 #include <string>
 #include <memory>
 #include <atomic>
+#include <cstdint>
+
+namespace mnesso::interpreters { class Context; }
 
 namespace mnesso::server {
 
 // ── TCPServer — MySQL-compatible protocol server ──
 class TCPServer {
 public:
-    TCPServer(Context& context,
-              std::string host = "127.0.0.1",
-              uint16_t port = 9000);
+    TCPServer(std::shared_ptr<mnesso::interpreters::Context> ctx,
+              uint16_t port);
+    ~TCPServer();
 
-    // Start / stop
-    auto start() -> bool;
-    auto stop() -> bool;
+    // Non-copyable
+    TCPServer(const TCPServer&) = delete;
+    TCPServer& operator=(const TCPServer&) = delete;
+
+    // Start listening
+    void start();
+
+    // Stop accepting connections
+    void stop();
+
+    // Check if server is running
     [[nodiscard]] auto is_running() const -> bool;
 
+    // Get the port we're listening on
     [[nodiscard]] auto port() const -> uint16_t;
-    auto shutdown() -> void;
+
+    // Shutdown everything
+    void shutdown();
 
 private:
-    Context&             context_;
-    std::string          host_;
-    uint16_t             port_;
-    bool                 running_ = false;
-    std::atomic<bool>    running_atomic_ = false;
-    std::unique_ptr<loggers::Logger> logger_;
-    std::mutex           mutex_;
-
-    void run_loop();
+    std::shared_ptr<mnesso::interpreters::Context> context_;
+    uint16_t                               port_;
+    std::atomic<bool>                      running_ = false;
 };
 
 } // namespace mnesso::server

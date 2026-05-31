@@ -8,8 +8,8 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
-#include "data_types/data_type.h"
-#include "core/block.h"
+#include "DataTypes/data_type.h"
+#include "Core/block.h"
 
 namespace mnesso::functions {
 

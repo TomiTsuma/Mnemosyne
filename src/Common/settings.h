@@ -27,6 +27,10 @@ public:
     [[nodiscard]] std::string help()    const;
     [[nodiscard]] bool        has_default() const;
 
+    // Mutators used by Settings during registration
+    void set_name(std::string n) { name_ = std::move(n); }
+    void set_help(std::string h) { help_ = std::move(h); }
+
 private:
     std::string        name_;
     std::string        help_;

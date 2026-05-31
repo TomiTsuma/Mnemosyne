@@ -4,9 +4,11 @@
 #pragma once
 
 #include <vector>
-#include <span>
+#include "Common/span_compat.h"
 #include <string>
 #include <memory>
+#include <functional>
+#include <unordered_map>
 
 namespace mnesso::io {
 

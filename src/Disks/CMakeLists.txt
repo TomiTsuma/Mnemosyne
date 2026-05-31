@@ -1,9 +1,6 @@
 # src/Disks/CMakeLists.txt
-add_library(mnemosyne_disks
-    disk.cpp
-    disk_local.cpp
-    disk_s3.cpp
-)
+file(GLOB MNEMOSYNE_DISKS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_disks ${MNEMOSYNE_DISKS_SOURCES})
 
 target_include_directories(mnemosyne_disks PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

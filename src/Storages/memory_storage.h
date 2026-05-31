@@ -4,9 +4,13 @@
 #pragma once
 
 #include "i_storage.h"
-#include "core/block.h"
-#include <string>
+#include "Core/block.h"
+#include "Common/settings.h"
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -42,14 +46,20 @@ public:
     // Memory-specific
     auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
+    void load_block(const core::Block& block);
 
 private:
     MemoryStorage();
+
+    void add_column_unlocked(std::string name, datatypes::DataTypePtr type);
+    void set_columns_unlocked(std::unordered_map<std::string, datatypes::DataTypePtr> types);
+
     std::string              name_;
     std::unordered_map<std::string, datatypes::DataTypePtr> column_types_;
     std::vector<std::string> column_names_;
     core::Block              data_;
     bool                     empty_ = true;
+    mutable std::mutex       mutex_;
 };
 
 } // namespace mnesso::storages

@@ -4,6 +4,7 @@
 #include "logging.h"
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 #include <ctime>
 #include <mutex>
 
@@ -29,7 +30,11 @@ namespace {
         auto now = std::chrono::system_clock::now();
         auto time = std::chrono::system_clock::to_time_t(now);
         std::tm tm_buf{};
+    #ifdef _WIN32
+        localtime_s(&tm_buf, &time);
+    #else
         localtime_r(&time, &tm_buf);
+    #endif
         std::ostringstream ss;
         ss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
         return ss.str();

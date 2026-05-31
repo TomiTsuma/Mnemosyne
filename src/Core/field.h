@@ -13,6 +13,17 @@
 
 namespace mnesso::core {
 
+#if (defined(__cplusplus) && __cplusplus >= 202002L) \
+ || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+using FieldOrdering = std::strong_ordering;
+static constexpr FieldOrdering FieldOrderingLess = std::strong_ordering::less;
+static constexpr FieldOrdering FieldOrderingEqual = std::strong_ordering::equal;
+static constexpr FieldOrdering FieldOrderingGreater = std::strong_ordering::greater;
+#else
+enum class FieldOrdering { less = -1, equal = 0, greater = 1 };
+#endif
+
+
 // ── FieldType — discriminant for the variant ──
 enum class FieldType : uint8_t {
     Null       = 0,
@@ -70,8 +81,19 @@ public:
     // Equality (type-safe)
     [[nodiscard]] bool operator==(const Field& other) const;
 
-    // Comparison
-    auto operator<=>(const Field&) const = default;
+    // Comparison (type-aware)
+#if (defined(__cplusplus) && __cplusplus >= 202002L) \
+ || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+    [[nodiscard]] FieldOrdering operator<=>(const Field& other) const;
+#else
+    [[nodiscard]] FieldOrdering compare(const Field& other) const;
+#endif
+
+    // Derived comparisons (delegate to compare)
+    [[nodiscard]] bool operator< (const Field& other) const;
+    [[nodiscard]] bool operator<=(const Field& other) const;
+    [[nodiscard]] bool operator> (const Field& other) const;
+    [[nodiscard]] bool operator>=(const Field& other) const;
 
     // Is this field NULL?
     [[nodiscard]] bool is_null() const;

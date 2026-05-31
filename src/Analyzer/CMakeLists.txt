@@ -1,8 +1,6 @@
 # src/Analyzer/CMakeLists.txt
-add_library(mnemosyne_analyzer
-    analyzer.cpp
-    analyzer_passes.cpp
-)
+file(GLOB MNEMOSYNE_ANALYZER_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_analyzer ${MNEMOSYNE_ANALYZER_SOURCES})
 
 target_include_directories(mnemosyne_analyzer PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -4,12 +4,14 @@
 #pragma once
 
 #include "i_storage.h"
-#include "disk/disk.h"
+#include "Disks/disk.h"
 #include <string>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 #include <mutex>
+#include <optional>
+#include "Common/settings.h"
 
 namespace mnesso::storages {
 
@@ -44,6 +46,8 @@ public:
     [[nodiscard]] auto file_path() const -> std::string;
     auto set_disk(std::shared_ptr<disks::IDisk> disk) -> void;
     auto get_disk() -> std::shared_ptr<disks::IDisk>;
+    auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
+    auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
 
 private:
     FileStorage();
@@ -53,6 +57,7 @@ private:
     std::vector<std::string> column_names_;
     size_t row_count_ = 0;
     size_t byte_count_ = 0;
+    bool empty_ = true;
     std::shared_ptr<disks::IDisk> disk_;
     bool    locked_ = false;
     mutable std::mutex mutex_;

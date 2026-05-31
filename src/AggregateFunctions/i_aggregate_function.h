@@ -5,15 +5,22 @@
 
 #include <string>
 #include <memory>
+#include <memory_resource>
 #include <vector>
-#include <span>
+#include "Common/span_compat.h"
 #include <cstdint>
-#include "data_types/data_type.h"
+#include "Core/field.h"
+#include "DataTypes/data_type.h"
 
 namespace mnesso::aggregate_functions {
 
+using core::Field;
+
 class IAggregateFunction;
 using AggregateFunctionPtr = std::shared_ptr<IAggregateFunction>;
+
+// ── Arena — short-lived memory pool for aggregate state ──
+using Arena = std::pmr::monotonic_buffer_resource;
 
 // ── IAggregateFunction — abstract base for all aggregate functions ──
 // Each aggregate maintains state across a block of rows and produces
@@ -46,9 +53,6 @@ public:
 
     // Memory estimate
     [[nodiscard]] virtual auto memory_usage() const -> size_t = 0;
-
-protected:
-    using Arena = std::pmr::monotonic_buffer_resource;
 };
 
 } // namespace mnesso::aggregate_functions

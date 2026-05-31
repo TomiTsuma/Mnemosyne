@@ -6,7 +6,7 @@
 #include "query_executor.h"
 #include "context.h"
 #include "execution_plan.h"
-#include "processors/processor.h"
+#include "Processors/processor.h"
 #include <memory>
 
 namespace mnesso::interpreters {

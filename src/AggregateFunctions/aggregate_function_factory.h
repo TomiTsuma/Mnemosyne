@@ -14,7 +14,7 @@ namespace mnesso::aggregate_functions {
 // ── Factory — registry of all aggregate functions ──
 class AggregateFunctionFactory {
 public:
-    static auto& instance();
+    static AggregateFunctionFactory& instance();
 
     void register_function(std::string name,
                            std::function<AggregateFunctionPtr(

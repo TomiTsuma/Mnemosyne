@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 #include <optional>
-#include <span>
+#include "Common/span_compat.h"
 
 namespace mnesso::datatypes {
 
@@ -28,7 +28,7 @@ public:
 
     // Date arithmetic
     [[nodiscard]] auto to_days()    const -> int32_t;
-    [[nodiscard]] auto to_date_str() const -> std::string;
+    [[nodiscard]] auto to_date_str(int32_t days) const -> std::string;
 
     static auto from_date_str(std::string_view s) -> std::optional<int32_t>;
     static auto from_ymd(int y, int m, int d) -> std::optional<int32_t>;

@@ -6,7 +6,7 @@
 #include "codec.h"
 #include <string>
 #include <memory>
-#include <span>
+#include "Common/span_compat.h"
 #include <vector>
 
 namespace mnesso::io {

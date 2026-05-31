@@ -12,9 +12,11 @@ target_link_libraries(mnemosyne_core PUBLIC
     mnemosyne_common
 )
 
-target_link_libraries(mnemosyne_core PRIVATE
-    std::format
-)
+if(TARGET std::format)
+    target_link_libraries(mnemosyne_core PRIVATE
+        std::format
+    )
+endif()
 
 set_target_properties(mnemosyne_core PROPERTIES
     CXX_STANDARD 23

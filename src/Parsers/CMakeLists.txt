@@ -1,10 +1,6 @@
 # src/Parsers/CMakeLists.txt
-add_library(mnemosyne_parsers
-    parser.cpp
-    parser_query.cpp
-    ast.cpp
-    lexer.cpp
-)
+file(GLOB MNEMOSYNE_PARSERS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_parsers ${MNEMOSYNE_PARSERS_SOURCES})
 
 target_include_directories(mnemosyne_parsers PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

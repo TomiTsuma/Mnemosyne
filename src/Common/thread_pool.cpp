@@ -35,11 +35,11 @@ void ThreadPool::worker_loop() {
             if (stop_ && tasks_.empty()) return;
             task = std::move(tasks_.front());
             tasks_.pop();
-            pending_.fetch_sub(1);
         }
         active_.fetch_add(1);
         task();
         active_.fetch_sub(1);
+        pending_.fetch_sub(1);
     }
 }
 

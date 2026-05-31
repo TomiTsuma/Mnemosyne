@@ -1,9 +1,6 @@
 # src/Interpreters/CMakeLists.txt
-add_library(mnemosyne_interpreters
-    context.cpp
-    query_executor.cpp
-    blockInterpreter.cpp
-)
+file(GLOB MNEMOSYNE_INTERPRETERS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_interpreters ${MNEMOSYNE_INTERPRETERS_SOURCES})
 
 target_include_directories(mnemosyne_interpreters PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

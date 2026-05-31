@@ -4,9 +4,9 @@
 #pragma once
 
 #include "processor.h"
-#include "core/block.h"
-#include "processors/i_input_stream.h"
-#include "processors/i_output_stream.h"
+#include "Core/block.h"
+#include "Processors/i_input_stream.h"
+#include "Processors/i_output_stream.h"
 #include <memory>
 
 namespace mnesso::processors {

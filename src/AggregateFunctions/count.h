@@ -4,10 +4,27 @@
 #pragma once
 
 #include "i_aggregate_function.h"
+#include "Core/field.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace mnesso::aggregate_functions {
+
+// ── CountState — aggregate state for COUNT ──
+class CountState {
+public:
+    void init();
+    void reset();
+    void add(const Field& field);
+    void add(const std::vector<Field>& fields);
+    auto result() const -> Field;
+    auto result_string() const -> std::string;
+    bool has_result() const;
+    auto clone() const -> void*;
+
+    int64_t count_ = 0;
+};
 
 class FunctionCount final : public IAggregateFunction {
 public:

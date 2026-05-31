@@ -1,9 +1,6 @@
 # src/Loggers/CMakeLists.txt
-add_library(mnemosyne_loggers
-    logger.cpp
-    target_console.cpp
-    target_file.cpp
-)
+file(GLOB MNEMOSYNE_LOGGERS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_loggers ${MNEMOSYNE_LOGGERS_SOURCES})
 
 target_include_directories(mnemosyne_loggers PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

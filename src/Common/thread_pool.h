@@ -8,8 +8,16 @@
 #include <condition_variable>
 #include <atomic>
 #include <optional>
+#include <future>
+#include <type_traits>
+#include <memory>
+#include <utility>
 
 namespace mnesso::common {
+
+// Compatibility helpers for older compilers
+template<typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 // ── Task functor — anything callable with void() ──
 using Task = std::function<void()>;
@@ -27,12 +35,13 @@ public:
 
     // Submit a task — returns a std::promise::future for the result
     template<typename F>
-    auto submit(F&& f) -> std::future<std::invoke_result_t<std::remove_cvref_t<F>>> {
-        using result_type = std::invoke_result_t<std::remove_cvref_t<F>>;
+    auto submit(F&& f) -> std::future<std::invoke_result_t<remove_cvref_t<F>>> {
+        using result_type = std::invoke_result_t<remove_cvref_t<F>>;
         auto task = std::make_shared<std::packaged_task<result_type()>>(std::forward<F>(f));
         auto future = task->get_future();
         {
             std::lock_guard lock{queue_mutex_};
+            pending_.fetch_add(1);
             tasks_.emplace([task]() { (*task)(); });
         }
         cv_.notify_one();

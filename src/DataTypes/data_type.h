@@ -6,8 +6,10 @@
 #include <string>
 #include <string_view>
 #include <memory>
-#include <span>
+#include "Common/span_compat.h"
 #include <cstdint>
+#include <vector>
+#include <optional>
 
 namespace mnesso::datatypes {
 
@@ -33,7 +35,7 @@ enum class TypeId : uint8_t {
 // a matching column implementation.
 class IDataType {
 public:
-    virtual ~IDatatype() = default;
+    virtual ~IDataType() = default;
 
     // Type identification
     [[nodiscard]] virtual TypeId id()           const = 0;
@@ -55,6 +57,7 @@ public:
     // Comparability
     [[nodiscard]] virtual bool is_comparable() const { return true; }
     [[nodiscard]] virtual bool is_orderable()  const { return true; }
+    [[nodiscard]] virtual auto sizeof_impl() const -> size_t { return data_size(); }
 };
 
 // ── Type comparison helper ──

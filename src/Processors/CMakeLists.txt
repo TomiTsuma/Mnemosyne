@@ -1,8 +1,6 @@
 # src/Processors/CMakeLists.txt
-add_library(mnemosyne_processors
-    processor.cpp
-    processors_source.cpp
-)
+file(GLOB MNEMOSYNE_PROCESSORS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_processors ${MNEMOSYNE_PROCESSORS_SOURCES})
 
 target_include_directories(mnemosyne_processors PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

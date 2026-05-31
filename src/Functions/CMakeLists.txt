@@ -11,6 +11,7 @@ target_include_directories(mnemosyne_functions PUBLIC
 
 target_link_libraries(mnemosyne_functions PUBLIC
     mnemosyne_core
+    mnemosyne_columns
     mnemosyne_datatypes
 )
 

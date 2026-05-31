@@ -5,7 +5,8 @@
 
 #include <string>
 #include <string_view>
-#include <span>
+#include <vector>
+#include "Common/span_compat.h"
 #include <cstdint>
 #include <memory>
 #include <chrono>

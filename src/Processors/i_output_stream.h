@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "core/block.h"
+#include "Core/block.h"
 #include <memory>
 
 namespace mnesso::processors {

@@ -8,6 +8,9 @@ target_include_directories(mnemosyne_backups PUBLIC
 )
 
 target_link_libraries(mnemosyne_backups PUBLIC
+    mnemosyne_core
+    mnemosyne_databases
+    mnemosyne_io
     mnemosyne_storages
     mnemosyne_common
 )

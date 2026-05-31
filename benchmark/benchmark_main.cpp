@@ -4,8 +4,9 @@
 #include <benchmark/benchmark.h>
 #include "core/block.h"
 #include "core/series.h"
-#include "data_types/data_type_number.h"
+#include "DataTypes/data_type_number.h"
 #include "columns/column_vector.h"
+#include "columns/column_string.h"
 
 // ── Benchmark: ColumnVector insert ──
 static void BM_ColumnVectorInsert(benchmark::State& state) {
@@ -23,7 +24,7 @@ static void BM_ColumnVectorGet(benchmark::State& state) {
         col->insert(mnesso::core::Field{static_cast<int64_t>(i)});
     }
     for (auto _ : state) {
-        benchmark::DoNotOptimize(col->get<uint64_t>(0));
+        benchmark::DoNotOptimize(col->get(0));
     }
 }
 BENCHMARK(BM_ColumnVectorGet)->Arg(1000);
@@ -33,7 +34,7 @@ static void BM_ColumnStringInsert(benchmark::State& state) {
     auto col = mnesso::columns::ColumnString::create();
     for (auto _ : state) {
         col->insert(mnesso::core::Field{
-            "Hello World, this is a benchmark string"});
+            std::string("Hello World, this is a benchmark string")});
     }
 }
 BENCHMARK(BM_ColumnStringInsert);
@@ -57,3 +58,6 @@ static void BM_SeriesAdd(benchmark::State& state) {
     benchmark::DoNotOptimize(c);
 }
 BENCHMARK(BM_SeriesAdd);
+
+// ── Entry point ──
+BENCHMARK_MAIN();

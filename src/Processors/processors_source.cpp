@@ -26,8 +26,23 @@ void NoOpOutputStream::write(const core::Block& block) { header_ = block; }
 auto EmptyBlockSource::is_finished() const -> bool { return finished_; }
 auto EmptyBlockSource::getHeader() const -> core::Block { return create_empty_block(); }
 void EmptyBlockSource::start() { finished_ = true; }
-auto EmptyBlockSource::inputs() const -> std::vector<std::shared_ptr<IInputStream>> { return in_streams_; }
-auto EmptyBlockSource::outputs() const -> std::vector<std::shared_ptr<IOutputStream>> { return out_streams_; }
+auto EmptyBlockSource::inputs() const -> std::vector<std::shared_ptr<IInputStream>> {
+    std::vector<std::shared_ptr<IInputStream>> result;
+    result.reserve(in_streams_.size());
+    for (const auto& stream : in_streams_) {
+        result.push_back(stream);
+    }
+    return result;
+}
+
+auto EmptyBlockSource::outputs() const -> std::vector<std::shared_ptr<IOutputStream>> {
+    std::vector<std::shared_ptr<IOutputStream>> result;
+    result.reserve(out_streams_.size());
+    for (const auto& stream : out_streams_) {
+        result.push_back(stream);
+    }
+    return result;
+}
 
 // ── Creating empty streams ──
 auto create_empty_input_stream(core::Block header) -> std::shared_ptr<NoOpInputStream> {

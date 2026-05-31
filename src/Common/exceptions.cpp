@@ -8,10 +8,7 @@ namespace mnesso::common {
 Exception::Exception(std::string message, int error_code)
     : std::runtime_error{std::move(message)}, code_{error_code} {}
 
-std::string Exception::what() const noexcept {
-    if (!trace_.empty()) {
-        return std::runtime_error::what() + "\n" + trace_;
-    }
+const char* Exception::what() const noexcept {
     return std::runtime_error::what();
 }
 

@@ -4,76 +4,58 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <memory>
 #include <vector>
-#include <optional>
 #include <cstdint>
+#include <unordered_map>
+#include <mutex>
+#include <thread>
 
 namespace mnesso::coordination {
 
-// ── Node info ──
-struct NodeInfo {
-    std::string host;
-    uint16_t    port;
-    uint64_t    node_id;
-    std::string role; // LEADER, FOLLOWER, CANDIDATE
+// ── Node descriptor ──
+struct Node {
+    std::string id;
+    std::string address;
 };
 
-// ── Event types ──
-enum class EventType : uint8_t {
-    LEADER_ELECTED,
-    NODE_JOINED,
-    NODE_LEFT,
-    CONFIG_CHANGE,
-    LOG_SYNC,
-    SHUTDOWN,
+// ── Coordination lock handle ──
+class Lock {
+public:
+    Lock() = default;
+    ~Lock() = default;
 };
 
-// ── Event ──
-struct Event {
-    EventType type;
-    NodeInfo  from;
-    std::string message;
-    uint64_t  term;
-};
-
-// ── Coordination — Raft/Zab-based consensus layer ──
+// ── Coordination — lightweight local coordination manager ──
 class Coordination {
 public:
-    static auto create(std::string cluster_id,
-                       std::vector<std::string> nodes,
-                       std::string self_node)
-        -> std::shared_ptr<Coordination>;
+    Coordination();
 
     // Lifecycle
-    auto start() -> bool;
-    auto stop() -> bool;
+    void start();
+    void stop();
+    [[nodiscard]] auto is_running() const -> bool;
     [[nodiscard]] auto is_leader() const -> bool;
-    [[nodiscard]] auto get_leader() const -> std::optional<NodeInfo>;
 
-    // State machine
-    auto apply(std::string command) -> bool;
-    [[nodiscard]] auto query(std::string key) -> std::optional<std::string>;
+    // Nodes
+    auto get_nodes() const -> std::vector<Node>;
+    void add_node(const std::string& node_id, const std::string& address);
+    void remove_node(const std::string& node_id);
 
-    // Configuration
-    auto add_node(std::string node) -> bool;
-    auto remove_node(std::string node) -> bool;
-
-    // Event handling
-    void set_event_handler(std::function<void(Event)> handler);
-    auto events() const -> std::vector<Event>;
+    // Locking
+    auto get_lock(std::string_view lock_name) -> std::shared_ptr<Lock>;
 
 private:
-    Coordination();
-    std::string                 cluster_id_;
-    std::vector<std::string>    nodes_;
-    std::string                 self_node_;
-    bool                        leader_ = false;
-    std::optional<NodeInfo>     leader_info_;
-    std::unordered_map<std::string, std::string> state_machine_;
-    std::vector<Event>          events_;
-    std::function<void(Event)>  event_handler_;
-    mutable std::mutex          mutex_;
+    void try_elect_leader();
+
+    bool running_ = false;
+    bool leader_ = false;
+    std::thread election_thread_;
+    std::vector<Node> nodes_;
+    std::string current_leader_;
+    std::unordered_map<std::string, std::shared_ptr<Lock>> locks_;
+    mutable std::mutex mutex_;
 };
 
 } // namespace mnesso::coordination

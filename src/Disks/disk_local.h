@@ -5,6 +5,8 @@
 
 #include "disk.h"
 #include <string>
+#include <string_view>
+#include <vector>
 #include <memory>
 #include <chrono>
 #include <mutex>
@@ -46,8 +48,10 @@ public:
 
     [[nodiscard]] auto stats() const -> DiskStats override;
 
-private:
+protected:
     LocalFileDisk();
+
+private:
     std::string name_;
     std::string path_;
     mutable std::mutex mutex_;

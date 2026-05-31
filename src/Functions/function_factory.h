@@ -4,10 +4,11 @@
 #pragma once
 
 #include "i_function.h"
+#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <functional>
+#include <vector>
 
 namespace mnesso::functions {
 
@@ -19,7 +20,6 @@ public:
     void register_function(std::string name, std::function<IFunctionPtr()> creator);
 
     [[nodiscard]] auto get(std::string_view name) -> IFunctionPtr;
-    [[nodiscard]] TypeId resolve(std::string_view name) const;
     [[nodiscard]] auto names() const -> std::vector<std::string>;
     [[nodiscard]] bool has(std::string_view name) const;
 
@@ -48,5 +48,7 @@ namespace Builtin {
 
     // TODO: more categories — math, string, date, aggregate
 }
+
+IFunctionPtr get_function(std::string_view name);
 
 } // namespace mnesso::functions

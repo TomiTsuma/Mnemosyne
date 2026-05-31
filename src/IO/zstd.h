@@ -6,7 +6,7 @@
 #include "codec.h"
 #include <string>
 #include <memory>
-#include <span>
+#include "Common/span_compat.h"
 #include <vector>
 
 namespace mnesso::io {
@@ -27,7 +27,7 @@ public:
     static constexpr auto DefaultLevel = 3;
 
 private:
-    ZstdCodec(int level = DefaultLevel);
+    ZstdCodec(int level = DefaultLevel) : level_(level) {}
     int level_;
 };
 

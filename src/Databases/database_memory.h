@@ -26,12 +26,12 @@ public:
     auto attach_table(std::string name, std::shared_ptr<storages::IStorage> table) -> void override;
     auto detach_table(std::string name) -> std::shared_ptr<storages::IStorage> override;
     auto rename_table(std::string from, std::string to) -> bool override;
-    auto table_exists(std::string name) const -> bool override;
+    [[nodiscard]] auto table_exists(std::string_view name) const -> bool override;
     [[nodiscard]] auto table(std::string name) -> std::shared_ptr<storages::IStorage> override;
     auto drop_table(std::string name) -> bool override;
     auto create_table(std::string name,
                       std::unordered_map<std::string, datatypes::DataTypePtr> columns,
-                      std::string engine = BuiltinEngines::MEMORY) -> std::shared_ptr<storages::IStorage> override;
+                      std::string engine = "Memory") -> std::shared_ptr<storages::IStorage> override;
 
     // Memory-specific
     auto clear_all() -> void;

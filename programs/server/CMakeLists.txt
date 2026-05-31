@@ -13,7 +13,7 @@ target_link_libraries(mnemosyne_server PRIVATE
     mnemosyne_databases
     mnemosyne_storages
     mnemosyne_interpreters
-    mnemosyne_server
+    mnemosyne_server_lib
     mnemosyne_coordination
     mnemosyne_backups
 )

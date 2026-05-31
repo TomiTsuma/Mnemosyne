@@ -9,7 +9,8 @@
 #include <variant>
 #include <optional>
 #include <cstdint>
-#include "data_types/data_type.h"
+#include <functional>
+#include "DataTypes/data_type.h"
 
 namespace mnesso::planner {
 
@@ -35,9 +36,38 @@ enum class JoinType : uint8_t {
 
 // ── PlanNode — single node in the execution DAG ──
 struct PlanNode {
+    // ── Node type enum (used by the interpreter switch) ──
+    enum class Type : uint8_t {
+        SCAN,       // table scan
+        FILTER,     // WHERE predicate
+        PROJECT,    // SELECT columns
+        GROUP_BY,   // GROUP BY aggregation
+        SORT,       // ORDER BY
+        LIMIT,      // LIMIT / OFFSET
+        INSERT,     // INSERT INTO
+        CREATE,     // CREATE TABLE
+        DROP,       // DROP TABLE
+        SHOW,       // SHOW TABLES / DATABASES
+        DESCRIBE,   // DESCRIBE TABLE
+        EXPLAIN,    // EXPLAIN PLAN
+    };
+
     PlanNodeType  type;
+    Type          node_type;
     std::string   name;           // descriptive label
     std::vector<std::shared_ptr<PlanNode>> children;
+
+    // ── Fields accessed by the interpreter ──
+    std::string   table;              // table name (SCAN, INSERT)
+    std::string   table_name;         // table name (CREATE, DROP, DESCRIBE)
+    std::string   expression;         // WHERE expression (FILTER)
+    std::vector<std::string> columns; // column names (PROJECT, INSERT, CREATE)
+    std::vector<std::string> order_by;// ORDER BY columns
+    size_t        offset = 0;         // OFFSET (LIMIT)
+    size_t        limit = 0;          // LIMIT (LIMIT)
+    std::string   show_type;          // what to show (SHOW)
+    std::string   explain_plan;       // plan description (EXPLAIN)
+    std::vector<std::vector<std::string>> values;  // row data (INSERT)
 
     // Per-operator metadata
     struct FilterSpec {
@@ -71,7 +101,7 @@ struct PlanNode {
     std::vector<datatypes::DataTypePtr> output_types;
 
     PlanNode() = default;
-    explicit PlanNode(PlanNodeType t) : type(t) {}
+    explicit PlanNode(Type t) : type(PlanNodeType::Source), node_type(t) {}
 };
 
 // ── ExecutionPlan — the full plan as a DAG ──

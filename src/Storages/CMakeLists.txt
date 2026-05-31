@@ -1,11 +1,6 @@
 # src/Storages/CMakeLists.txt
-add_library(mnemosyne_storages
-    i_storage.cpp
-    file_storage.cpp
-    memory_storage.cpp
-    dictionary_storage.cpp
-    storage_factory.cpp
-)
+file(GLOB MNEMOSYNE_STORAGES_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_storages ${MNEMOSYNE_STORAGES_SOURCES})
 
 target_include_directories(mnemosyne_storages PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -13,6 +8,7 @@ target_include_directories(mnemosyne_storages PUBLIC
 
 target_link_libraries(mnemosyne_storages PUBLIC
     mnemosyne_core
+    mnemosyne_columns
     mnemosyne_datatypes
     mnemosyne_disks
     mnemosyne_common

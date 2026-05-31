@@ -18,6 +18,9 @@ public:
     [[nodiscard]] bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const override;
 
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionAdd>(); }
+
+private:
+    bool prepared_ = false;
 };
 
 // ── Sub — element-wise subtraction ──
@@ -29,6 +32,9 @@ public:
     [[nodiscard]] bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const override;
 
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionSub>(); }
+
+private:
+    bool prepared_ = false;
 };
 
 // ── Mul — element-wise multiplication ──
@@ -40,6 +46,9 @@ public:
     [[nodiscard]] bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const override;
 
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionMul>(); }
+
+private:
+    bool prepared_ = false;
 };
 
 // ── Div — element-wise integer division (floor) ──
@@ -51,6 +60,9 @@ public:
     [[nodiscard]] bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const override;
 
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionDiv>(); }
+
+private:
+    bool prepared_ = false;
 };
 
 // ── Mod — element-wise modulo ──
@@ -62,6 +74,9 @@ public:
     [[nodiscard]] bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const override;
 
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionMod>(); }
+
+private:
+    bool prepared_ = false;
 };
 
 } // namespace mnesso::functions

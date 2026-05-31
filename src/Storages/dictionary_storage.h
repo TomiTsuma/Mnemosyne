@@ -8,6 +8,9 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
+#include <optional>
+#include "Core/field.h"
 
 namespace mnesso::storages {
 
@@ -39,17 +42,21 @@ public:
     auto flush() -> bool override;
 
     // Dictionary-specific
-    auto put(std::string key, Field value) -> bool;
-    auto get(std::string key) -> std::optional<Field>;
+    auto put(std::string key, core::Field value) -> bool;
+    auto get(std::string key) -> std::optional<core::Field>;
     auto contains(std::string key) -> bool;
     auto remove(std::string key) -> bool;
     auto clear() -> void;
+    auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
+    auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
 
 private:
     DictionaryStorage();
     std::string               name_;
-    std::unordered_map<std::string, Field> data_;
+    std::unordered_map<std::string, core::Field> data_;
     std::unordered_map<std::string, datatypes::DataTypePtr> column_types_;
+    std::vector<std::string> column_names_;
+    bool empty_ = true;
 };
 
 } // namespace mnesso::storages

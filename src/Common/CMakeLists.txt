@@ -10,9 +10,11 @@ target_include_directories(mnemosyne_common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(mnemosyne_common PUBLIC
-    std::format
-)
+if(TARGET std::format)
+    target_link_libraries(mnemosyne_common PUBLIC
+        std::format
+    )
+endif()
 
 set_target_properties(mnemosyne_common PROPERTIES
     CXX_STANDARD 23

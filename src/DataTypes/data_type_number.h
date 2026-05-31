@@ -7,7 +7,8 @@
 #include <string>
 #include <cstdint>
 #include <optional>
-#include <span>
+#include "Common/span_compat.h"
+#include <vector>
 
 namespace mnesso::datatypes {
 
@@ -39,7 +40,7 @@ public:
     [[nodiscard]] bool is_floating() const;
     [[nodiscard]] bool is_signed()  const;
 
-private:
+public:
     explicit DataTypeNumber(TypeId id, size_t size, bool signed_, bool floating);
 
     TypeId id_;
@@ -54,5 +55,17 @@ public:
     static auto create(TypeId id) -> DataTypePtr;
     [[nodiscard]] static auto all_ids() -> std::vector<TypeId>;
 };
+
+// ── Individual type creators — declared here for data_type_factory.cpp ──
+DataTypePtr make_data_type_uint8();
+DataTypePtr make_data_type_uint16();
+DataTypePtr make_data_type_uint32();
+DataTypePtr make_data_type_uint64();
+DataTypePtr make_data_type_int8();
+DataTypePtr make_data_type_int16();
+DataTypePtr make_data_type_int32();
+DataTypePtr make_data_type_int64();
+DataTypePtr make_data_type_float32();
+DataTypePtr make_data_type_float64();
 
 } // namespace mnesso::datatypes

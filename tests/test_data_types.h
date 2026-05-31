@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "data_types/data_type.h"
-#include "data_types/data_type_number.h"
-#include "data_types/data_type_string.h"
-#include "data_types/data_type_date.h"
-#include "data_types/data_type_factory.h"
+#include "DataTypes/data_type.h"
+#include "DataTypes/data_type_number.h"
+#include "DataTypes/data_type_string.h"
+#include "DataTypes/data_type_date.h"
+#include "DataTypes/data_type_factory.h"
 #include <catch2/catch_all.hpp>
 
 // ── Data type tests ──

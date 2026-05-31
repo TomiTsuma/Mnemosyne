@@ -28,9 +28,9 @@ void Settings::register_setting(std::string name,
                                 SettingValueType default_value,
                                 std::string help) {
     Setting setting{std::move(default_value)};
-    setting.name_  = std::move(name);
-    setting.help_  = std::move(help);
-    settings_[setting.name_] = std::move(setting);
+    setting.set_name(std::move(name));
+    setting.set_help(std::move(help));
+    settings_[setting.name()] = std::move(setting);
 }
 
 auto Settings::get(std::string_view name) -> std::optional<SettingValueType> {

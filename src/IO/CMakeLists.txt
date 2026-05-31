@@ -1,10 +1,6 @@
 # src/IO/CMakeLists.txt
-add_library(mnemosyne_io
-    codec.cpp
-    lz4.cpp
-    zstd.cpp
-    native.cpp
-)
+file(GLOB MNEMOSYNE_IO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+add_library(mnemosyne_io ${MNEMOSYNE_IO_SOURCES})
 
 target_include_directories(mnemosyne_io PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

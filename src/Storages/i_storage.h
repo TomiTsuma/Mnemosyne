@@ -1,16 +1,18 @@
 // src/Storages/i_storage.h — IStorage: abstract column storage interface
 // Mnemosyne: A column-oriented analytical DBMS
 
-#pragma_once
+#pragma once
 
-#include "common/types.h"
-#include "core/block.h"
-#include "data_types/data_type.h"
+#include "Common/types.h"
+#include "Core/block.h"
+#include "DataTypes/data_type.h"
 #include <string>
 #include <memory>
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <optional>
+#include "Common/settings.h"
 
 namespace mnesso::storages {
 
@@ -28,7 +30,7 @@ public:
 
     // Schema information
     [[nodiscard]] virtual auto columns()       const -> std::vector<std::string> = 0;
-    [[nodiscard]] auto         column_types() const -> std::unordered_map<std::string, datatypes::DataTypePtr> = 0;
+    [[nodiscard]] virtual auto column_types() const -> std::unordered_map<std::string, datatypes::DataTypePtr> = 0;
 
     // Block reading
     [[nodiscard]] virtual auto read(

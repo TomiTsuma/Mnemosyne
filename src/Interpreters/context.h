@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "common/settings.h"
-#include "databases/i_database.h"
-#include "storages/i_storage.h"
-#include "common/thread_pool.h"
-#include "loggers/logger.h"
+#include "Common/settings.h"
+#include "Databases/i_database.h"
+#include "Storages/i_storage.h"
+#include "Common/thread_pool.h"
+#include "Loggers/logger.h"
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -19,6 +19,16 @@ namespace mnesso::interpreters {
 // ── Query context — carries all state for a single query ──
 class Context {
 public:
+    struct TableInfo {
+        std::string name;
+        std::string database;
+    };
+
+    struct ColumnInfo {
+        std::string table;
+        std::string data_type;
+    };
+
     struct QueryInfo {
         std::string   user;
         std::string   query_id;
@@ -75,6 +85,9 @@ public:
 
     // Set a setting
     void set_setting(std::string_view name, common::SettingValueType value);
+
+    // Construct from a database (registers it)
+    explicit Context(std::shared_ptr<databases::IDatabase> db);
 
 private:
     common::Settings           settings_;

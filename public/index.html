@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mnemosyne DBMS</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3347;
+    --text: #e2e4ed;
+    --text-dim: #8b8fa7;
+    --accent: #6c8cff;
+    --accent-dim: #4a6ae0;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --radius: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 24px;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-header .icon { font-size: 16px; }
+  .editor-area {
+    display: flex;
+    flex-direction: column;
+  }
+  .query-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .query-bar input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .query-bar input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  .query-bar input[type="text"]::placeholder {
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--accent-dim); }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--border); color: var(--text); }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .result-area {
+    padding: 16px;
+    min-height: 200px;
+    max-height: 500px;
+    overflow: auto;
+  }
+  .result-area pre {
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .result-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border-bottom: 2px solid var(--border);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    position: sticky;
+    top: 0;
+  }
+  .result-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .result-table tr:hover td {
+    background: var(--surface2);
+  }
+  .result-table td.num { text-align: right; color: var(--accent); }
+  .result-table td.str { font-style: italic; color: var(--green); }
+  .result-meta {
+    padding: 8px 16px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 24px;
+  }
+  .result-meta span { display: flex; align-items: center; gap: 4px; }
+  .result-meta .val { color: var(--accent); font-weight: 600; }
+
+  /* Grid layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* Database tree */
+  .db-tree {
+    padding: 12px 16px;
+  }
+  .db-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .db-item:hover { background: var(--surface2); }
+  .db-item.active { background: var(--accent); color: white; }
+  .db-item .icon { font-size: 14px; }
+  .db-children {
+    padding-left: 24px;
+  }
+  .db-children .db-item {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Schema */
+  .schema-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  .schema-col {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+  .schema-col h4 {
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .schema-col .col-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .schema-col .col-row:last-child { border-bottom: none; }
+  .schema-col .col-name { color: var(--text); }
+  .schema-col .col-type { color: var(--text-dim); }
+
+  /* Settings */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px;
+  }
+  .setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .setting-item .key { color: var(--text-dim); }
+  .setting-item .val { color: var(--accent); font-weight: 600; }
+
+  /* History */
+  .history-list {
+    padding: 8px;
+  }
+  .history-item {
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .history-item:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-left-color: var(--accent);
+  }
+  .history-item .time { font-size: 10px; color: var(--text-dim); opacity: 0.6; }
+  .history-item .sql { margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .loading::before {
+    content: '';
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-msg {
+    color: var(--red);
+    padding: 16px;
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    border-radius: var(--radius);
+    font-size: 13px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* SQL autocomplete */
+  .autocomplete {
+    position: relative;
+  }
+  .autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .autocomplete-list.show { display: block; }
+  .autocomplete-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .autocomplete-item:hover { background: var(--accent); color: white; }
+  .autocomplete-item .type { color: var(--text-dim); margin-left: 8px; font-size: 10px; }
+  .autocomplete-item:hover .type { color: rgba(255,255,255,0.7); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Mnemosyne <span>DBMS</span></h1>
+  <div class="status-badge">
+    <div class="status-dot"></div>
+    <span>Connected</span>
+  </div>
+</header>
+
+<main>
+  <!-- Query Editor -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="icon">⚡</span> Query Editor
+    </div>
+    <div class="editor-area">
+      <div class="query-bar">
+        <input type="text" id="queryInput" placeholder="SELECT * FROM table LIMIT 10"
+               autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary" onclick="executeQuery()">▶ Run</button>
+        <button class="btn btn-secondary" onclick="clearResult()">Clear</button>
+        <button class="btn btn-secondary" onclick="formatSQL()">Format</button>
+      </div>
+      <div class="tabs">
+        <div class="tab active" data-tab="result" onclick="switchTab('result')">Result</div>
+        <div class="tab" data-tab="json" onclick="switchTab('json')">JSON</div>
+        <div class="tab" data-tab="explain" onclick="switchTab('explain')">EXPLAIN</div>
+      </div>
+      <div class="result-area" id="resultArea">
+        <div class="loading">Waiting for query...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Panels -->
+  <div class="grid-2">
+    <!-- Databases & Tables -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">📁</span> Databases & Tables
+      </div>
+      <div class="db-tree" id="dbTree">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Query History -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">🕐</span> History
+      </div>
+      <div class="history-list" id="historyList">
+        <div style="padding: 16px; color: var(--text-dim); font-size: 12px; text-align: center;">
+          No queries yet
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schema & Settings -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">📋</span> Schema
+      </div>
+      <div id="schemaArea">
+        <div style="padding: 16px; color: var(--text-dim); font-size: 12px; text-align: center;">
+          Select a table to view schema
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">⚙</span> Settings
+      </div>
+      <div class="settings-grid" id="settingsArea">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = '/';
+let currentDB = null;
+let currentTable = null;
+let queryHistory = [];
+
+// ── Query Execution ──
+async function executeQuery() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query) return;
+
+  const resultArea = document.getElementById('resultArea');
+  resultArea.innerHTML = '<div class="loading">Executing...</div>';
+
+  try {
+    const resp = await fetch(`${API}query?query=${encodeURIComponent(query)}&format=JSON`);
+    const data = await resp.json();
+
+    if (data.error) {
+      resultArea.innerHTML = `<div class="error-msg">${data.error}</div>`;
+      return;
+    }
+
+    // Store in history
+    queryHistory.unshift({ query, time: new Date(), data });
+
+    if (data.rows === 0 || data.data.length === 0) {
+      resultArea.innerHTML = `<div style="padding:16px;color:var(--text-dim);font-size:13px;">No rows returned.</div>`;
+      return;
+    }
+
+    // Render as table
+    let html = '<table class="result-table"><thead><tr>';
+    data.columns.forEach(col => {
+      html += `<th>${escapeHtml(col)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    data.data.forEach(row => {
+      if (typeof row === 'string') {
+        html += `<tr><td colspan="${data.columns.length}" style="color:var(--text-dim);font-style:italic;">${escapeHtml(row)}</td></tr>`;
+        return;
+      }
+      html += '<tr>';
+      row.forEach((cell, i) => {
+        const cls = typeof cell === 'number' ? 'num' :
+                    typeof cell === 'string' ? 'str' : '';
+        const val = cell === null ? 'null' :
+                    typeof cell === 'boolean' ? (cell ? 'true' : 'false') :
+                    String(cell);
+        html += `<td class="${cls}">${escapeHtml(val)}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    resultArea.innerHTML = html + `
+      <div class="result-meta">
+        <span>Rows: <span class="val">${data.rows}</span></span>
+        <span>Duration: <span class="val">${data.duration_ms?.toFixed(2)}ms</span></span>
+        <span>Bytes Read: <span class="val">${(data.bytes_read || 0).toLocaleString()}</span></span>
+      </div>`;
+
+    // Update JSON tab
+    document.getElementById('jsonRaw').textContent = JSON.stringify(data, null, 2);
+
+    // Update schema
+    if (data.columns) {
+      currentTable = data.columns;
+      updateSchema(data.columns);
+    }
+
+    updateHistory();
+
+  } catch (err) {
+    resultArea.innerHTML = `<div class="error-msg">Connection error: ${err.message}</div>`;
+  }
+}
+
+// ── EXPLAIN ──
+async function explainQuery() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query) return;
+
+  const resultArea = document.getElementById('resultArea');
+  resultArea.innerHTML = '<div class="loading">Explaining...</div>';
+
+  try {
+    const resp = await fetch(`${API}query?query=EXPLAIN+${encodeURIComponent(query)}`);
+    const text = await resp.text();
+    resultArea.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+  } catch (err) {
+    resultArea.innerHTML = `<div class="error-msg">${err.message}</div>`;
+  }
+}
+
+// ── Tabs ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+
+  const resultArea = document.getElementById('resultArea');
+  if (tab === 'result') {
+    // Already showing result
+  } else if (tab === 'json') {
+    resultArea.innerHTML = '<pre id="jsonRaw" style="font-size:12px;overflow:auto;max-height:400px;"></pre>';
+  } else if (tab === 'explain') {
+    explainQuery();
+  }
+}
+
+// ── Clear ──
+function clearResult() {
+  document.getElementById('resultArea').innerHTML = '<div class="loading">Waiting for query...</div>';
+}
+
+// ── Format SQL (basic) ──
+function formatSQL() {
+  const input = document.getElementById('queryInput');
+  let sql = input.value;
+  const keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
+                    'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'INSERT', 'UPDATE',
+                    'DELETE', 'CREATE', 'DROP', 'ALTER', 'SET', 'VALUES', 'INTO', 'ON', 'AND', 'OR'];
+
+  keywords.forEach(kw => {
+    const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+    sql = sql.replace(regex, '\n' + kw);
+  });
+
+  input.value = sql.replace(/^\n+/, '').trim();
+}
+
+// ── Databases ──
+async function loadDatabases() {
+  try {
+    const resp = await fetch(`${API}databases`);
+    const data = await resp.json();
+    renderDatabases(data.databases || []);
+  } catch (err) {
+    document.getElementById('dbTree').innerHTML = `<div class="error-msg">${err.message}</div>`;
+  }
+}
+
+function renderDatabases(dbs) {
+  const tree = document.getElementById('dbTree');
+  if (!dbs.length) {
+    tree.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;text-align:center;">No databases</div>';
+    return;
+  }
+
+  let html = '';
+  dbs.forEach(db => {
+    const active = currentDB === db ? 'active' : '';
+    html += `<div class="db-item ${active}" onclick="loadTables('${db}')">
+      <span class="icon">🗄️</span> ${escapeHtml(db)}
+    </div>`;
+  });
+  tree.innerHTML = html;
+}
+
+async function loadTables(db) {
+  currentDB = db;
+  document.getElementById('dbTree').innerHTML = '<div class="loading">Loading...</div>';
+  renderDatabases([db]);
+
+  try {
+    const resp = await fetch(`${API}tables/${encodeURIComponent(db)}`);
+    const data = await resp.json();
+    renderTables(data.tables || []);
+  } catch (err) {
+    document.getElementById('dbTree').innerHTML = `<div class="error-msg">${err.message}</div>`;
+  }
+}
+
+function renderTables(tables) {
+  const tree = document.getElementById('dbTree');
+  let html = '';
+  tables.forEach(tbl => {
+    const active = currentTable === tbl ? 'active' : '';
+    html += `<div class="db-children">
+      <div class="db-item ${active}" onclick="loadSchema('${currentDB}','${tbl}')">
+        <span class="icon">📊</span> ${escapeHtml(tbl)}
+      </div>
+    </div>`;
+  });
+  tree.innerHTML += html;
+}
+
+async function loadSchema(db, table) {
+  currentTable = table;
+  try {
+    const resp = await fetch(`${API}schema/${encodeURIComponent(db)}/${encodeURIComponent(table)}`);
+    const data = await resp.json();
+    renderSchema(data.columns || []);
+  } catch (err) {
+    document.getElementById('schemaArea').innerHTML = `<div class="error-msg">${err.message}</div>`;
+  }
+}
+
+function renderSchema(columns) {
+  const area = document.getElementById('schemaArea');
+  if (!columns.length) {
+    area.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;text-align:center;">No columns</div>';
+    return;
+  }
+
+  let html = '<div class="schema-grid">';
+  columns.forEach(col => {
+    html += `<div class="schema-col">
+      <h4>${escapeHtml(col.name)}</h4>
+      <div class="col-row"><span class="col-type">Type</span><span class="col-name">${escapeHtml(col.type)}</span></div>
+    </div>`;
+  });
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+// ── Settings ──
+async function loadSettings() {
+  try {
+    const resp = await fetch(`${API}settings`);
+    const data = await resp.json();
+    renderSettings(data.settings || {});
+  } catch (err) {
+    document.getElementById('settingsArea').innerHTML = `<div class="error-msg">${err.message}</div>`;
+  }
+}
+
+function renderSettings(settings) {
+  const area = document.getElementById('settingsArea');
+  let html = '';
+  Object.entries(settings).forEach(([key, val]) => {
+    const displayVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    html += `<div class="setting-item">
+      <span class="key">${escapeHtml(key)}</span>
+      <span class="val">${escapeHtml(displayVal)}</span>
+    </div>`;
+  });
+  area.innerHTML = html;
+}
+
+// ── History ──
+function updateHistory() {
+  const list = document.getElementById('historyList');
+  if (!queryHistory.length) {
+    list.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;text-align:center;">No queries yet</div>';
+    return;
+  }
+
+  let html = '';
+  queryHistory.slice(0, 20).forEach((item, i) => {
+    const time = item.time.toLocaleTimeString();
+    html += `<div class="history-item" onclick="loadFromHistory(${i})">
+      <div class="time">${time}</div>
+      <div class="sql">${escapeHtml(item.query)}</div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function loadFromHistory(i) {
+  document.getElementById('queryInput').value = queryHistory[i].query;
+  executeQuery();
+}
+
+// ── Helpers ──
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ── SQL Autocomplete ──
+const sqlKeywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN',
+                     'GROUP BY', 'ORDER BY', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'INSERT INTO',
+                     'UPDATE', 'DELETE FROM', 'CREATE TABLE', 'DROP TABLE', 'ALTER TABLE',
+                     'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'AS', 'AND', 'OR', 'NOT', 'IN',
+                     'LIKE', 'BETWEEN', 'IS NULL', 'IS NOT NULL', 'DISTINCT', 'CASE', 'WHEN',
+                     'THEN', 'ELSE', 'END', 'ON', 'SET', 'VALUES', 'INTO'];
+
+const input = document.getElementById('queryInput');
+const autocompleteList = document.createElement('div');
+autocompleteList.className = 'autocomplete-list';
+input.parentElement.appendChild(autocompleteList);
+
+input.addEventListener('input', () => {
+  const val = input.value;
+  const cursorPos = input.selectionStart;
+  const beforeCursor = val.substring(0, cursorPos);
+  const lastWord = beforeCursor.match(/\b(\w+)$/);
+
+  if (!lastWord) {
+    autocompleteList.classList.remove('show');
+    return;
+  }
+
+  const query = lastWord[1].toUpperCase();
+  const matches = sqlKeywords.filter(k => k.startsWith(query) && k !== query);
+
+  if (matches.length) {
+    autocompleteList.innerHTML = matches.map(m =>
+      `<div class="autocomplete-item" onclick="insertWord('${m}')">${m}<span class="type">keyword</span></div>`
+    ).join('');
+    autocompleteList.classList.add('show');
+  } else {
+    autocompleteList.classList.remove('show');
+  }
+});
+
+function insertWord(word) {
+  const val = input.value;
+  const cursorPos = input.selectionStart;
+  const beforeCursor = val.substring(0, cursorPos);
+  const lastWord = beforeCursor.match(/\b(\w+)$/);
+  if (lastWord) {
+    const start = cursorPos - lastWord[0].length;
+    input.value = val.substring(0, start) + word + val.substring(cursorPos);
+    input.setSelectionRange(start + word.length, start + word.length);
+  }
+  autocompleteList.classList.remove('show');
+  input.focus();
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.autocomplete')) {
+    autocompleteList.classList.remove('show');
+  }
+});
+
+// ── Keyboard shortcut ──
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    executeQuery();
+  }
+});
+
+// ── Init ──
+loadDatabases();
+loadSettings();
+</script>
+</body>
+</html>

@@ -4,12 +4,48 @@
 #pragma once
 
 #include "i_aggregate_function.h"
+#include "Core/field.h"
 #include <string>
 #include <memory>
+#include <vector>
 #include <optional>
 #include <limits>
 
 namespace mnesso::aggregate_functions {
+
+// ── MinState — aggregate state for MIN ──
+class MinState {
+public:
+    void init();
+    void reset();
+    void add(const Field& field);
+    void add(const std::vector<Field>& fields);
+    auto result() const -> Field;
+    auto result_string() const -> std::string;
+    bool has_result() const;
+    auto clone() const -> void*;
+
+    double value_ = 0.0;
+    bool has_value_ = false;
+    std::string str_value_ = "";
+};
+
+// ── MaxState — aggregate state for MAX ──
+class MaxState {
+public:
+    void init();
+    void reset();
+    void add(const Field& field);
+    void add(const std::vector<Field>& fields);
+    auto result() const -> Field;
+    auto result_string() const -> std::string;
+    bool has_result() const;
+    auto clone() const -> void*;
+
+    double value_ = 0.0;
+    bool has_value_ = false;
+    std::string str_value_ = "";
+};
 
 // ── FunctionMin — returns the minimum value ──
 class FunctionMin final : public IAggregateFunction {

@@ -5,11 +5,12 @@
 
 #include "context.h"
 #include "server.h"
-#include "parsers/ast.h"
-#include "parsers/lexer.h"
-#include "parsers/parser_query.h"
-#include "core/block.h"
-#include "core/series.h"
+#include "http_types.h"
+#include "Parsers/ast.h"
+#include "Parsers/lexer.h"
+#include "Parsers/parser_query.h"
+#include "Core/block.h"
+#include "Core/series.h"
 #include <string>
 #include <memory>
 #include <optional>
@@ -44,37 +45,39 @@ struct HTTPResponse {
 // ── HTTPHandler — routes requests to interpreters ──
 class HTTPHandler {
 public:
-    explicit HTTPHandler(Context& context);
+    explicit HTTPHandler(interpreters::Context& context);
 
     // Handle a request — returns response
-    [[nodiscard]] auto handle(std::string_view method,
-                              std::string_view path,
-                              std::string_view body) -> HTTPResponse;
+    [[nodiscard]] auto handle(const Request& req) -> Response;
 
     // ── Query handlers ──
     auto handle_query(std::string_view query,
-                      std::string format = "JSON") -> HTTPResponse;
+                      std::string_view fmt) -> Response;
 
     // ── Status ──
-    auto handle_ping() -> HTTPResponse;
-    auto handle_status() -> HTTPResponse;
+    auto handle_ping() -> Response;
+    auto handle_status() -> Response;
 
     // ── Databases ──
-    auto handle_databases() -> HTTPResponse;
-    auto handle_tables(std::string_view database) -> HTTPResponse;
-    auto handle_table_schema(std::string_view database, std::string_view table) -> HTTPResponse;
+    auto handle_databases() -> Response;
+    auto handle_tables(std::string_view database) -> Response;
+    auto handle_table_schema(std::string_view database, std::string_view table) -> Response;
 
     // ── System ──
-    auto handle_metrics() -> HTTPResponse;
-    auto handle_processors() -> HTTPResponse;
-    auto handle_settings() -> HTTPResponse;
-    auto handle_set(std::string_view key, std::string_view value) -> HTTPResponse;
-    auto handle_kill_query(std::string_view query_id) -> HTTPResponse;
-    auto handle_user_list() -> HTTPResponse;
-    auto handle_roles() -> HTTPResponse;
+    auto handle_metrics() -> Response;
+    auto handle_processors() -> Response;
+    auto handle_settings() -> Response;
+    auto handle_set(std::string_view key, std::string_view value) -> Response;
+    auto handle_kill_query(std::string_view query_id) -> Response;
+    auto handle_user_list() -> Response;
+    auto handle_roles() -> Response;
 
 private:
-    Context& context_;
+    interpreters::Context& context_;
+
+    // ── Query execution ──
+    auto execute_query(std::string_view query,
+                       std::string_view fmt) -> Response;
 
     // Common parsing helpers
     auto parse_query(std::string_view sql)

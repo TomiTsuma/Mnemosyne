@@ -14,12 +14,12 @@ namespace mnesso::storages {
 // ── StorageFactory — singleton registry for storage engines ──
 class StorageFactory {
 public:
-    static auto& instance();
+    static auto instance() -> StorageFactory&;
 
     void register_engine(std::string name,
-                         std::function<std::shared_ptr<IStorage>()> creator);
+                         std::function<std::shared_ptr<IStorage>(std::string)> creator);
 
-    [[nodiscard]] auto get_engine(std::string_view name)
+    [[nodiscard]] auto create(std::string name, std::string engine)
         -> std::shared_ptr<IStorage>;
 
     [[nodiscard]] auto names() const -> std::vector<std::string>;
@@ -27,7 +27,7 @@ public:
 
 private:
     StorageFactory() = default;
-    std::unordered_map<std::string, std::function<std::shared_ptr<IStorage>()>> registry_;
+    std::unordered_map<std::string, std::function<std::shared_ptr<IStorage>(std::string)>> registry_;
 };
 
 // ── Builtin engine names ──
@@ -36,7 +36,7 @@ namespace BuiltinEngines {
     inline constexpr auto MEMORY   = "Memory";
     inline constexpr auto DICTIONARY = "Dictionary";
     inline constexpr auto LOG      = "Log";
-    inline constexpr auto NULL     = "Null";
+    inline constexpr auto NULL_ENGINE = "Null";
 }
 
 } // namespace mnesso::storages

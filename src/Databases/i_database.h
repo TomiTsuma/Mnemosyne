@@ -1,64 +1,39 @@
-// src/Databases/i_database.h — IStorage: abstract column storage interface
+// src/Databases/i_database.h — IDatabase: abstract database interface
 // Mnemosyne: A column-oriented analytical DBMS
 
 #pragma once
 
-#include "common/types.h"
-#include "core/block.h"
-#include "data_types/data_type.h"
-#include <string>
+#include "DataTypes/data_type.h"
+#include "Storages/i_storage.h"
 #include <memory>
-#include <vector>
+#include <string>
 #include <unordered_map>
-#include <functional>
+#include <vector>
 
-namespace mnesso::storages {
+namespace mnesso::databases {
 
-// ── IStorage — abstract storage interface ──
-// All concrete storages (File, Memory, Dictionary, etc.) implement this.
-class IStorage {
+// ── IDatabase — catalog of tables backed by storage engines ──
+class IDatabase {
 public:
-    virtual ~IStorage() = default;
+    virtual ~IDatabase() = default;
 
-    // Storage identification
-    [[nodiscard]] virtual auto name()      const -> std::string = 0;
-    [[nodiscard]] virtual auto engine()    const -> std::string = 0;
-    [[nodiscard]] virtual auto path()      const -> std::string = 0;
-    [[nodiscard]] virtual auto is_temporary() const -> bool = 0;
+    [[nodiscard]] virtual auto name()   const -> std::string = 0;
+    [[nodiscard]] virtual auto path()   const -> std::string = 0;
+    [[nodiscard]] virtual auto engine() const -> std::string = 0;
 
-    // Schema information
-    [[nodiscard]] virtual auto columns()       const -> std::vector<std::string> = 0;
-    [[nodiscard]] auto         column_types() const -> std::unordered_map<std::string, datatypes::DataTypePtr> = 0;
+    [[nodiscard]] virtual auto tables() const -> std::vector<std::string> = 0;
 
-    // Block reading
-    [[nodiscard]] virtual auto read(
-        const std::vector<std::string>& column_names,
-        size_t max_block_size = 0) -> core::Block = 0;
+    virtual auto attach_table(std::string name, std::shared_ptr<storages::IStorage> table) -> void = 0;
+    virtual auto detach_table(std::string name) -> std::shared_ptr<storages::IStorage> = 0;
+    virtual auto rename_table(std::string from, std::string to) -> bool = 0;
+    [[nodiscard]] virtual auto table_exists(std::string_view name) const -> bool = 0;
+    [[nodiscard]] virtual auto table(std::string name) -> std::shared_ptr<storages::IStorage> = 0;
+    virtual auto drop_table(std::string name) -> bool = 0;
 
-    // Block writing
-    virtual auto write(const core::Block& block) -> bool = 0;
-
-    // Mutation operations (ALTER TABLE, etc.)
-    virtual auto alter(
-        std::function<void(IStorage& storage)> modify) -> bool;
-
-    // Check if storage is empty
-    [[nodiscard]] virtual auto empty() const -> bool = 0;
-
-    // Statistics
-    [[nodiscard]] virtual auto row_count()  const -> size_t = 0;
-    [[nodiscard]] virtual auto byte_count() const -> size_t = 0;
-
-    // Get a named setting
-    [[nodiscard]] virtual auto get_setting(std::string_view name)
-        -> std::optional<common::SettingValueType>;
-
-    // Lock/unlock for concurrent access
-    virtual auto lock()  -> bool;
-    virtual auto unlock() -> void;
-
-    // Flush — persist to disk
-    virtual auto flush() -> bool;
+    virtual auto create_table(
+        std::string name,
+        std::unordered_map<std::string, datatypes::DataTypePtr> columns,
+        std::string engine) -> std::shared_ptr<storages::IStorage> = 0;
 };
 
-} // namespace mnesso::storages
+} // namespace mnesso::databases

@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "storages/storage_factory.h"
-#include "storages/file_storage.h"
-#include "storages/memory_storage.h"
-#include "storages/dictionary_storage.h"
-#include "core/block.h"
-#include "data_types/data_type.h"
+#include "Storages/storage_factory.h"
+#include "Storages/file_storage.h"
+#include "Storages/memory_storage.h"
+#include "Storages/dictionary_storage.h"
+#include "Core/block.h"
+#include "DataTypes/data_type.h"
 #include <catch2/catch_all.hpp>
 
 // ── Storage tests ──

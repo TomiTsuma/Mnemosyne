@@ -1,21 +1,56 @@
-# Mnemosyne: A column-oriented analytical DBMS
-# CMakeLists.txt — Top-level build file
-
 cmake_minimum_required(VERSION 3.28)
-project(mnemosyne
-    VERSION 0.1.0
-    LANGUAGES CXX
+
+project(
+mnemosyne
+VERSION 0.1.0
+DESCRIPTION "Mnemosyne: A Column-Oriented Analytical DBMS"
+LANGUAGES CXX
 )
+
+# ------------------------------------------------------------------------------
+
+# Global Compiler Settings
+
+# ------------------------------------------------------------------------------
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ── Options ──
-option(ENABLE_TESTS    "Enable test targets"    ON)
+if(MSVC)
+add_compile_options(
+/EHsc
+/Zc:__cplusplus
+/std:c++latest
+)
+endif()
+
+# ------------------------------------------------------------------------------
+
+# Include Paths
+
+# ------------------------------------------------------------------------------
+
+include_directories(
+${CMAKE_SOURCE_DIR}/src
+)
+
+# ------------------------------------------------------------------------------
+
+# Build Options
+
+# ------------------------------------------------------------------------------
+
+option(ENABLE_TESTS "Enable test targets" ON)
 option(ENABLE_BENCHMARK "Enable benchmark targets" ON)
-option(ENABLE_SIMD     "Enable SIMD optimizations" ON)
+option(ENABLE_SIMD "Enable SIMD optimizations" ON)
 
-# ── Subdirectories ──
+# ------------------------------------------------------------------------------
+
+# Core Components
+
+# ------------------------------------------------------------------------------
+
 add_subdirectory(src/Core)
 add_subdirectory(src/DataTypes)
 add_subdirectory(src/Columns)
@@ -36,17 +71,32 @@ add_subdirectory(src/Coordination)
 add_subdirectory(src/Backups)
 add_subdirectory(src/Common)
 
-# ── Programs ──
+# ------------------------------------------------------------------------------
+
+# Programs
+
+# ------------------------------------------------------------------------------
+
 add_subdirectory(programs)
 
-# ── Tests ──
+# ------------------------------------------------------------------------------
+
+# Testing
+
+# ------------------------------------------------------------------------------
+
 if(ENABLE_TESTS)
-    include(CTest)
-    enable_testing()
-    add_subdirectory(tests)
+include(CTest)
+enable_testing()
+add_subdirectory(tests)
 endif()
 
-# ── Benchmarks ──
+# ------------------------------------------------------------------------------
+
+# Benchmarks
+
+# ------------------------------------------------------------------------------
+
 if(ENABLE_BENCHMARK)
-    add_subdirectory(benchmark)
+add_subdirectory(benchmark)
 endif()

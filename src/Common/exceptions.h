@@ -5,12 +5,14 @@
 #include <source_location>
 #include <cstdint>
 
+namespace mnesso::common {
+
 // ── Base exception for all Mnemosyne errors ──
 class Exception : public std::runtime_error {
 public:
     explicit Exception(std::string message, int error_code = 0);
 
-    [[nodiscard]] std::string what() const noexcept override;
+    [[nodiscard]] const char* what() const noexcept override;
 
     // Append a helpful backtrace and context
     std::string backtrace() const;
@@ -80,7 +82,7 @@ class LogicalError      : public Exception { public: using Exception::Exception;
 class NotImplemented    : public Exception { public: using Exception::Exception; };
 class IncorrectData     : public Exception { public: using Exception::Exception; };
 
-class FatalError        : public std::terminate_handler { public: using std::runtime_error::runtime_error; };
+class FatalError        : public Exception { public: using Exception::Exception; };
 
 // ── Helper macro to throw typed exceptions ──
 #define THROW_EXCEPTION(Type, code, msg) \
@@ -88,3 +90,5 @@ class FatalError        : public std::terminate_handler { public: using std::run
 
 #define THROW_MNEM(logical_msg) \
     THROW_EXCEPTION(LogicalError, 9900, logical_msg)
+
+} // namespace mnesso::common

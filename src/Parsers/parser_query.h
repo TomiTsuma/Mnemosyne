@@ -14,7 +14,7 @@ class QueryParser final : public Parser {
 public:
     using Parser::Parser;
 
-    auto parse() -> std::variant<std::shared_ptr<ASTNode>, ParseError> override;
+    auto parse() -> std::unique_ptr<QueryAST> override;
 
     // ── Grammar rules ──
     auto parse_select_query() -> std::shared_ptr<ASTSelectQuery>;

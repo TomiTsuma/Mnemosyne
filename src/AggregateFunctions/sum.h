@@ -4,11 +4,29 @@
 #pragma once
 
 #include "i_aggregate_function.h"
+#include "Core/field.h"
 #include <string>
 #include <memory>
 #include <vector>
 
 namespace mnesso::aggregate_functions {
+
+// ── SumState — aggregate state for SUM ──
+class SumState {
+public:
+    void init();
+    void reset();
+    void add(const Field& field);
+    void add(const std::vector<Field>& fields);
+    auto result() const -> Field;
+    auto result_string() const -> std::string;
+    bool has_result() const;
+    auto clone() const -> void*;
+
+    double value_ = 0.0;
+    int64_t count_ = 0;
+    bool has_value_ = false;
+};
 
 class FunctionSum final : public IAggregateFunction {
 public:
@@ -30,8 +48,9 @@ public:
                   Arena& arena) override;
     [[nodiscard]] auto memory_usage() const -> size_t override;
 
+    FunctionSum() = default;
+
 private:
-    explicit FunctionSum(datatypes::DataTypePtr arg_type);
     datatypes::DataTypePtr arg_type_;
 };
 

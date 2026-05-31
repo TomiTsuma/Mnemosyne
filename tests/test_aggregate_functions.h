@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "aggregate_functions/aggregate_function_factory.h"
-#include "aggregate_functions/sum.h"
-#include "aggregate_functions/count.h"
-#include "aggregate_functions/avg.h"
-#include "aggregate_functions/min_max.h"
-#include "data_types/data_type_number.h"
+#include "AggregateFunctions/aggregate_function_factory.h"
+#include "AggregateFunctions/sum.h"
+#include "AggregateFunctions/count.h"
+#include "AggregateFunctions/avg.h"
+#include "AggregateFunctions/min_max.h"
+#include "DataTypes/data_type_number.h"
 #include <catch2/catch_all.hpp>
 
 // ── Aggregate function tests ──

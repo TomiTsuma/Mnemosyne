@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <memory>
 #include <cstdint>
-#include "field.h"
+#include "Core/column.h"
 
 namespace mnesso::core {
 
@@ -27,12 +27,12 @@ public:
     Block();
 
     // Column access
-    void add_column(std::string name, std::shared_ptr<IColumn> column);
     void add_column(std::string name, ColumnPtr column);
     void erase_column(std::string_view name);
 
     // Column lookup — by name or by index
     [[nodiscard]] ColumnPtr get_column(std::string_view name) const;
+    [[nodiscard]] ColumnPtr get_column_by_name(std::string_view name) const;
     [[nodiscard]] ColumnPtr get_column_by_index(size_t index) const;
 
     // Metadata

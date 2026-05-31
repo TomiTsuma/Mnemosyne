@@ -4,11 +4,30 @@
 #pragma once
 
 #include "i_aggregate_function.h"
+#include "Core/field.h"
 #include <string>
 #include <memory>
+#include <vector>
 #include <cstdint>
 
 namespace mnesso::aggregate_functions {
+
+// ── AvgState — aggregate state for AVG ──
+class AvgState {
+public:
+    void init();
+    void reset();
+    void add(const Field& field);
+    void add(const std::vector<Field>& fields);
+    auto result() const -> Field;
+    auto result_string() const -> std::string;
+    bool has_result() const;
+    auto clone() const -> void*;
+
+    double sum_ = 0.0;
+    int64_t count_ = 0;
+    bool has_value_ = false;
+};
 
 class FunctionAvg final : public IAggregateFunction {
 public:

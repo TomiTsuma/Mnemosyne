@@ -3,11 +3,12 @@
 
 #pragma once
 
-#include "core/block.h"
-#include "processors/i_input_stream.h"
-#include "processors/i_output_stream.h"
+#include "Core/block.h"
+#include "Processors/i_input_stream.h"
+#include "Processors/i_output_stream.h"
 #include <memory>
 #include <functional>
+#include <optional>
 
 namespace mnesso::processors {
 
@@ -28,6 +29,9 @@ public:
 
     // Get next block from output
     [[nodiscard]] virtual auto getHeader() const -> core::Block = 0;
+
+    // Get final result of pipeline execution
+    [[nodiscard]] virtual auto result() const -> std::optional<core::Block>;
 };
 
 // ── Pipe — connects two processors ──
