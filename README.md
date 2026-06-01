@@ -1,14 +1,14 @@
-# Mnemosyne
+# Project: Finding Mnemo
 
 A **column-oriented analytical database management system** written in C++23.
 
-Mnemosyne is designed from the ground up for high-performance OLAP (Online Analytical Processing) workloads. It processes data column-by-column, enabling massive compression ratios and vectorized scan speeds — the same core principle that powers systems like ClickHouse, but built with modern C++23 patterns and a modular, plugin-based architecture.
+Mnemo is designed from the ground up for high-performance OLAP (Online Analytical Processing) workloads. It processes data column-by-column, enabling massive compression ratios and vectorized scan speeds — the same core principle that powers systems like ClickHouse, but built with modern C++23 patterns and a modular, plugin-based architecture.
 
 ---
 
-## What Mnemosyne Is
+## What Mnemo Is
 
-Mnemosyne is a **complete DBMS**, not just a query engine. It includes:
+Mnemo is a **complete DBMS**, not just a query engine. It includes:
 
 - A **SQL parser** that transforms text into an abstract syntax tree
 - A **query analyzer** that validates and resolves types, columns, and functions
@@ -30,7 +30,7 @@ graph LR
         TCP["TCP Protocol"]
     end
 
-    subgraph Server["Mnemosyne Server"]
+    subgraph Server["Mnemo Server"]
         subgraph Protocol["Protocol Layer"]
             HTTPH["HTTP Handler"]
             TCPS["TCP Handler"]
@@ -166,7 +166,7 @@ StorageFactory::instance().register("MyStorage", createMyStorage);
 ## Project Structure
 
 ```
-mnemosyne/
+Mnemo/
 ├── CMakeLists.txt              # Top-level build (CMake 3.28+, C++23)
 ├── .clang-format               # LLVM-style formatting
 ├── .clang-tidy                 # Modern C++23 linting
@@ -209,7 +209,7 @@ mnemosyne/
 │
 ├── cmake/                      # Build helpers (arch, tools, sanitize, warnings)
 ├── configs/                    # Configuration files
-│   └── mnemosyne.example.yml
+│   └── Mnemo.example.yml
 ├── docker/
 │   ├── Dockerfile
 │   └── docker-compose.yml
@@ -233,8 +233,8 @@ mnemosyne/
 
 ```bash
 # Clone
-git clone https://github.com/mnemosyne-db/mnemosyne.git
-cd mnemosyne
+git clone https://github.com/Mnemo-db/Mnemo.git
+cd Mnemo
 
 # Configure
 cmake -S . -B build \
@@ -250,10 +250,10 @@ cmake --build build -j$(nproc)
 
 ```bash
 # Start the server
-./build/programs/server/mnemosyne_server configs/mnemosyne.example.yml
+./build/programs/server/Mnemo_server configs/Mnemo.example.yml
 
 # Connect with the CLI client
-./build/programs/client/mnemosyne_client --host 127.0.0.1 --port 9000
+./build/programs/client/Mnemo_client --host 127.0.0.1 --port 9000
 
 # Or via HTTP
 curl 'http://127.0.0.1:8123/?query=SELECT%201'
@@ -277,7 +277,7 @@ ctest --test-dir build --output-on-failure
 
 ## SQL Support
 
-Mnemosyne supports a core SQL dialect for analytical queries:
+Mnemo supports a core SQL dialect for analytical queries:
 
 ```sql
 -- SELECT with filtering, aggregation, and ordering
@@ -449,7 +449,7 @@ The project follows a phased approach. Each phase builds on the previous one.
 - [x] Test infrastructure skeleton (Catch2 setup)
 - [x] Benchmark infrastructure skeleton (Google Benchmark setup)
 - [x] Docker support (Dockerfile, docker-compose)
-- [x] Configuration example (mnemosyne.example.yml)
+- [x] Configuration example (Mnemo.example.yml)
 - [x] Documentation scaffold (ARCHITECTURE.md, GRAMMAR.md, API.md)
 - [x] Apache 2.0 license
 - [x] CHANGELOG.md

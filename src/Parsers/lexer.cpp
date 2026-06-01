@@ -10,8 +10,8 @@ namespace mnesso::parsers {
 
 // ── Lexer ──
 
-Lexer::Lexer(std::string_view source, std::string file)
-    : source_{source}, file_{std::move(file)} {}
+Lexer::Lexer(std::string source, std::string file)
+    : source_{std::move(source)}, file_{std::move(file)} {}
 
 auto Lexer::next() -> Token {
     skip_whitespace();
@@ -222,6 +222,7 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "DROP") type = TokenType::KeywordDrop;
     else if (upper == "SHOW") type = TokenType::KeywordShow;
     else if (upper == "DATABASES") type = TokenType::KeywordShow;
+    else if (upper == "DATABASE") type = TokenType::KeywordDatabase;
     else if (upper == "TABLES") type = TokenType::KeywordTable;
     else if (upper == "DESCRIBE") type = TokenType::KeywordDescribe;
     else if (upper == "DESC") type = TokenType::KeywordDesc;

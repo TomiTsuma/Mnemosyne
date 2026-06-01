@@ -18,6 +18,7 @@
 
 #include <sstream>
 #include <cstring>
+#include <cctype>
 
 namespace mnesso::server {
 
@@ -29,6 +30,24 @@ struct ParsedRequest {
     std::string body;
     std::unordered_map<std::string, std::string> query_params;
 };
+
+static std::string url_decode(std::string_view s) {
+    std::string result;
+    result.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '+') {
+            result += ' ';
+        } else if (s[i] == '%' && i + 2 < s.size()) {
+            std::string hex = {s[i + 1], s[i + 2]};
+            char c = static_cast<char>(std::stoi(hex, nullptr, 16));
+            result += c;
+            i += 2;
+        } else {
+            result += s[i];
+        }
+    }
+    return result;
+}
 
 static ParsedRequest parse_http_request(std::string_view raw) {
     ParsedRequest req;
@@ -68,10 +87,12 @@ static ParsedRequest parse_http_request(std::string_view raw) {
                         if (amp == std::string::npos) amp = query.size();
                         auto eq = query.find('=', start);
                         if (eq != std::string::npos && eq < amp) {
-                            req.query_params[query.substr(start, eq - start)] =
-                                query.substr(eq + 1, amp - eq - 1);
+                            auto key = query.substr(start, eq - start);
+                            auto val = query.substr(eq + 1, amp - eq - 1);
+                            req.query_params[url_decode(key)] = url_decode(val);
                         } else {
-                            req.query_params[query.substr(start, amp - start)] = "";
+                            auto key = query.substr(start, amp - start);
+                            req.query_params[url_decode(key)] = "";
                         }
                         start = amp + 1;
                     }
@@ -253,7 +274,7 @@ void HTTPServer::accept_loop() {
             auto response = handler_->handle(http_req);
 
             // Send response
-            auto resp_str = make_http_response(response.status_code, response.body);
+            auto resp_str = make_http_response(response.status_code, response.body, response.content_type);
             send(client_socket, resp_str.c_str(), resp_str.size(), 0);
         }
 

@@ -230,6 +230,7 @@ public:
     } insert;
 
     struct Create {
+        std::string database_name;
         std::string table_name;
         std::vector<ColumnDef> columns;
     } create;

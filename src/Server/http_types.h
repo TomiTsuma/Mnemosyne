@@ -56,6 +56,14 @@ struct Response {
         r.content_type = "text/plain";
         return r;
     }
+
+    static auto html(std::string body) -> Response {
+        Response r;
+        r.status_code = 200;
+        r.body = std::move(body);
+        r.content_type = "text/html; charset=utf-8";
+        return r;
+    }
 };
 
 } // namespace mnesso::server

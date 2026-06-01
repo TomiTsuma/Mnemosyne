@@ -121,7 +121,10 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
     auto& create = ast->create;
 
     consume(); // consume CREATE
-    if (current_.type == TokenType::KeywordTable) {
+    if (current_.type == TokenType::KeywordDatabase) {
+        consume(); // consume DATABASE
+        create.database_name = parse_table_name();
+    } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.table_name = parse_table_name();
         create.columns = parse_column_definitions();
@@ -142,10 +145,11 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordShow) {
-        show.show_type = QueryAST::Show::ShowType::DATABASES;
-    } else if (current_.type == TokenType::KeywordTable) {
+    if (current_.type == TokenType::KeywordTable) {
+        consume(); // consume TABLES
         show.show_type = QueryAST::Show::ShowType::TABLES;
+    } else {
+        show.show_type = QueryAST::Show::ShowType::DATABASES;
     }
 }
 

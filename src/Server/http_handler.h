@@ -57,6 +57,9 @@ public:
     auto handle_ping() -> Response;
     auto handle_status() -> Response;
 
+    // ── UI ──
+    auto handle_index() -> Response;
+
     // ── Databases ──
     auto handle_databases() -> Response;
     auto handle_tables(std::string_view database) -> Response;

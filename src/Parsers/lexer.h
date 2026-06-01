@@ -26,6 +26,7 @@ enum class TokenType {
     KeywordAny, KeywordAll, KeywordDistinct, KeywordValues,
     KeywordAsc, KeywordSum, KeywordCount,
     KeywordAvg, KeywordMin, KeywordMax,
+    KeywordDatabase,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,
@@ -76,7 +77,7 @@ struct Token {
 // ── Lexer — converts SQL text into tokens ──
 class Lexer {
 public:
-    explicit Lexer(std::string_view source, std::string file = "");
+    explicit Lexer(std::string source, std::string file = "");
 
     // Advance to next token — returns token or EOF
     auto next() -> Token;
@@ -100,7 +101,7 @@ private:
     Token make_token(TokenType type, std::string value) const;
     void advance_pos(size_t n);
 
-    std::string_view  source_;
+    std::string       source_;
     size_t            pos_  = 0;
     uint32_t          line_ = 1;
     uint32_t          col_  = 1;

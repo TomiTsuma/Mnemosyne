@@ -8,6 +8,7 @@
 #include "Interpreters/context.h"
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
+#include <iostream>
 #include "Analyzer/analyzer.h"
 #include "Planner/planner.h"
 #include "Common/exceptions.h"
@@ -15,6 +16,7 @@
 #include <iomanip>
 #include <chrono>
 #include <ctime>
+#include <fstream>
 
 namespace mnesso::server {
 
@@ -28,20 +30,7 @@ auto HTTPHandler::handle(const Request& req) -> Response {
     if (req.path == "/ping") {
         return handle_ping();
     } else if (req.path == "/") {
-        return Response::ok(
-            "Mnemosyne DBMS — Column-oriented analytical database.\n"
-            "Endpoints:\n"
-            "  GET / — this page\n"
-            "  GET /ping — health check\n"
-            "  GET /status — server status\n"
-            "  GET /databases — list databases\n"
-            "  GET /tables/{db} — list tables in database\n"
-            "  GET /schema/{db}/{table} — table schema\n"
-            "  GET /metrics — server metrics\n"
-            "  GET /settings — current settings\n"
-            "  POST /query — execute SQL query\n"
-            "  GET /query?query=SELECT+1 — execute SQL query\n"
-        );
+        return handle_index();
     } else if (req.path == "/status") {
         return handle_status();
     } else if (req.path == "/databases") {
@@ -62,7 +51,7 @@ auto HTTPHandler::handle(const Request& req) -> Response {
         return handle_metrics();
     } else if (req.path == "/settings") {
         return handle_settings();
-    } else if (req.path == "/query" || req.path == "/") {
+    } else if (req.path == "/query") {
         // Execute query from query params or body
         if (req.query_params.find("query") == req.query_params.end() && req.body.empty()) {
             return Response::error(400, "Missing 'query' parameter");
@@ -90,6 +79,17 @@ auto HTTPHandler::handle_status() -> Response {
         << "Time: " << std::ctime(&t)
         << "Threads: " << context_.pool().active_count() << "\n";
     return Response::ok(oss.str());
+}
+
+auto HTTPHandler::handle_index() -> Response {
+    // Serve the web UI from public/index.html
+    std::ifstream file("public/index.html");
+    if (!file.is_open()) {
+        return Response::error(500, "UI file not found: public/index.html");
+    }
+    std::string html{std::istreambuf_iterator<char>(file),
+                     std::istreambuf_iterator<char>()};
+    return Response::html(std::move(html));
 }
 
 auto HTTPHandler::handle_databases() -> Response {
@@ -183,6 +183,11 @@ auto HTTPHandler::handle_settings() -> Response {
 }
 
 auto HTTPHandler::handle_query(std::string_view query, std::string_view fmt) -> Response {
+    // Debug: print query bytes
+    std::cerr << "[DEBUG] Query length: " << query.size() << std::endl;
+    for (size_t i = 0; i < query.size(); ++i) {
+        std::cerr << "  [" << i << "] = 0x" << std::hex << (int)(unsigned char)query[i] << " '" << (query[i] >= 32 && query[i] < 127 ? query[i] : '?') << "'" << std::dec << std::endl;
+    }
     return execute_query(query, fmt);
 }
 
