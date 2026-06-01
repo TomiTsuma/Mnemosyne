@@ -12,7 +12,6 @@
 #include <memory>
 #include <thread>
 #include <atomic>
-#include <winsock2.h>
 
 namespace mnesso::server {
 
@@ -57,36 +56,6 @@ struct Response {
         r.content_type = "text/plain";
         return r;
     }
-};
-
-// ── HTTPServer — lightweight HTTP server ──
-class HTTPServer {
-public:
-    HTTPServer(std::shared_ptr<HTTPHandler> handler, uint16_t port, size_t backlog_size = 128);
-    ~HTTPServer();
-
-    HTTPServer(const HTTPServer&) = delete;
-    HTTPServer& operator=(const HTTPServer&) = delete;
-
-    void start();
-    void stop();
-    [[nodiscard]] auto is_running() const -> bool { return running_; }
-    [[nodiscard]] auto port() const -> uint16_t { return port_; }
-
-private:
-    void accept_loop();
-
-    std::shared_ptr<HTTPHandler> handler_;
-    uint16_t port_;
-    size_t backlog_size_;
-
-#ifdef _WIN32
-    SOCKET server_socket_ = INVALID_SOCKET;
-#else
-    int server_socket_ = -1;
-#endif
-    std::thread worker_thread_;
-    std::atomic<bool> running_ = false;
 };
 
 } // namespace mnesso::server

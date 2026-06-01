@@ -4,7 +4,6 @@
 #pragma once
 
 #include "context.h"
-#include "server.h"
 #include "http_types.h"
 #include "Parsers/ast.h"
 #include "Parsers/lexer.h"

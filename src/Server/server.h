@@ -3,13 +3,17 @@
 
 #pragma once
 
-#include "Server/http_server.h"
-#include "Server/tcp_server.h"
-#include "Interpreters/context.h"
 #include <memory>
 #include <string>
+#include <atomic>
+
+namespace mnesso::interpreters { class Context; }
 
 namespace mnesso::server {
+
+class HTTPHandler;
+class HTTPServer;
+class TCPServer;
 
 // ── Server — top-level server manager ──
 class Server {

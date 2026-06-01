@@ -61,6 +61,7 @@ void ThreadPool::shutdown() {
     }
 }
 
+size_t ThreadPool::size()       const { return workers_.size(); }
 size_t ThreadPool::active_count() const { return active_.load(); }
 size_t ThreadPool::queue_size()   const { return pending_.load(); }
 

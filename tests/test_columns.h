@@ -18,9 +18,9 @@ TEST_CASE("ColumnVector UInt64 insert and get", "[column]") {
     col->insert(mnesso::core::Field{static_cast<int64_t>(3)});
 
     REQUIRE(col->size() == 3);
-    REQUIRE(col->get<uint64_t>(0) == 1);
-    REQUIRE(col->get<uint64_t>(1) == 2);
-    REQUIRE(col->get<uint64_t>(2) == 3);
+    REQUIRE(col->get(0).as_uint64().value() == static_cast<uint64_t>(1));
+    REQUIRE(col->get(1).as_uint64().value() == static_cast<uint64_t>(2));
+    REQUIRE(col->get(2).as_uint64().value() == static_cast<uint64_t>(3));
 }
 
 TEST_CASE("ColumnString insert and get", "[column]") {
@@ -31,8 +31,8 @@ TEST_CASE("ColumnString insert and get", "[column]") {
     col->insert(mnesso::core::Field{"World"});
 
     REQUIRE(col->size() == 2);
-    REQUIRE(col->get(0) == "Hello");
-    REQUIRE(col->get(1) == "World");
+    REQUIRE(col->get(0).as_string().value() == "Hello");
+    REQUIRE(col->get(1).as_string().value() == "World");
 }
 
 TEST_CASE("Column swap rows", "[column]") {
@@ -43,7 +43,7 @@ TEST_CASE("Column swap rows", "[column]") {
 
     col->swap_rows(0, 2);
 
-    REQUIRE(col->get<int64_t>(0) == 3);
-    REQUIRE(col->get<int64_t>(1) == 2);
-    REQUIRE(col->get<int64_t>(2) == 1);
+    REQUIRE(col->get(0).as_int64().value() == static_cast<int64_t>(3));
+    REQUIRE(col->get(1).as_int64().value() == static_cast<int64_t>(2));
+    REQUIRE(col->get(2).as_int64().value() == static_cast<int64_t>(1));
 }

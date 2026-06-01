@@ -7,7 +7,7 @@
 
 namespace mnesso::databases {
 
-auto& DatabaseFactory::instance() {
+auto DatabaseFactory::instance() -> DatabaseFactory& {
     static DatabaseFactory inst;
     return inst;
 }

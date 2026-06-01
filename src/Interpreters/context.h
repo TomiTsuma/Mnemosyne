@@ -89,6 +89,14 @@ public:
     // Construct from a database (registers it)
     explicit Context(std::shared_ptr<databases::IDatabase> db);
 
+    // Default constructor — deleted in production, enabled in tests via
+    // #define BEFORE including context.h  (e.g. in test setup)
+#ifdef ALLOW_CONTEXT_DEFAULT_CTOR
+    Context() = default;
+#else
+    Context() = delete;
+#endif
+
 private:
     common::Settings           settings_;
     std::unique_ptr<common::ThreadPool> pool_;

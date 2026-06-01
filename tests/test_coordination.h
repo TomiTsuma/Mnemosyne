@@ -15,6 +15,6 @@ TEST_CASE("Coordination creates cluster", "[coordination]") {
 
     REQUIRE(coord != nullptr);
 
-    auto started = coord->start();
-    REQUIRE(started);
+    coord->start();
+    REQUIRE(coord->is_running());
 }

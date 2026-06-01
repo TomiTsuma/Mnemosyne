@@ -13,11 +13,11 @@
 
 #include "parsers/lexer.h"
 #include "parsers/parser_query.h"
-#include "core/block.h"
-#include "core/series.h"
+#include "Core/block.h"
+#include "Core/series.h"
 #include "common/settings.h"
 #include "loggers/logger.h"
-#include "interpretations/interpreter.h"
+#include "interpreters/interpreter.h"
 #include "server/server.h"
 
 // ── REPL client ──
@@ -32,9 +32,9 @@ public:
         return true;
     }
 
-    auto execute(std::string_view query) -> core::Block {
+    auto execute(std::string_view query) -> mnesso::core::Block {
         // TODO: send query to server
-        return core::Block{};
+        return mnesso::core::Block{};
     }
 
     auto show_help() const {

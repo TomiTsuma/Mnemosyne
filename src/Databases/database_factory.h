@@ -14,7 +14,7 @@ namespace mnesso::databases {
 // ── DatabaseFactory — singleton registry for database engines ──
 class DatabaseFactory {
 public:
-    static auto& instance();
+    static auto instance() -> DatabaseFactory&;
 
     void register_engine(std::string name,
                          std::function<std::shared_ptr<IDatabase>()> creator);

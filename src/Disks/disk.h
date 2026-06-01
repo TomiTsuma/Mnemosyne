@@ -60,7 +60,7 @@ public:
     [[nodiscard]] virtual auto stats() const -> DiskStats = 0;
 
     // Get underlying raw pointer (for zero-copy optimization)
-    [[nodiscard]] virtual auto get_raw_ptr() const -> void*;
+    [[nodiscard]] virtual auto get_raw_ptr() const -> void* { return nullptr; }
 };
 
 } // namespace mnesso::disks

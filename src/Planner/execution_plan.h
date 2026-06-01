@@ -55,6 +55,7 @@ struct PlanNode {
     PlanNodeType  type;
     Type          node_type;
     std::string   name;           // descriptive label
+    std::shared_ptr<PlanNode> child;   // single parent pointer (tree building)
     std::vector<std::shared_ptr<PlanNode>> children;
 
     // ── Fields accessed by the interpreter ──

@@ -23,13 +23,13 @@ static const char* format_log_level(LogLevel level) {
         case LogLevel::DEBUG:   return "DEBUG";
         case LogLevel::INFO:    return "INFO";
         case LogLevel::WARN:    return "WARN";
-        case LogLevel::ERROR:   return "ERROR";
+        case LogLevel::ERR:   return "ERROR";
         case LogLevel::FATAL:   return "FATAL";
     }
     return "UNKNOWN";
 }
 
-auto& Logger::get_instance() {
+auto Logger::get_instance() -> Logger& {
     static Logger instance;
     return instance;
 }
@@ -51,7 +51,7 @@ void Logger::warn(std::string_view msg, std::string_view component) {
 }
 
 void Logger::error(std::string_view msg, std::string_view component) {
-    do_log(LogLevel::ERROR, msg, component);
+    do_log(LogLevel::ERR, msg, component);
 }
 
 void Logger::fatal(std::string_view msg, std::string_view component) {

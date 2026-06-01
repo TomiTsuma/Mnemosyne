@@ -13,6 +13,26 @@ namespace mnesso::coordination {
 
 Coordination::Coordination() : running_{false}, leader_{false} {}
 
+std::shared_ptr<Coordination> Coordination::create(
+    std::string_view cluster_name,
+    const std::vector<std::string>& node_addresses,
+    std::string_view self_address) {
+    auto coord = std::shared_ptr<Coordination>(new Coordination());
+    coord->cluster_name_ = std::string{cluster_name};
+    coord->self_address_ = std::string{self_address};
+
+    // Parse "id:port" addresses into Node entries
+    for (const auto& addr : node_addresses) {
+        auto sep = addr.find(':');
+        if (sep == std::string::npos) continue;
+        std::string id = addr.substr(0, sep);
+        std::string address = addr;
+        coord->nodes_.push_back(Node{id, address});
+    }
+
+    return coord;
+}
+
 void Coordination::start() {
     if (running_) return;
     running_ = true;
@@ -63,7 +83,11 @@ void Coordination::try_elect_leader() {
 
     // Simple leader election: pick the first node
     current_leader_ = nodes_[0].id;
-    leader_ = (current_leader_ == "self");
+    // Compare the leader's node ID against our self node ID (first part of self_address_)
+    auto self_sep = self_address_.find(':');
+    std::string self_id = (self_sep != std::string::npos)
+        ? self_address_.substr(0, self_sep) : self_address_;
+    leader_ = (current_leader_ == self_id);
 }
 
 auto Coordination::get_lock(std::string_view lock_name) -> std::shared_ptr<Lock> {

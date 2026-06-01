@@ -42,7 +42,7 @@ public:
 
     // Mutation operations (ALTER TABLE, etc.)
     virtual auto alter(
-        std::function<void(IStorage& storage)> modify) -> bool;
+        std::function<void(IStorage& storage)> modify) -> bool { (void)modify; return false; }
 
     // Check if storage is empty
     [[nodiscard]] virtual auto empty() const -> bool = 0;
@@ -53,14 +53,14 @@ public:
 
     // Get a named setting
     [[nodiscard]] virtual auto get_setting(std::string_view name)
-        -> std::optional<common::SettingValueType>;
+        -> std::optional<common::SettingValueType> { (void)name; return std::nullopt; }
 
     // Lock/unlock for concurrent access
-    virtual auto lock()  -> bool;
-    virtual auto unlock() -> void;
+    virtual auto lock()  -> bool { return false; }
+    virtual auto unlock() -> void {}
 
     // Flush — persist to disk
-    virtual auto flush() -> bool;
+    virtual auto flush() -> bool { return false; }
 };
 
 } // namespace mnesso::storages

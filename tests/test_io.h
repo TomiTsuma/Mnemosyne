@@ -14,8 +14,8 @@ TEST_CASE("NativeCodec pass-through", "[codec]") {
     auto codec = mnesso::io::NativeCodec::create();
     auto data = std::vector<uint8_t>{1, 2, 3, 4, 5};
 
-    auto encoded = codec->encode(data);
-    auto decoded = codec->decode(encoded);
+    auto encoded = codec->encode(std::span<const uint8_t>(data.data(), data.size()));
+    auto decoded = codec->decode(std::span<const uint8_t>(encoded.data(), encoded.size()));
 
     REQUIRE(decoded != nullptr);
     REQUIRE(std::equal(data.begin(), data.end(), decoded.get(), decoded.get() + data.size()));
@@ -28,8 +28,8 @@ TEST_CASE("LZ4Codec round-trip", "[codec]") {
         data[i] = static_cast<uint8_t>(i % 256);
     }
 
-    auto encoded = codec->encode(data);
-    auto decoded = codec->decode(encoded);
+    auto encoded = codec->encode(std::span<const uint8_t>(data.data(), data.size()));
+    auto decoded = codec->decode(std::span<const uint8_t>(encoded.data(), encoded.size()));
 
     REQUIRE(decoded != nullptr);
     REQUIRE(std::equal(data.begin(), data.end(), decoded.get(), decoded.get() + data.size()));

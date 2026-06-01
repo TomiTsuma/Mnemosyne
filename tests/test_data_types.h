@@ -17,14 +17,13 @@ TEST_CASE("TypeId equality", "[data_type]") {
 }
 
 TEST_CASE("TypeRegistry singleton", "[data_type]") {
-    auto& registry = mnesso::datatypes::TypeRegistry::instance();
-    auto& registry2 = mnesso::datatypes::TypeRegistry::instance();
+    auto& registry = mnesso::datatypes::TypeFactory::instance();
+    auto& registry2 = mnesso::datatypes::TypeFactory::instance();
     REQUIRE(&registry == &registry2);
 }
 
 TEST_CASE("DataType registration", "[data_type]") {
-    auto& registry = mnesso::datatypes::TypeRegistry::instance();
-    auto type = registry.get("Int64");
+    auto type = mnesso::datatypes::get_data_type("Int64");
     REQUIRE(type != nullptr);
-    REQUIRE(type->type_name() == "Int64");
+    REQUIRE(type->name() == "Int64");
 }

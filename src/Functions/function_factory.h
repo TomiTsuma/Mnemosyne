@@ -15,7 +15,7 @@ namespace mnesso::functions {
 // ── FunctionFactory — singleton registry ──
 class FunctionFactory {
 public:
-    static auto& instance();
+    static FunctionFactory& instance();
 
     void register_function(std::string name, std::function<IFunctionPtr()> creator);
 

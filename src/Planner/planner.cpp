@@ -2,159 +2,258 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Planner/planner.h"
-#include "Analyzer/analyzer.h"
+#include "Analyzer/query_tree.h"
 #include "Common/exceptions.h"
 #include <algorithm>
 
 namespace mnesso::planner {
 
+// ── Planner ──
+
 Planner::Planner(interpreters::Context& context) : context_{context} {}
 
-auto Planner::plan(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
+auto Planner::plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
+    -> std::shared_ptr<ExecutionPlan> {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "plan-" + std::to_string(plan_id_));
 
-    switch (query.query_type) {
-        case QueryAST::QueryType::SELECT:
-            plan = plan_select(query);
-            break;
-        case QueryAST::QueryType::INSERT:
-            plan = plan_insert(query);
-            break;
-        case QueryAST::QueryType::CREATE:
-            plan = plan_create(query);
-            break;
-        case QueryAST::QueryType::DROP:
-            plan = plan_drop(query);
-            break;
-        case QueryAST::QueryType::SHOW:
-            plan = plan_show(query);
-            break;
-        case QueryAST::QueryType::DESCRIBE:
-            plan = plan_describe(query);
-            break;
-        case QueryAST::QueryType::EXPLAIN:
-            plan = plan_explain(query);
-            break;
+    if (!tree) {
+        throw common::Exception{
+            "Planner::plan: null query tree",
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    // Dispatch based on node type
+    std::string type = tree->node_type();
+    if (type == "Select") {
+        auto* select = dynamic_cast<analyzer::SelectNode*>(tree.get());
+        if (select) {
+            plan->root = plan_select(*select)->root;
+        }
+    } else if (type == "Table") {
+        auto* table = dynamic_cast<analyzer::TableNode*>(tree.get());
+        if (table) {
+            plan->root = plan_table(*table)->root;
+        }
+    } else if (type == "Join") {
+        auto* join = dynamic_cast<analyzer::JoinNode*>(tree.get());
+        if (join) {
+            plan->root = plan_join(*join)->root;
+        }
+    } else if (type == "Aggregate") {
+        auto* agg = dynamic_cast<analyzer::AggregateNode*>(tree.get());
+        if (agg) {
+            plan->root = plan_aggregate(*agg)->root;
+        }
+    } else if (type == "Filter") {
+        auto* filter = dynamic_cast<analyzer::FilterNode*>(tree.get());
+        if (filter) {
+            plan->root = plan_filter(*filter)->root;
+        }
+    } else if (type == "Sort") {
+        auto* sort = dynamic_cast<analyzer::SortNode*>(tree.get());
+        if (sort) {
+            plan->root = plan_sort(*sort)->root;
+        }
+    } else if (type == "Limit") {
+        auto* limit = dynamic_cast<analyzer::LimitNode*>(tree.get());
+        if (limit) {
+            plan->root = plan_limit(*limit)->root;
+        }
+    } else {
+        throw common::Exception{
+            "Planner::plan: unknown node type: " + type,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
     }
 
     return plan;
 }
 
-auto Planner::plan_select(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::SELECT;
+// ── Planning strategies ──
 
-    // Create Scan node
-    auto scan = std::make_shared<PlanNode>(PlanNode::Type::SCAN);
-    scan->table = query.table;
-    plan.root = scan;
+std::shared_ptr<ExecutionPlan> Planner::plan_select(analyzer::SelectNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "select-" + std::to_string(plan_id_));
 
-    // Create Filter node if WHERE clause exists
-    if (query.where.type != AnalyzedExpression::Type::NONE) {
+    // Process FROM clause (base table scan)
+    std::shared_ptr<PlanNode> scan;
+    if (node.from) {
+        if (node.node_type() == "Table") {
+            auto* tbl = dynamic_cast<analyzer::TableNode*>(node.from.get());
+            if (tbl) {
+                scan = plan_table(*tbl)->root;
+            }
+        }
+    }
+
+    if (!scan) {
+        scan = std::make_shared<PlanNode>(PlanNode::Type::SCAN);
+        scan->name = "(unknown table)";
+    }
+
+    // Apply WHERE filter
+    std::shared_ptr<PlanNode> current = scan;
+    if (node.where) {
         auto filter = std::make_shared<PlanNode>(PlanNode::Type::FILTER);
-        filter->expression = query.where;
+        filter->name = "WHERE";
         filter->child = scan;
-        scan->child = filter;
-        plan.root = filter;
+        current = filter;
     }
 
-    // Create Project node for columns
+    // Apply GROUP BY
+    if (!node.group_by.empty()) {
+        auto agg = std::make_shared<PlanNode>(PlanNode::Type::GROUP_BY);
+        agg->name = "GROUP BY";
+        agg->child = current;
+        current = agg;
+    }
+
+    // Apply PROJECT (SELECT columns)
     auto project = std::make_shared<PlanNode>(PlanNode::Type::PROJECT);
-    project->columns = query.columns;
-    project->child = scan;
-    if (query.where.type != AnalyzedExpression::Type::NONE) {
-        project->child = filter_node(project->child);
-    }
-    plan.root = project;
+    project->name = "SELECT";
+    project->columns = node.columns.size() > 0
+        ? std::vector<std::string>(node.columns.size())
+        : std::vector<std::string>{"*"};
+    project->child = current;
+    plan->root = project;
 
-    // Create GroupBy node if GROUP BY exists
-    if (!query.group_by.empty()) {
-        auto group_by = std::make_shared<PlanNode>(PlanNode::Type::GROUP_BY);
-        group_by->columns = query.group_by;
-        group_by->child = project;
-        plan.root = group_by;
-    }
-
-    // Create Sort node if ORDER BY exists
-    if (!query.order_by.empty()) {
+    // Apply ORDER BY
+    if (!node.order_by.empty()) {
         auto sort = std::make_shared<PlanNode>(PlanNode::Type::SORT);
-        sort->order_by = query.order_by;
-        sort->child = project;
-        plan.root = sort;
+        sort->name = "ORDER BY";
+        sort->child = plan->root;
+        plan->root = sort;
     }
 
-    // Create Limit node if LIMIT exists
-    if (query.limit.second > 0) {
+    // Apply LIMIT
+    if (node.limit.first > 0) {
         auto limit = std::make_shared<PlanNode>(PlanNode::Type::LIMIT);
-        limit->limit = query.limit.second;
-        limit->offset = query.limit.first;
-        limit->child = project;
-        plan.root = limit;
+        limit->name = "LIMIT";
+        limit->limit = node.limit.first;
+        if (node.limit.second.has_value()) {
+            limit->offset = node.limit.second.value();
+        }
+        limit->child = plan->root;
+        plan->root = limit;
     }
 
     return plan;
 }
 
-auto Planner::plan_insert(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::INSERT;
-    auto insert = std::make_shared<PlanNode>(PlanNode::Type::INSERT);
-    insert->table = query.table;
-    insert->columns = query.insert_columns;
-    insert->values = query.insert_values;
-    plan.root = insert;
+std::shared_ptr<ExecutionPlan> Planner::plan_join(analyzer::JoinNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "join-" + std::to_string(plan_id_));
+
+    auto join = std::make_shared<PlanNode>(PlanNode::Type::SCAN); // Placeholder
+    join->name = "JOIN (" + node.join_type + ")";
+    join->child = node.left ? std::make_shared<PlanNode>(PlanNode::Type::SCAN) : nullptr;
+    if (node.right) {
+        join->children.push_back(
+            std::make_shared<PlanNode>(PlanNode::Type::SCAN));
+    }
+    plan->root = join;
     return plan;
 }
 
-auto Planner::plan_create(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::CREATE;
-    auto create = std::make_shared<PlanNode>(PlanNode::Type::CREATE);
-    create->table_name = query.create_table_name;
-    create->columns = query.create_columns;
-    plan.root = create;
+std::shared_ptr<ExecutionPlan> Planner::plan_aggregate(analyzer::AggregateNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "agg-" + std::to_string(plan_id_));
+
+    auto agg = std::make_shared<PlanNode>(PlanNode::Type::GROUP_BY);
+    agg->name = "AGGREGATE";
+    if (node.child) {
+        agg->child = plan_select(
+            *dynamic_cast<analyzer::SelectNode*>(node.child.get())
+        )->root;
+    }
+    plan->root = agg;
     return plan;
 }
 
-auto Planner::plan_drop(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::DROP;
-    auto drop = std::make_shared<PlanNode>(PlanNode::Type::DROP);
-    drop->table_name = query.drop_table_name;
-    plan.root = drop;
+std::shared_ptr<ExecutionPlan> Planner::plan_filter(analyzer::FilterNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "filter-" + std::to_string(plan_id_));
+
+    auto filter = std::make_shared<PlanNode>(PlanNode::Type::FILTER);
+    filter->name = "FILTER";
+    if (node.child) {
+        filter->child = plan_select(
+            *dynamic_cast<analyzer::SelectNode*>(node.child.get())
+        )->root;
+    }
+    plan->root = filter;
     return plan;
 }
 
-auto Planner::plan_show(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::SHOW;
-    auto show = std::make_shared<PlanNode>(PlanNode::Type::SHOW);
-    show->show_type = query.show_type;
-    plan.root = show;
+std::shared_ptr<ExecutionPlan> Planner::plan_sort(analyzer::SortNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "sort-" + std::to_string(plan_id_));
+
+    auto sort = std::make_shared<PlanNode>(PlanNode::Type::SORT);
+    sort->name = "SORT";
+    if (node.child) {
+        sort->child = plan_select(
+            *dynamic_cast<analyzer::SelectNode*>(node.child.get())
+        )->root;
+    }
+    plan->root = sort;
     return plan;
 }
 
-auto Planner::plan_describe(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::DESCRIBE;
-    auto describe = std::make_shared<PlanNode>(PlanNode::Type::DESCRIBE);
-    describe->table_name = query.describe_table_name;
-    plan.root = describe;
+std::shared_ptr<ExecutionPlan> Planner::plan_limit(analyzer::LimitNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "limit-" + std::to_string(plan_id_));
+
+    auto limit = std::make_shared<PlanNode>(PlanNode::Type::LIMIT);
+    limit->name = "LIMIT";
+    limit->limit = node.count;
+    if (node.offset.has_value()) {
+        limit->offset = node.offset.value();
+    }
+    if (node.child) {
+        limit->child = plan_select(
+            *dynamic_cast<analyzer::SelectNode*>(node.child.get())
+        )->root;
+    }
+    plan->root = limit;
     return plan;
 }
 
-auto Planner::plan_explain(const AnalyzedQuery& query) -> Plan {
-    Plan plan;
-    plan.query_type = QueryAST::QueryType::EXPLAIN;
-    auto explain = std::make_shared<PlanNode>(PlanNode::Type::EXPLAIN);
-    explain->explain_plan = plan(query.explain_query);
-    plan.root = explain;
+std::shared_ptr<ExecutionPlan> Planner::plan_table(analyzer::TableNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "table-" + std::to_string(plan_id_));
+
+    auto scan = std::make_shared<PlanNode>(PlanNode::Type::SCAN);
+    scan->name = node.database.empty() ? node.table
+        : node.database + "." + node.table;
+    plan->root = scan;
     return plan;
 }
 
-auto Planner::filter_node(std::shared_ptr<PlanNode> node) -> std::shared_ptr<PlanNode> {
-    // Helper to insert filter node
+// Cost estimation
+auto Planner::estimate_cost(std::shared_ptr<ExecutionPlan> plan) -> double {
+    if (!plan || !plan->root) return 0.0;
+    // Simple cost model: base cost per node
+    double cost = 0.0;
+    plan->walk([&cost](std::shared_ptr<PlanNode>) {
+        cost += 1.0;
+    });
+    return cost;
+}
+
+// ── Join ordering heuristics ──
+
+std::shared_ptr<analyzer::JoinNode> Planner::optimize_join_order(
+    std::shared_ptr<analyzer::JoinNode> node) {
+    // Placeholder — no optimization yet
     return node;
+}
+
+// ── Predicate pushdown ──
+
+void Planner::push_down_predicates(std::shared_ptr<ExecutionPlan>& plan) {
+    // Placeholder — no pushdown yet
+}
+
+// ── Index hint usage ──
+
+std::optional<size_t> Planner::find_best_index(
+    analyzer::TableNode& node,
+    std::shared_ptr<analyzer::FilterNode> filter) {
+    // Placeholder — no index support yet
+    return std::nullopt;
 }
 
 } // namespace mnesso::planner

@@ -54,6 +54,10 @@ void Block::erase_column(std::string_view name) {
     }
 }
 
+ColumnPtr Block::get_column_by_name(std::string_view name) const {
+    return get_column(name);
+}
+
 ColumnPtr Block::get_column(std::string_view name) const {
     auto it = index_.find(std::string{name});
     if (it == index_.end()) {

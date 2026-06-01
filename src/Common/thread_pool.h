@@ -55,6 +55,7 @@ public:
     void shutdown();
 
     // Current pool stats
+    [[nodiscard]] size_t size()       const;
     [[nodiscard]] size_t active_count() const;
     [[nodiscard]] size_t queue_size()   const;
 

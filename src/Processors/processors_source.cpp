@@ -2,6 +2,7 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "processors_source.h"
+#include "processor.h"
 
 namespace mnesso::processors {
 
@@ -66,6 +67,59 @@ auto create_partial_empty_block(std::unordered_map<std::string, size_t> column_i
     core::Block block;
     // TODO: create partial empty block with specified columns
     return block;
+}
+
+// ── Pipe ──
+
+auto Pipe::connect(std::shared_ptr<Processor> producer,
+                   std::shared_ptr<Processor> consumer) -> Pipe {
+    Pipe pipe;
+    pipe.outputs_ = producer->outputs();
+    pipe.inputs_  = consumer->inputs();
+    pipe.n_pipes  = 1;
+    return pipe;
+}
+
+auto Pipe::outputs() const -> std::vector<std::shared_ptr<IOutputStream>> {
+    return outputs_;
+}
+
+auto Pipe::inputs() const -> std::vector<std::shared_ptr<IInputStream>> {
+    return inputs_;
+}
+
+auto Pipe::size() const -> size_t {
+    return n_pipes;
+}
+
+// ── MultiPipe ──
+
+auto MultiPipe::connect(std::vector<std::shared_ptr<Processor>> producers,
+                        std::vector<std::shared_ptr<Processor>> consumers)
+    -> MultiPipe {
+    MultiPipe pipe;
+    for (auto& p : producers) {
+        auto outs = p->outputs();
+        pipe.outputs_.insert(pipe.outputs_.end(), outs.begin(), outs.end());
+    }
+    for (auto& c : consumers) {
+        auto ins = c->inputs();
+        pipe.inputs_.insert(pipe.inputs_.end(), ins.begin(), ins.end());
+    }
+    pipe.n_pipes = producers.size() + consumers.size();
+    return pipe;
+}
+
+auto MultiPipe::outputs() const -> std::vector<std::shared_ptr<IOutputStream>> {
+    return outputs_;
+}
+
+auto MultiPipe::inputs() const -> std::vector<std::shared_ptr<IInputStream>> {
+    return inputs_;
+}
+
+auto MultiPipe::size() const -> size_t {
+    return n_pipes;
 }
 
 } // namespace mnesso::processors

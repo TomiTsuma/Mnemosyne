@@ -11,7 +11,7 @@ namespace mnesso::functions {
 
 // ── FunctionFactory ──
 
-auto& FunctionFactory::instance() {
+FunctionFactory& FunctionFactory::instance() {
     static FunctionFactory inst;
     return inst;
 }

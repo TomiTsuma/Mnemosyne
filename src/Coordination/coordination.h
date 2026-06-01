@@ -32,6 +32,12 @@ class Coordination {
 public:
     Coordination();
 
+    // Factory
+    static std::shared_ptr<Coordination> create(
+        std::string_view cluster_name,
+        const std::vector<std::string>& node_addresses,
+        std::string_view self_address);
+
     // Lifecycle
     void start();
     void stop();
@@ -49,6 +55,8 @@ public:
 private:
     void try_elect_leader();
 
+    std::string cluster_name_;
+    std::string self_address_;
     bool running_ = false;
     bool leader_ = false;
     std::thread election_thread_;

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <csignal>
+#include <atomic>
 #include <chrono>
 #include <thread>
 
@@ -11,34 +12,36 @@
 #include "loggers/logger.h"
 #include "databases/database_factory.h"
 #include "storages/storage_factory.h"
-#include "interpretations/interpreter.h"
+#include "interpreters/interpreter.h"
 #include "server/server.h"
 #include "coordination/coordination.h"
 #include "backups/backup.h"
+#include "databases/database_memory.h"
+#include "storages/file_storage.h"
+#include "loggers/target_console.h"
 
-// ── Global context ──
-mnesso::interpreters::Context global_context;
+// ── Global state ──
+std::shared_ptr<mnesso::interpreters::Context> g_context;
+std::shared_ptr<mnesso::server::Server> g_server;
+std::atomic<bool> g_running{true};
 
 // ── Signal handling ──
 void handle_signal(int sig) {
     mnesso::loggers::Logger::get_instance().fatal(
         std::format("Received signal {}", sig));
-    mnesso::server::Server::instance().shutdown();
-    std::exit(1);
+    g_running.store(false);
+    if (g_server) g_server->stop();
 }
 
 // ── Main ──
 auto main(int argc, char** argv) -> int {
     try {
-        // Load settings
-        auto settings = mnesso::common::Settings::defaults();
-        if (argc > 1) {
-            settings.load_from_file(argv[1]);
-        }
-        global_context.set_settings(settings);
+        // Context manages its own settings internally.
+        // Future: configure via global_context.get_settings().set(name, value)
+        (void)argc; (void)argv; // suppress unused warnings for now
 
         // Initialize loggers
-        auto logger = mnesso::loggers::Logger::get_instance();
+        auto& logger = mnesso::loggers::Logger::get_instance();
         logger.add_target(mnesso::loggers::ConsoleTarget::create());
 
         // Initialize databases
@@ -51,7 +54,7 @@ auto main(int argc, char** argv) -> int {
         // Initialize storages
         mnesso::storages::StorageFactory::instance().register_engine(
             mnesso::storages::BuiltinEngines::FILE,
-            []() {
+            [](auto) {
                 return mnesso::storages::FileStorage::create("default", "/tmp/mnemosyne");
             });
 
@@ -59,14 +62,17 @@ auto main(int argc, char** argv) -> int {
         std::signal(SIGINT, handle_signal);
         std::signal(SIGTERM, handle_signal);
 
-        // Create and start servers
-        auto server = std::make_unique<mnesso::server::Server>(global_context);
+        // Create context and server
+        g_context = std::make_shared<mnesso::interpreters::Context>(nullptr);
+        auto server = std::make_shared<mnesso::server::Server>(g_context);
+        g_server = server;
+        g_running.store(true);
         server->start();
 
         mnesso::loggers::Logger::get_instance().info("Mnemosyne server started");
 
         // Wait for shutdown
-        while (server->is_running()) {
+        while (g_running.load()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 

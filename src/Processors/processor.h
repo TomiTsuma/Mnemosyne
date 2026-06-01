@@ -25,13 +25,13 @@ public:
     [[nodiscard]] virtual auto is_finished() const -> bool = 0;
 
     // Start the pipeline
-    virtual void start();
+    virtual void start() {}
 
     // Get next block from output
     [[nodiscard]] virtual auto getHeader() const -> core::Block = 0;
 
     // Get final result of pipeline execution
-    [[nodiscard]] virtual auto result() const -> std::optional<core::Block>;
+    [[nodiscard]] virtual auto result() const -> std::optional<core::Block> { return std::nullopt; }
 };
 
 // ── Pipe — connects two processors ──

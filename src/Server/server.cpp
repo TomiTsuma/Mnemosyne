@@ -2,6 +2,9 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Server/server.h"
+#include "Server/http_server.h"
+#include "Server/http_handler.h"
+#include "Server/tcp_server.h"
 #include <iostream>
 
 namespace mnesso::server {
@@ -18,7 +21,7 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
     running_ = true;
 
     // Create HTTP handler
-    http_handler_ = std::make_shared<HTTPHandler>(context_);
+    http_handler_ = std::make_shared<HTTPHandler>(*context_);
 
     // Create HTTP server
     http_server_ = std::make_shared<HTTPServer>(http_handler_, http_port);

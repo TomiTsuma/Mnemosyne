@@ -45,8 +45,8 @@ This document describes the public API of Mnemosyne modules.
 - `create_field() const -> Field` — Create field
 - `can_convert_to(DataTypeId other) const -> bool` — Check conversion
 
-### DataTypeRegistry (`mnemosyne::datatypes::TypeRegistry`)
-- `static auto& instance() -> TypeRegistry&` — Get singleton
+### DataTypeRegistry (`mnesso::datatypes::TypeFactory`)
+- `static auto& instance() -> TypeFactory&` — Get singleton
 - `register_type(DataTypePtr type)` — Register type
 - `get(std::string_view name) -> DataTypePtr` — Get by name
 - `get(DataTypeId id) -> DataTypePtr` — Get by ID

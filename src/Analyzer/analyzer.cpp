@@ -157,7 +157,8 @@ auto Analyzer::buildSelectNode(const AnalyzeResult& result)
     if (auto* query_ast = dynamic_cast<parsers::QueryAST*>(result.analyzed_ast.get())) {
         for (auto& col_expr : query_ast->select.columns) {
             SelectNode::ColumnExpr col;
-            col.result_type = result.column_types[col_expr->to_string()];
+            auto type_it = result.column_types.find(col_expr->to_string());
+            col.result_type = (type_it != result.column_types.end()) ? type_it->second : nullptr;
             col.expression = buildExpressionNode(std::move(col_expr));
             node->columns.push_back(std::move(col));
         }

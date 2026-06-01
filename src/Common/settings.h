@@ -64,26 +64,42 @@ private:
     // TODO: add std::shared_mutex for thread-safe concurrent reads
 };
 
-// ── Pre-defined Mnemosyne settings ──
+// ── Pre-defined default values ──
 class DefaultSettings {
 public:
     // Network
-    static constexpr auto DEFAULT_HOST   = "127.0.0.1";
-    static constexpr int  DEFAULT_PORT   = 9000;
-    static constexpr int  HTTP_PORT      = 8123;
+    static constexpr std::string_view DEFAULT_HOST   = "127.0.0.1";
+    static constexpr int64_t          DEFAULT_PORT   = 9000;
+    static constexpr int64_t          HTTP_PORT      = 8123;
 
     // Storage
-    static constexpr auto DEFAULT_DATA_PATH = "/var/lib/mnemosyne/data";
-    static constexpr auto DEFAULT_LOG_PATH  = "/var/log/mnemosyne";
+    static constexpr std::string_view DEFAULT_DATA_PATH = "/var/lib/mnemosyne/data";
+    static constexpr std::string_view DEFAULT_LOG_PATH  = "/var/log/mnemosyne";
 
     // Concurrency
-    static constexpr size_t DEFAULT_MAX_THREADS = 0; // auto-detect
-    static constexpr size_t DEFAULT_MAX_MEMORY_USAGE = 10ULL * 1024 * 1024 * 1024; // 10 GB
+    static constexpr int64_t DEFAULT_MAX_THREADS = 0; // auto-detect
+    static constexpr int64_t DEFAULT_MAX_MEMORY_USAGE = 10 * 1024 * 1024 * 1024; // 10 GB
 
     // Query
-    static constexpr size_t DEFAULT_MAX_QUERY_DURATION_MS = 120'000; // 2 min
-    static constexpr bool   DEFAULT_PARALLEL_WRITE = true;
-    static constexpr size_t DEFAULT_BLOCK_SIZE     = 65536;
+    static constexpr int64_t DEFAULT_MAX_QUERY_DURATION_MS = 120000; // 2 min
+    static constexpr bool    DEFAULT_PARALLEL_WRITE = true;
+    static constexpr int64_t DEFAULT_BLOCK_SIZE     = 65536;
 };
+
+// ── Pre-defined Mnemosyne settings ──
+inline Settings default_settings() {
+    Settings s;
+    s.register_setting("host",       DefaultSettings::DEFAULT_HOST,    "Server bind address");
+    s.register_setting("port",       DefaultSettings::DEFAULT_PORT,    "Server TCP port");
+    s.register_setting("http_port",  DefaultSettings::HTTP_PORT,       "HTTP API port");
+    s.register_setting("data_path",  DefaultSettings::DEFAULT_DATA_PATH, "Data directory");
+    s.register_setting("log_path",   DefaultSettings::DEFAULT_LOG_PATH,  "Log directory");
+    s.register_setting("max_threads", DefaultSettings::DEFAULT_MAX_THREADS, "Max worker threads");
+    s.register_setting("max_memory", DefaultSettings::DEFAULT_MAX_MEMORY_USAGE, "Max memory usage (bytes)");
+    s.register_setting("max_query_duration_ms", DefaultSettings::DEFAULT_MAX_QUERY_DURATION_MS, "Max query duration (ms)");
+    s.register_setting("parallel_write", DefaultSettings::DEFAULT_PARALLEL_WRITE, "Enable parallel writes");
+    s.register_setting("block_size", DefaultSettings::DEFAULT_BLOCK_SIZE, "Block size for column chunks");
+    return s;
+}
 
 } // namespace mnesso::common

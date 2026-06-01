@@ -20,7 +20,7 @@ enum class LogLevel : uint8_t {
     DEBUG = 1,
     INFO  = 2,
     WARN  = 3,
-    ERROR = 4,
+    ERR   = 4,
     FATAL = 5,
 };
 
@@ -45,7 +45,7 @@ public:
 class Logger {
 public:
     // Get singleton
-    static auto& get_instance();
+    static auto get_instance() -> Logger&;
 
     // Log methods
     void trace(std::string_view msg, std::string_view component = "");

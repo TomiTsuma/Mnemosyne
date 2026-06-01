@@ -25,6 +25,11 @@ protected:
     std::string trace_;
 };
 
+// ── Guard against Windows socket macro polluting our enum namespace ──
+#ifdef NO_DATA
+#undef NO_DATA
+#endif
+
 // ── Common error codes ──
 enum class ErrorCode : uint32_t {
     UNKNOWN_ERROR       = 1000,

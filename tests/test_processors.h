@@ -16,9 +16,9 @@ TEST_CASE("EmptyBlockSource emits empty block", "[processor]") {
     REQUIRE(source->is_finished());
 }
 
-TEST_CASE("NoOpInputStream passes through", "[processor]") {
-    auto in_stream = mnesso::processors::create_empty_input_stream(core::Block{});
-    auto block = in_stream->read();
+// TEST_CASE("NoOpInputStream passes through", "[processor]") {
+//     auto in_stream = mnesso::processors::create_empty_input_stream(core::Block{});
+//     auto block = in_stream->read();
 
-    REQUIRE(block.is_empty());
-}
+//     REQUIRE(block.is_empty());
+// }

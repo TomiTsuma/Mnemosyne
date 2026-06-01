@@ -2,6 +2,8 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Server/server.h"
+#include "Server/http_server.h"
+#include "Server/http_handler.h"
 #include "Interpreters/context.h"
 #include "Interpreters/query_executor.h"
 #include "Databases/database_manager.h"
@@ -9,6 +11,7 @@
 #include "Loggers/logger.h"
 #include "Common/settings.h"
 #include "Common/logging.h"
+#include "Common/exceptions.h"
 #include <iostream>
 #include <csignal>
 #include <memory>
@@ -34,28 +37,23 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, signal_handler);
 
     // Setup logging
-    auto logger = loggers::Logger::create();
-    logger->add_target(loggers::TargetConsole::create());
-    logger->set_level(loggers::LogLevel::Info);
+    auto& logger_ref = loggers::Logger::get_instance();
+    auto logger = std::shared_ptr<loggers::Logger>{&logger_ref, [](loggers::Logger*){}};
+    logger->set_level(loggers::LogLevel::INFO);
 
-    // Create global context
-    auto context = std::make_shared<interpreters::Context>();
+    // Initialize default database FIRST (Context needs it)
+    auto& db_manager = databases::DatabaseManager::instance();
+    auto db = db_manager.create_database("default");
+    db_manager.register_idatabase("default", databases::DatabaseMemory::create("default", ""));
+    std::cout << "[DBMS] Created default database\n";
+
+    // Create global context (takes IDatabase from the manager)
+    auto context = std::make_shared<interpreters::Context>(db_manager.get_idatabase("default"));
     context->set_current_database("default");
 
-    // Initialize default database
-    auto& db_manager = databases::DatabaseManager::instance();
-    if (!db_manager.has_database("default")) {
-        auto db = db_manager.create_database("default");
-        db_manager.register_idatabase("default", databases::DatabaseMemory::create("default", ""));
-        std::cout << "[DBMS] Created default database\n";
-        (void)db;
-    } else if (!db_manager.get_idatabase("default")) {
-        db_manager.register_idatabase("default", databases::DatabaseMemory::create("default", ""));
-    }
-
-    // Create and start server
-    server::HTTPHandler http_handler(context);
-    server::HTTPServer http_server(std::make_shared<server::HTTPHandler>(http_handler), 8123);
+    // Create HTTPHandler (has a reference member, so use new + shared_ptr constructor)
+    auto http_handler = std::shared_ptr<server::HTTPHandler>(new server::HTTPHandler(*context));
+    server::HTTPServer http_server(http_handler, 8123);
 
     std::cout << "========================================\n";
     std::cout << "  Mnemosyne DBMS v0.1.0\n";

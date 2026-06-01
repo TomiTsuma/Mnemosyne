@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "interpretations/interpreter.h"
-#include "interpretations/query_executor.h"
+#include "interpreters/interpreter.h"
+#include "interpreters/query_executor.h"
 #include "planner/execution_plan.h"
 #include <catch2/catch_all.hpp>
 
@@ -22,7 +22,7 @@ TEST_CASE("Interpreter executes SELECT", "[interpreter]") {
 TEST_CASE("Interpreter handles errors", "[interpreter]") {
     mnesso::interpreters::Context context;
 
-    auto plan = std::make_shared<mless::planner::ExecutionPlan>(0, "test");
+    auto plan = std::make_shared<mnesso::planner::ExecutionPlan>(0, "test");
     auto interpreter = mnesso::interpreters::InterpreterFactory::create_select(plan, context);
 
     auto result = interpreter->execute();

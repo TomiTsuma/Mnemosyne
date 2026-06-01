@@ -11,8 +11,8 @@ target_link_libraries(mnemosyne_io PUBLIC
 )
 
 target_link_libraries(mnemosyne_io PRIVATE
-    lz4
-    zstd
+    lz4_static
+    libzstd_static 
 )
 
 set_target_properties(mnemosyne_io PROPERTIES
