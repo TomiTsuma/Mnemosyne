@@ -8,6 +8,14 @@ auto ColumnArray::create() -> std::shared_ptr<IColumn> {
     return std::make_shared<ColumnArray>();
 }
 
+auto ColumnArray::clear() -> size_t {
+    size_t old_size = size_;
+    sub_columns_.clear();
+    offsets_.clear();
+    size_ = 0;
+    return old_size;
+}
+
 auto ColumnArray::size() const -> size_t { return size_; }
 
 auto ColumnArray::insert(const Field& value) -> size_t {

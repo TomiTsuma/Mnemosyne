@@ -43,6 +43,7 @@ class TableNode final : public IQueryTreeNode {
 public:
     std::string database;
     std::string table;
+    std::vector<std::string> columns; // Column names for CREATE TABLE
 
     [[nodiscard]] auto node_type() const -> std::string override { return "Table"; }
 };

@@ -57,6 +57,16 @@ struct Response {
         return r;
     }
 
+    static auto error_json(int code, std::string message) -> Response {
+        Response r;
+        r.status_code = code;
+        std::ostringstream oss;
+        oss << "{\n  \"error\": \"" << message << "\",\n  \"status_code\": " << code << "\n}\n";
+        r.body = oss.str();
+        r.content_type = "application/json";
+        return r;
+    }
+
     static auto html(std::string body) -> Response {
         Response r;
         r.status_code = 200;

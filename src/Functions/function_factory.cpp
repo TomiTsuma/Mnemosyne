@@ -13,6 +13,24 @@ namespace mnesso::functions {
 
 FunctionFactory& FunctionFactory::instance() {
     static FunctionFactory inst;
+    static bool registered = []() {
+        // Arithmetic functions
+        inst.register_function("add", FunctionAdd::create);
+        inst.register_function("sub", FunctionSub::create);
+        inst.register_function("mul", FunctionMul::create);
+        inst.register_function("div", FunctionDiv::create);
+        inst.register_function("mod", FunctionMod::create);
+
+        // Comparison functions
+        inst.register_function("eq", FunctionEq::create);
+        inst.register_function("ne", FunctionNe::create);
+        inst.register_function("gt", FunctionGt::create);
+        inst.register_function("lt", FunctionLt::create);
+        inst.register_function("ge", FunctionGe::create);
+        inst.register_function("le", FunctionLe::create);
+        return true;
+    }();
+    (void)registered;
     return inst;
 }
 
@@ -43,28 +61,7 @@ bool FunctionFactory::has(std::string_view name) const {
 // ── Global function lookup ──
 
 static FunctionFactory& get_factory() {
-    auto& factory = FunctionFactory::instance();
-
-    static bool registered = false;
-    if (!registered) {
-        // Arithmetic functions
-        factory.register_function("add", FunctionAdd::create);
-        factory.register_function("sub", FunctionSub::create);
-        factory.register_function("mul", FunctionMul::create);
-        factory.register_function("div", FunctionDiv::create);
-        factory.register_function("mod", FunctionMod::create);
-
-        // Comparison functions
-        factory.register_function("eq", FunctionEq::create);
-        factory.register_function("ne", FunctionNe::create);
-        factory.register_function("gt", FunctionGt::create);
-        factory.register_function("lt", FunctionLt::create);
-        factory.register_function("ge", FunctionGe::create);
-        factory.register_function("le", FunctionLe::create);
-
-        registered = true;
-    }
-    return factory;
+    return FunctionFactory::instance();
 }
 
 IFunctionPtr get_function(std::string_view name) {

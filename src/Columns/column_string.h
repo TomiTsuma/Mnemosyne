@@ -26,6 +26,15 @@ public:
     [[nodiscard]] auto mutability() const -> bool override { return true; }
     [[nodiscard]] auto type_name() const -> std::string override { return "ColumnString"; }
 
+    // Clear — reset column to empty
+    auto clear() -> size_t override {
+        size_t old_size = size_;
+        slots_.clear();
+        data_.clear();
+        size_ = 0;
+        return old_size;
+    }
+
     // Value access
     [[nodiscard]] auto get(size_t row_idx) const -> core::Field override {
         if (row_idx >= size_) return core::Field{};

@@ -16,6 +16,7 @@ target_link_libraries(mnemosyne_server PRIVATE
     mnemosyne_server_lib
     mnemosyne_coordination
     mnemosyne_backups
+    mnemosyne_aggregate_functions
 )
 
 set_target_properties(mnemosyne_server PROPERTIES

@@ -12,7 +12,7 @@ endif()
 
 include(Catch)
 
-add_library(mnemosyne_tests test_all.cpp)
+add_executable(mnemosyne_tests test_all.cpp)
 set_target_properties(mnemosyne_tests PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON

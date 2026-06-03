@@ -39,10 +39,18 @@
 //     REQUIRE(ast != nullptr);
 // }
 
-// TEST_CASE("Parser parses WHERE clause", "[parser]") {
-//     mnesso::parsers::Lexer lexer("SELECT a FROM t WHERE a > 5");
-//     mnesso::parsers::QueryParser parser(lexer);
-//     auto result = parser.parse();
+TEST_CASE("Parser parses WHERE clause with comparison", "[parser]") {
+    mnesso::parsers::Lexer lexer("SELECT a FROM t WHERE a > 5");
+    mnesso::parsers::QueryParser parser(lexer);
+    auto result = parser.parse();
 
-//     REQUIRE(std::holds_alternative<std::shared_ptr<mnesso::parsers::ASTNode>>(result));
-// }
+    REQUIRE(result != nullptr);
+}
+
+TEST_CASE("Parser parses WHERE clause with AND/OR comparisons", "[parser]") {
+    mnesso::parsers::Lexer lexer("SELECT a FROM t WHERE a > 5 AND b < 10 OR c = 3");
+    mnesso::parsers::QueryParser parser(lexer);
+    auto result = parser.parse();
+
+    REQUIRE(result != nullptr);
+}

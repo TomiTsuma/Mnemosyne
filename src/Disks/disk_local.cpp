@@ -146,7 +146,12 @@ auto LocalFileDisk::list_files(std::string_view path)
 auto LocalFileDisk::create_dir(std::string_view path) -> bool {
     std::lock_guard lock(mutex_);
     auto full_path = path_ + "/" + std::string{path};
-    return std::filesystem::create_directories(full_path);
+    std::error_code ec;
+    bool created = std::filesystem::create_directories(full_path, ec);
+    if (created) {
+        return true;
+    }
+    return std::filesystem::exists(full_path, ec);
 }
 
 auto LocalFileDisk::remove_dir(std::string_view path) -> bool {

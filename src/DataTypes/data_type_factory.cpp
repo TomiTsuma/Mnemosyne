@@ -19,7 +19,7 @@ namespace mnesso::datatypes {
 
 // ── TypeFactory ──
 
-auto& TypeFactory::instance() {
+TypeFactory& TypeFactory::instance() {
     static TypeFactory inst;
     return inst;
 }

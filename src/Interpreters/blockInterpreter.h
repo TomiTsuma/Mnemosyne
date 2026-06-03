@@ -28,6 +28,17 @@ private:
     Context&                                context_;
     std::shared_ptr<processors::Processor>  pipeline_;
     QueryResult                             result_;
+
+    // Helper methods
+    auto create_processor_for_node(
+        std::shared_ptr<planner::PlanNode> node,
+        std::unordered_map<std::shared_ptr<planner::PlanNode>, std::shared_ptr<processors::Processor>>& proc_map)
+        -> std::shared_ptr<processors::Processor>;
+
+    static auto build_predicate(const std::string& expr)
+        -> std::function<bool(const core::Field&)>;
+
+    void execute_ddl_command(std::shared_ptr<planner::PlanNode> node);
 };
 
 } // namespace mnesso::interpreters

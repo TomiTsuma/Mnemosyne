@@ -53,6 +53,11 @@ public:
                          std::shared_ptr<parsers::ASTExpr> expr)
         -> std::vector<std::string>;
 
+    // Resolve columns recursively in expressions
+    auto resolve_expression_columns(AnalyzeResult& result,
+                                     std::shared_ptr<parsers::ASTExpr> expr)
+        -> std::vector<std::string>;
+
     // Validate function arguments
     auto validate_function(AnalyzeResult& result,
                            std::shared_ptr<parsers::ASTFunction> func)
@@ -71,7 +76,8 @@ private:
     auto buildSelectNode(const AnalyzeResult& result)
         -> std::shared_ptr<SelectNode>;
     auto buildTableNode(const std::string& table_name,
-                        const std::string& db_name)
+                        const std::string& db_name,
+                        const std::vector<std::string>& columns = {})
         -> std::shared_ptr<TableNode>;
     auto buildExpressionNode(std::shared_ptr<parsers::ASTExpr> expr)
         -> std::shared_ptr<IQueryTreeNode>;

@@ -61,6 +61,9 @@ public:
     [[nodiscard]] auto get_storage(std::string_view name)
         -> std::shared_ptr<storages::IStorage>;
 
+    // Register a storage
+    void register_storage(std::string name, std::shared_ptr<storages::IStorage> storage);
+
     // Register a database
     void register_database(std::string name, std::shared_ptr<databases::IDatabase> db);
 

@@ -27,8 +27,8 @@ TEST_CASE("ColumnString insert and get", "[column]") {
     auto col = mnesso::columns::ColumnString::create();
     REQUIRE(col->size() == 0);
 
-    col->insert(mnesso::core::Field{"Hello"});
-    col->insert(mnesso::core::Field{"World"});
+    col->insert(mnesso::core::Field(std::string{"Hello"}));
+    col->insert(mnesso::core::Field(std::string{"World"}));
 
     REQUIRE(col->size() == 2);
     REQUIRE(col->get(0).as_string().value() == "Hello");

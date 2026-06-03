@@ -16,6 +16,7 @@ class ColumnArray final : public IColumn {
 public:
     static auto create() -> std::shared_ptr<IColumn>;
 
+    auto clear() -> size_t override;
     [[nodiscard]] auto size() const -> size_t override;
     [[nodiscard]] auto mutability() const -> bool override { return true; }
     [[nodiscard]] auto type_name() const -> std::string override { return "ColumnArray"; }

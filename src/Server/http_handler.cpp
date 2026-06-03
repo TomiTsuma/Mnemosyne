@@ -201,7 +201,7 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
         auto ast = parser.parse();
 
         if (!ast) {
-            return Response::error(400, "Parse error: Invalid SQL");
+            return Response::error_json(400, "Parse error: Invalid SQL");
         }
 
         // Analyze
@@ -213,7 +213,7 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
             for (auto& e : result.errors) {
                 errors += e + "\n";
             }
-            return Response::error(400, "Analysis error: " + errors);
+            return Response::error_json(400, "Analysis error: " + errors);
         }
 
         // Convert analyzed AST → QueryTree IR (required for planner)
@@ -231,7 +231,7 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
         double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
 
         if (!query_result.error.empty()) {
-            return Response::error(500, "Execution error: " + query_result.error);
+            return Response::error_json(500, "Execution error: " + query_result.error);
         }
 
         // Format output
@@ -320,11 +320,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
             return Response::ok(oss.str());
         }
     } catch (const common::Exception& e) {
-        return Response::error(500, "Exception: " + std::string{e.what()});
+        return Response::error_json(500, "Exception: " + std::string{e.what()});
     } catch (const std::exception& e) {
-        return Response::error(500, "Error: " + std::string{e.what()});
+        return Response::error_json(500, "Error: " + std::string{e.what()});
     } catch (...) {
-        return Response::error(500, "Unknown error");
+        return Response::error_json(500, "Unknown error");
     }
 }
 

@@ -6,6 +6,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace mnesso::parsers {
 
@@ -14,7 +15,10 @@ namespace mnesso::parsers {
 Parser::Parser(Lexer lexer) : lexer_{lexer}, current_{lexer_.next()} {}
 
 auto Parser::parse() -> std::unique_ptr<QueryAST> {
+    std::fprintf(stderr, "Parser::parse start\n");
+    lexer_.reset();
     current_ = lexer_.next();
+    std::fprintf(stderr, "Parser::parse first token='%s'\n", current_.value.c_str());
     return parse_query();
 }
 
@@ -169,13 +173,40 @@ void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {
 // ── Expression parsing ──
 
 auto Parser::parse_expression() -> std::shared_ptr<ASTExpr> {
-    auto left = parse_term();
+    std::fprintf(stderr, "parse_expression at token='%s' type=%d\n", current_.value.c_str(), static_cast<int>(current_.type));
+    auto left = parse_comparison();
 
     while (current_.type == TokenType::KeywordAnd ||
            current_.type == TokenType::KeywordOr) {
         auto op = std::make_shared<ASTBinaryOp>();
         op->op = current_.type == TokenType::KeywordAnd ?
                   ASTBinaryOp::Op::And : ASTBinaryOp::Op::Or;
+        consume();
+        auto right = parse_comparison();
+        op->left = left;
+        op->right = right;
+        left = op;
+    }
+
+    return left;
+}
+
+auto Parser::parse_comparison() -> std::shared_ptr<ASTExpr> {
+    auto left = parse_term();
+
+    while (current_.type == TokenType::Eq || current_.type == TokenType::Ne ||
+           current_.type == TokenType::Gt || current_.type == TokenType::Lt ||
+           current_.type == TokenType::Ge || current_.type == TokenType::Le) {
+        auto op = std::make_shared<ASTBinaryOp>();
+        switch (current_.type) {
+            case TokenType::Eq: op->op = ASTBinaryOp::Op::Eq; break;
+            case TokenType::Ne: op->op = ASTBinaryOp::Op::Ne; break;
+            case TokenType::Gt: op->op = ASTBinaryOp::Op::Gt; break;
+            case TokenType::Lt: op->op = ASTBinaryOp::Op::Lt; break;
+            case TokenType::Ge: op->op = ASTBinaryOp::Op::Ge; break;
+            case TokenType::Le: op->op = ASTBinaryOp::Op::Le; break;
+            default: break;
+        }
         consume();
         auto right = parse_term();
         op->left = left;
@@ -269,6 +300,14 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
         return lit;
     }
 
+    // Handle '*' for SELECT *
+    if (current_.type == TokenType::Star) {
+        auto col = std::make_shared<ASTColumnRef>();
+        col->column = "*";
+        consume();
+        return col;
+    }
+
     // Identifiers and aggregate function keywords
     if (current_.type == TokenType::Identifier ||
         current_.type == TokenType::KeywordSum ||
@@ -282,6 +321,7 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
         return col;
     }
 
+    std::fprintf(stderr, "parse_factor unexpected token='%s' type=%d\n", current_.value.c_str(), static_cast<int>(current_.type));
     throw common::Exception{
         "Parser: unexpected token '" + current_.value + "'",
         static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};

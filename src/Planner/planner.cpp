@@ -32,7 +32,45 @@ auto Planner::plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
     } else if (type == "Table") {
         auto* table = dynamic_cast<analyzer::TableNode*>(tree.get());
         if (table) {
-            plan->root = plan_table(*table)->root;
+            // Check if this is a DDL command (table name is "unknown" or special marker)
+            if (table->table == "unknown" && table->database == "unknown") {
+                // EXPLAIN command - create a generic DDL node
+                auto node = std::make_shared<PlanNode>();
+                node->node_type = PlanNode::Type::EXPLAIN;
+                node->name = "explain";
+                plan->root = node;
+            } else if (table->table == "show_tables") {
+                // SHOW TABLES command
+                auto node = std::make_shared<PlanNode>();
+                node->node_type = PlanNode::Type::SHOW;
+                node->show_type = "TABLES";
+                plan->root = node;
+            } else if (table->table.empty() && !table->database.empty()) {
+                // CREATE DATABASE command
+                auto node = std::make_shared<PlanNode>();
+                node->node_type = PlanNode::Type::CREATE;
+                node->name = table->database;
+                plan->root = node;
+            } else if (!table->table.empty() && table->database == context_.current_database()) {
+                // This could be CREATE TABLE or DROP TABLE - check if table exists
+                // For now, treat as regular table scan if table exists, otherwise as DDL
+                auto storage = context_.get_storage(table->table);
+                if (storage) {
+                    // Table exists - regular scan
+                    plan->root = plan_table(*table)->root;
+                } else {
+                    // Table doesn't exist - assume it's CREATE TABLE
+                    auto node = std::make_shared<PlanNode>();
+                    node->node_type = PlanNode::Type::CREATE;
+                    node->table_name = table->table;
+                    node->columns = table->columns; // Pass column definitions
+                    node->name = "create_table";
+                    plan->root = node;
+                }
+            } else {
+                // Regular table scan
+                plan->root = plan_table(*table)->root;
+            }
         }
     } else if (type == "Join") {
         auto* join = dynamic_cast<analyzer::JoinNode*>(tree.get());
@@ -76,7 +114,7 @@ std::shared_ptr<ExecutionPlan> Planner::plan_select(analyzer::SelectNode& node) 
     // Process FROM clause (base table scan)
     std::shared_ptr<PlanNode> scan;
     if (node.from) {
-        if (node.node_type() == "Table") {
+        if (node.from->node_type() == "Table") {
             auto* tbl = dynamic_cast<analyzer::TableNode*>(node.from.get());
             if (tbl) {
                 scan = plan_table(*tbl)->root;
@@ -94,14 +132,34 @@ std::shared_ptr<ExecutionPlan> Planner::plan_select(analyzer::SelectNode& node) 
     if (node.where) {
         auto filter = std::make_shared<PlanNode>(PlanNode::Type::FILTER);
         filter->name = "WHERE";
+        filter->expression = node.where->node_type(); // Store expression type
         filter->child = scan;
         current = filter;
     }
 
-    // Apply GROUP BY
+    // Apply GROUP BY with aggregates
     if (!node.group_by.empty()) {
         auto agg = std::make_shared<PlanNode>(PlanNode::Type::GROUP_BY);
         agg->name = "GROUP BY";
+        
+        // Set up aggregate spec
+        PlanNode::AggregateSpec agg_spec;
+        for (const auto& col_expr : node.group_by) {
+            agg_spec.group_by_columns.push_back(col_expr->node_type());
+        }
+        
+        // Extract aggregate functions from SELECT columns
+        for (const auto& col : node.columns) {
+            if (col.expression && col.expression->node_type().find("Aggregate") != std::string::npos) {
+                PlanNode::AggregateSpec::AggregateOp agg_op;
+                agg_op.function_name = col.expression->node_type();
+                agg_op.result_type = col.result_type;
+                agg_op.is_distinct = false;
+                agg_spec.aggregates.push_back(agg_op);
+            }
+        }
+        
+        agg->spec = agg_spec;
         agg->child = current;
         current = agg;
     }
@@ -109,16 +167,41 @@ std::shared_ptr<ExecutionPlan> Planner::plan_select(analyzer::SelectNode& node) 
     // Apply PROJECT (SELECT columns)
     auto project = std::make_shared<PlanNode>(PlanNode::Type::PROJECT);
     project->name = "SELECT";
-    project->columns = node.columns.size() > 0
-        ? std::vector<std::string>(node.columns.size())
-        : std::vector<std::string>{"*"};
+    
+    // Extract column names from SelectNode::ColumnExpr
+    if (!node.columns.empty()) {
+        for (const auto& col : node.columns) {
+            if (!col.alias.empty()) {
+                project->columns.push_back(col.alias);
+            } else if (col.expression) {
+                project->columns.push_back(col.expression->node_type());
+            }
+        }
+    } else {
+        project->columns.push_back("*");
+    }
+    
     project->child = current;
     plan->root = project;
+
+    // Apply HAVING (after GROUP BY, before ORDER BY)
+    if (node.having) {
+        auto having = std::make_shared<PlanNode>(PlanNode::Type::FILTER);
+        having->name = "HAVING";
+        having->expression = node.having->node_type();
+        having->child = plan->root;
+        plan->root = having;
+    }
 
     // Apply ORDER BY
     if (!node.order_by.empty()) {
         auto sort = std::make_shared<PlanNode>(PlanNode::Type::SORT);
         sort->name = "ORDER BY";
+        for (const auto& [expr, desc] : node.order_by) {
+            if (expr) {
+                sort->order_by.push_back(expr->node_type());
+            }
+        }
         sort->child = plan->root;
         plan->root = sort;
     }
@@ -218,6 +301,7 @@ std::shared_ptr<ExecutionPlan> Planner::plan_table(analyzer::TableNode& node) {
     auto scan = std::make_shared<PlanNode>(PlanNode::Type::SCAN);
     scan->name = node.database.empty() ? node.table
         : node.database + "." + node.table;
+    scan->table = node.table; // Set table field for SCAN processor
     plan->root = scan;
     return plan;
 }

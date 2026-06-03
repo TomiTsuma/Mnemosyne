@@ -10,6 +10,11 @@ auto Context::get_storage(std::string_view name) -> std::shared_ptr<storages::IS
     return it != storages_.end() ? it->second : nullptr;
 }
 
+void Context::register_storage(std::string name,
+                                 std::shared_ptr<storages::IStorage> storage) {
+    storages_[std::move(name)] = std::move(storage);
+}
+
 void Context::register_database(std::string name,
                                  std::shared_ptr<databases::IDatabase> db) {
     databases_[std::move(name)] = std::move(db);

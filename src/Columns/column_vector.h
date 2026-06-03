@@ -25,6 +25,11 @@ public:
     using value_type = T;
 
     // ── Column lifecycle ──
+    auto clear() -> size_t override {
+        data_.clear();
+        size_ = 0;
+        return 0;
+    }
     [[nodiscard]] auto size()    const -> size_t override { return size_; }
     [[nodiscard]] auto mutability() const -> bool override { return true; }
     [[nodiscard]] auto type_name() const -> std::string override { return "ColumnVector<" + type_name_impl<T>() + ">"; }
@@ -127,7 +132,12 @@ public:
                 } else {
                     auto fv = value.as_float64();
                     if (fv) {
-                        data_[row_idx] = static_cast<T>(*fv);
+                        // Only allow float-to-int conversion if T is integral
+                        if constexpr (std::is_integral_v<T>) {
+                            data_[row_idx] = static_cast<T>(*fv);
+                        } else if constexpr (std::is_floating_point_v<T>) {
+                            data_[row_idx] = static_cast<T>(*fv);
+                        }
                     }
                 }
             }

@@ -29,6 +29,9 @@ class IColumn {
 public:
     virtual ~IColumn() = default;
 
+    // Clear — reset column to empty (zero rows)
+    virtual auto clear() -> size_t = 0;
+
     // Row count
     [[nodiscard]] virtual auto size() const -> size_t = 0;
 

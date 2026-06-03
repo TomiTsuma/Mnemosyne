@@ -23,13 +23,41 @@ auto Lexer::next() -> Token {
 
     // Single-character tokens
     switch (c) {
-        case '(': return make_token(TokenType::LParen, std::string(1, c));
-        case ')': return make_token(TokenType::RParen, std::string(1, c));
-        case ',': return make_token(TokenType::Comma, std::string(1, c));
-        case ';': return make_token(TokenType::Semicolon, std::string(1, c));
-        case '*': return make_token(TokenType::Star, std::string(1, c));
-        case '+': return make_token(TokenType::Plus, std::string(1, c));
-        case '%': return make_token(TokenType::Percent, std::string(1, c));
+        case '(': {
+            auto token = make_token(TokenType::LParen, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case ')': {
+            auto token = make_token(TokenType::RParen, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case ',': {
+            auto token = make_token(TokenType::Comma, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case ';': {
+            auto token = make_token(TokenType::Semicolon, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case '*': {
+            auto token = make_token(TokenType::Star, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case '+': {
+            auto token = make_token(TokenType::Plus, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case '%': {
+            auto token = make_token(TokenType::Percent, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
     }
 
     // - or ->
@@ -39,7 +67,9 @@ auto Lexer::next() -> Token {
             advance_pos(2);
             return make_token(TokenType::Concat, "->");
         }
-        return make_token(TokenType::Minus, std::string(1, c));
+        auto token = make_token(TokenType::Minus, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
 
     // /
@@ -54,19 +84,25 @@ auto Lexer::next() -> Token {
             skip_block_comment();
             return next();
         }
-        return make_token(TokenType::Slash, std::string(1, c));
+        auto token = make_token(TokenType::Slash, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
 
     // = or != or <> or <= or >=
     if (c == '=') {
-        return make_token(TokenType::Eq, std::string(1, c));
+        auto token = make_token(TokenType::Eq, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
     if (c == '!') {
         if (pos_ + 1 < source_.size() && source_[pos_ + 1] == '=') {
             advance_pos(2);
             return make_token(TokenType::Ne, "!=");
         }
-        return make_token(TokenType::Ne, std::string(1, c));
+        auto token = make_token(TokenType::Ne, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
     if (c == '<') {
         if (pos_ + 1 < source_.size()) {
@@ -79,14 +115,18 @@ auto Lexer::next() -> Token {
                 return make_token(TokenType::Ne, "<>");
             }
         }
-        return make_token(TokenType::Lt, std::string(1, c));
+        auto token = make_token(TokenType::Lt, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
     if (c == '>') {
         if (pos_ + 1 < source_.size() && source_[pos_ + 1] == '=') {
             advance_pos(2);
             return make_token(TokenType::Ge, ">=");
         }
-        return make_token(TokenType::Gt, std::string(1, c));
+        auto token = make_token(TokenType::Gt, std::string(1, c));
+        advance_pos(1);
+        return token;
     }
 
     // Numbers (integers and floats)
@@ -247,6 +287,8 @@ auto Lexer::read_identifier() -> Token {
 }
 
 auto Lexer::make_token(TokenType type, std::string value) const -> Token {
+    std::fprintf(stderr, "Lexer::make_token type=%d value='%s' line=%u col=%u\n",
+                 static_cast<int>(type), value.c_str(), line_, col_);
     return Token{type, std::move(value), {file_, line_, col_}};
 }
 

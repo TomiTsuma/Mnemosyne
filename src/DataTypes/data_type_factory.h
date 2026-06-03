@@ -15,7 +15,7 @@ namespace mnesso::datatypes {
 class TypeFactory {
 public:
     // Get the singleton
-    static auto& instance();
+    static TypeFactory& instance();
 
     // Register a named type
     void register_type(std::string name, std::function<DataTypePtr()> creator);
