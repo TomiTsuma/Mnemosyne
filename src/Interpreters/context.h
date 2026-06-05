@@ -102,7 +102,10 @@ public:
 
 private:
     common::Settings           settings_;
-    std::unique_ptr<common::ThreadPool> pool_;
+    // Always-valid worker pool. A default member initializer guarantees pool_ is
+    // non-null for every constructor (including the defaulted test constructor),
+    // so pool() never dereferences a null unique_ptr.
+    std::unique_ptr<common::ThreadPool> pool_ = std::make_unique<common::ThreadPool>();
     std::unique_ptr<loggers::Logger> logger_;
     std::string                current_db_;
     QueryInfo                  query_info_;
