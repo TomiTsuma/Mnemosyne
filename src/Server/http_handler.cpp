@@ -18,7 +18,7 @@
 #include <ctime>
 #include <fstream>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // ── HTTPHandler ──
 
@@ -146,13 +146,15 @@ auto HTTPHandler::handle_table_schema(std::string_view database, std::string_vie
 }
 
 auto HTTPHandler::handle_metrics() -> Response {
+    auto current_db = context_.current_database();
     std::ostringstream oss;
     oss << "{\n"
         << "  \"queries_total\": 0,\n"
         << "  \"queries_failed\": 0,\n"
         << "  \"bytes_read\": 0,\n"
         << "  \"bytes_written\": 0,\n"
-        << "  \"memory_tracked\": " << context_.total_memory() << "\n"
+        << "  \"memory_tracked\": " << context_.total_memory() << ",\n"
+        << "  \"current_database\": \"" << current_db << "\"\n"
         << "}\n";
     return Response::json(oss.str());
 }
@@ -330,4 +332,4 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
     }
 }
 
-} // namespace mnesso::server
+} // namespace mnemo::server

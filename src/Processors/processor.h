@@ -10,7 +10,7 @@
 #include <functional>
 #include <optional>
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── Processor — one stage in the execution pipeline ──
 class Processor {
@@ -65,4 +65,4 @@ private:
     size_t                                     n_pipes = 0;
 };
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

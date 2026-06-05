@@ -11,7 +11,7 @@
 #include <fstream>
 #include <iterator>
 
-namespace mnesso::backups {
+namespace mnemo::backups {
 
 namespace {
 
@@ -338,4 +338,4 @@ auto Backup::disk_usage() const -> size_t {
     return total;
 }
 
-} // namespace mnesso::backups
+} // namespace mnemo::backups

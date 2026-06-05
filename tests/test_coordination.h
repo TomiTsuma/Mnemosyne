@@ -8,7 +8,7 @@
 
 // ── Coordination tests ──
 TEST_CASE("Coordination creates cluster", "[coordination]") {
-    auto coord = mnesso::coordination::Coordination::create(
+    auto coord = mnemo::coordination::Coordination::create(
         "test_cluster",
         {"node1:4311", "node2:4311", "node3:4311"},
         "node1:4311");

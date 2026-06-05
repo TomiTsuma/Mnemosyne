@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include "Common/exceptions.h"
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 using common::Exception;
 using common::ErrorCode;
@@ -71,4 +71,4 @@ std::string type_id_to_string(TypeId id) {
     return "Unknown";
 }
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

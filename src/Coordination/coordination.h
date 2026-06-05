@@ -12,7 +12,7 @@
 #include <mutex>
 #include <thread>
 
-namespace mnesso::coordination {
+namespace mnemo::coordination {
 
 // ── Node descriptor ──
 struct Node {
@@ -66,4 +66,4 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace mnesso::coordination
+} // namespace mnemo::coordination

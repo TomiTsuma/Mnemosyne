@@ -332,7 +332,7 @@ cd build
 - **Classes:** `PascalCase` — `ColumnVector`, `QueryParser`, `StorageFactory`
 - **Methods:** `camelCase` — `getColumnName()`, `executeQuery()`
 - **Variables:** `snake_case` — `row_count`, `column_names`
-- **Namespaces:** `mnesso::` — e.g., `mnesso::core::Block`
+- **Namespaces:** `mnemo::` — e.g., `mnemo::core::Block`
 - **Headers:** `snake_case.h` — `column_vector.h`, `query_parser.h`
 - **Source files:** `snake_case.cpp` — `column_vector.cpp`, `query_parser.cpp`
 - **Constants:** `UPPER_SNAKE_CASE` — `DEFAULT_BLOCK_SIZE`, `MAX_COLUMNS`
@@ -361,7 +361,7 @@ cd build
 
 ### Logging
 
-- Use `mnesso::loggers::Logger` for all logging
+- Use `mnemo::loggers::Logger` for all logging
 - Categories: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
 - Always include the component name: `Logger::info("Query executed", "QueryExecutor")`
 
@@ -377,9 +377,9 @@ The `Analyzer` validates query structure but **table/column resolution is incomp
 
 Processors (`ScanProcessor`, `FilterProcessor`, etc.) are created but their `start()` and `result()` methods are **stub implementations**. The actual query execution pipeline is not fully wired up yet. This is the single biggest gap in the codebase.
 
-### 3. `mnesso::` Not `mnemosyne::`
+### 3. `mnemo::` Not `mnemosyne::`
 
-The namespace is `mnesso::`, not `mnemosyne::`. This is intentional (shorter for code, the project name is Mnemosyne). A common mistake is to use `mnemosyne::` and get compilation errors.
+The namespace is `mnemo::`, not `mnemosyne::`. This is intentional (shorter for code, the project name is Mnemosyne). A common mistake is to use `mnemosyne::` and get compilation errors.
 
 ### 4. Shared Pointer Everywhere
 

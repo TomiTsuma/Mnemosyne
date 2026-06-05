@@ -13,7 +13,7 @@
 #include <memory>
 #include <utility>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 // Compatibility helpers for older compilers
 template<typename T>
@@ -71,4 +71,4 @@ private:
     std::atomic<size_t>             pending_ = 0;
 };
 
-} // namespace mnesso::common
+} // namespace mnemo::common

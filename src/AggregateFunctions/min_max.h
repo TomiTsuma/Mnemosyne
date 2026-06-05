@@ -11,7 +11,7 @@
 #include <optional>
 #include <limits>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── MinState — aggregate state for MIN ──
 class MinState {
@@ -99,4 +99,4 @@ private:
     std::optional<Field>   max_value_;
 };
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

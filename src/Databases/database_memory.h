@@ -10,7 +10,7 @@
 #include <vector>
 #include <mutex>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 // ── DatabaseMemory — stores tables in memory ──
 class DatabaseMemory final : public IDatabase {
@@ -44,4 +44,4 @@ private:
     mutable std::mutex             mutex_;
 };
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

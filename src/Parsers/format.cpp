@@ -7,7 +7,7 @@
 #include <variant>
 #include <string>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── format_query — human-readable SQL from QueryAST ──
 
@@ -283,4 +283,4 @@ std::string format_query(const ASTSelectQuery& query) {
     return out.str();
 }
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

@@ -13,23 +13,23 @@
 
 // ── Storage tests ──
 TEST_CASE("StorageFactory singleton", "[storage]") {
-    auto& factory = mnesso::storages::StorageFactory::instance();
-    auto& factory2 = mnesso::storages::StorageFactory::instance();
+    auto& factory = mnemo::storages::StorageFactory::instance();
+    auto& factory2 = mnemo::storages::StorageFactory::instance();
     REQUIRE(&factory == &factory2);
 }
 
 TEST_CASE("MemoryStorage CRUD", "[storage]") {
-    auto storage = mnesso::storages::MemoryStorage::create("test");
+    auto storage = mnemo::storages::MemoryStorage::create("test");
     REQUIRE(storage != nullptr);
     REQUIRE(storage->name() == "test");
     REQUIRE(storage->empty());
 }
 
 TEST_CASE("DictionaryStorage put/get", "[storage]") {
-    auto dict = mnesso::storages::DictionaryStorage::create("test");
+    auto dict = mnemo::storages::DictionaryStorage::create("test");
     REQUIRE(dict != nullptr);
 
-    auto success = dict->put("key", mnesso::core::Field{123});
+    auto success = dict->put("key", mnemo::core::Field{123});
     REQUIRE(success);
 
     auto value = dict->get("key");

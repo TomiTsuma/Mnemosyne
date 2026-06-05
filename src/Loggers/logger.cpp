@@ -11,7 +11,7 @@
 #include <mutex>
 #include <thread>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── Logger ──
 
@@ -135,4 +135,4 @@ void Logger::do_log(LogLevel level, std::string_view msg, std::string_view compo
               << entry.message << "\n";
 }
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

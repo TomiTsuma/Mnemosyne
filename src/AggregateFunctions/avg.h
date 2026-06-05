@@ -10,7 +10,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── AvgState — aggregate state for AVG ──
 class AvgState {
@@ -54,4 +54,4 @@ private:
     double   sum_     = 0.0;
 };
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

@@ -32,9 +32,9 @@ public:
         return true;
     }
 
-    auto execute(std::string_view query) -> mnesso::core::Block {
+    auto execute(std::string_view query) -> mnemo::core::Block {
         // TODO: send query to server
-        return mnesso::core::Block{};
+        return mnemo::core::Block{};
     }
 
     auto show_help() const {

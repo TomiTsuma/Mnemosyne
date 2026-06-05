@@ -12,7 +12,7 @@
 #include <ctime>
 #endif
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── Helper functions (defined before use to avoid forward-declaration issues) ──
 
@@ -191,4 +191,4 @@ auto DataTypeDateTime::from_timestamp(int64_t ts) -> int64_t {
     return ts;
 }
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

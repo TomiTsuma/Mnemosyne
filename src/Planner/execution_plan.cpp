@@ -5,7 +5,7 @@
 #include <sstream>
 #include <algorithm>
 
-namespace mnesso::planner {
+namespace mnemo::planner {
 
 ExecutionPlan::ExecutionPlan(uint64_t id, const std::string& query_id)
     : plan_id(id), query_id(query_id) {}
@@ -77,4 +77,4 @@ auto ExecutionPlan::explain() const -> std::string {
     return oss.str();
 }
 
-} // namespace mnesso::planner
+} // namespace mnemo::planner

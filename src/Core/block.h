@@ -10,7 +10,7 @@
 #include <cstdint>
 #include "Core/column.h"
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 // ── ColumnInfo — metadata for a single column in a Block ──
 struct ColumnInfo {
@@ -67,4 +67,4 @@ private:
     std::unordered_map<std::string, size_t> index_;
 };
 
-} // namespace mnesso::core
+} // namespace mnemo::core

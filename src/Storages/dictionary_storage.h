@@ -12,7 +12,7 @@
 #include <optional>
 #include "Core/field.h"
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 // ── DictionaryStorage — key-value dictionary ──
 class DictionaryStorage final : public IStorage {
@@ -59,4 +59,4 @@ private:
     bool empty_ = true;
 };
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

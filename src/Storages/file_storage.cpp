@@ -10,7 +10,7 @@
 #include <fstream>
 #include <algorithm>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 auto FileStorage::create(std::string name, std::string path) -> std::shared_ptr<FileStorage> {
     auto storage = std::shared_ptr<FileStorage>(new FileStorage());
@@ -153,4 +153,4 @@ auto FileStorage::set_columns(std::unordered_map<std::string, datatypes::DataTyp
     }
 }
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

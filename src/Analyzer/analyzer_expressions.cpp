@@ -5,7 +5,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::analyzer {
+namespace mnemo::analyzer {
 
 // Expression analysis is mostly implemented in analyzer.cpp
 // This file provides additional helper functions.
@@ -35,4 +35,4 @@ bool is_column_in_select(const std::string& col,
     return false;
 }
 
-} // namespace mnesso::analyzer
+} // namespace mnemo::analyzer

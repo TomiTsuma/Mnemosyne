@@ -2,7 +2,7 @@
 
 #include "Storages/table.h"
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 Table::Table(std::string name)
     : name_{std::move(name)}
@@ -14,4 +14,4 @@ void Table::add_column(std::string col_name, datatypes::DataTypePtr type) {
     }
 }
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

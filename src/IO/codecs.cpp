@@ -9,7 +9,7 @@
 #include <optional>
 #include <sstream>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── BinaryCodec ──
 
@@ -227,4 +227,4 @@ std::vector<std::string> CSVCodec::split_csv_line(const std::string& line) {
     return result;
 }
 
-} // namespace mnesso::io
+} // namespace mnemo::io

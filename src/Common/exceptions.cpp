@@ -3,7 +3,7 @@
 
 #include "exceptions.h"
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 Exception::Exception(std::string message, int error_code)
     : std::runtime_error{std::move(message)}, code_{error_code} {}
@@ -16,4 +16,4 @@ int Exception::error_code() const { return code_; }
 
 std::string Exception::backtrace() const { return trace_; }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include <algorithm>
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 // Default implementations for IColumn virtual methods
 // Concrete column types override these as needed.
 
-} // namespace mnesso::core
+} // namespace mnemo::core

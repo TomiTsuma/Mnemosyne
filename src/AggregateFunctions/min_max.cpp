@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── MinState ──
 
@@ -215,4 +215,4 @@ auto FunctionMax::memory_usage() const -> size_t {
     return sizeof(double) + sizeof(bool);
 }
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

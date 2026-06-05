@@ -13,20 +13,20 @@
 
 // ── Aggregate function tests ──
 TEST_CASE("AggregateFunctionFactory singleton", "[aggregate]") {
-    auto& factory = mnesso::aggregate_functions::AggregateFunctionFactory::instance();
-    auto& factory2 = mnesso::aggregate_functions::AggregateFunctionFactory::instance();
+    auto& factory = mnemo::aggregate_functions::AggregateFunctionFactory::instance();
+    auto& factory2 = mnemo::aggregate_functions::AggregateFunctionFactory::instance();
     REQUIRE(&factory == &factory2);
 }
 
 TEST_CASE("SUM function registered", "[aggregate]") {
-    auto& factory = mnesso::aggregate_functions::AggregateFunctionFactory::instance();
+    auto& factory = mnemo::aggregate_functions::AggregateFunctionFactory::instance();
     auto func = factory.get("sum", {});
     REQUIRE(func != nullptr);
     REQUIRE(func->name() == "sum");
 }
 
 TEST_CASE("COUNT function registered", "[aggregate]") {
-    auto& factory = mnesso::aggregate_functions::AggregateFunctionFactory::instance();
+    auto& factory = mnemo::aggregate_functions::AggregateFunctionFactory::instance();
     auto func = factory.get("count", {});
     REQUIRE(func != nullptr);
     REQUIRE(func->name() == "count");

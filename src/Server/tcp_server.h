@@ -9,14 +9,14 @@
 #include <atomic>
 #include <cstdint>
 
-namespace mnesso::interpreters { class Context; }
+namespace mnemo::interpreters { class Context; }
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // ── TCPServer — MySQL-compatible protocol server ──
 class TCPServer {
 public:
-    TCPServer(std::shared_ptr<mnesso::interpreters::Context> ctx,
+    TCPServer(std::shared_ptr<mnemo::interpreters::Context> ctx,
               uint16_t port);
     ~TCPServer();
 
@@ -40,9 +40,9 @@ public:
     void shutdown();
 
 private:
-    std::shared_ptr<mnesso::interpreters::Context> context_;
+    std::shared_ptr<mnemo::interpreters::Context> context_;
     uint16_t                               port_;
     std::atomic<bool>                      running_ = false;
 };
 
-} // namespace mnesso::server
+} // namespace mnemo::server

@@ -11,7 +11,7 @@
 #include <variant>
 #include <compare>
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 #if (defined(__cplusplus) && __cplusplus >= 202002L) \
  || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
@@ -116,4 +116,4 @@ private:
                  std::shared_ptr<void>> data_;
 };
 
-} // namespace mnesso::core
+} // namespace mnemo::core

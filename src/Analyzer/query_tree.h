@@ -9,7 +9,7 @@
 #include <variant>
 #include <optional>
 
-namespace mnesso::analyzer {
+namespace mnemo::analyzer {
 
 // ── IQueryTreeNode — intermediate representation after analysis ──
 // This is the output of the analyzer and input to the planner.
@@ -102,4 +102,4 @@ public:
     [[nodiscard]] auto node_type() const -> std::string override { return "Limit"; }
 };
 
-} // namespace mnesso::analyzer
+} // namespace mnemo::analyzer

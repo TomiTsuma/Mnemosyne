@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <unordered_set>
 
-namespace mnesso::analyzer {
+namespace mnemo::analyzer {
 
 using interpreters::Context;
 
@@ -93,6 +93,13 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
             break;
         }
         case parsers::QueryAST::QueryType::EXPLAIN: {
+            result.analyzed_ast = ast;
+            result.valid = true;
+            break;
+        }
+        case parsers::QueryAST::QueryType::USE: {
+            // USE is a simple session-context statement: no column/table
+            // resolution is required beyond parsing (mirrors CREATE DATABASE).
             result.analyzed_ast = ast;
             result.valid = true;
             break;
@@ -305,6 +312,11 @@ auto Analyzer::buildQueryTree(AnalyzeResult& result)
             case parsers::QueryAST::QueryType::EXPLAIN:
                 // For EXPLAIN, pass unknown for now
                 return buildTableNode("unknown", "unknown");
+            case parsers::QueryAST::QueryType::USE:
+                // For USE, encode the target database in the TableNode: the
+                // "use_database" marker is recognised by the planner, and the
+                // database field carries the name passed to `set_current_database`.
+                return buildTableNode("use_database", query_ast->use.database_name);
         }
     }
 
@@ -426,4 +438,4 @@ auto Analyzer::buildExpressionNode(std::shared_ptr<parsers::ASTExpr> expr)
     return std::make_shared<SelectNode>();
 }
 
-} // namespace mnesso::analyzer
+} // namespace mnemo::analyzer

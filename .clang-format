@@ -40,7 +40,7 @@ DisableFormat: false
 ExperimentalAutoDetectBaseClass: false
 FallbackStyle: Allman
 IncludeCategories:
-  - Regex:           '^"<mnemosyne/|mnesso/'
+  - Regex:           '^"<mnemosyne/|mnemo/'
     Priority:        1
   - Regex:           '^<.*>$'
     Priority:        2

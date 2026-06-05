@@ -15,7 +15,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 using planner::PlanNode;
 
@@ -127,6 +127,12 @@ auto Interpreter::create_processor(Plan plan,
                 root->explain_plan, *context);
             return explain_proc;
         }
+        case PlanNode::Type::USE: {
+            // USE <database> — the target database name is stored in root->name.
+            auto use_proc = std::make_shared<processors::UseProcessor>(
+                root->name, *context);
+            return use_proc;
+        }
         default:
             throw common::Exception{
                 "Interpreter: unknown plan node type",
@@ -134,4 +140,4 @@ auto Interpreter::create_processor(Plan plan,
     }
 }
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

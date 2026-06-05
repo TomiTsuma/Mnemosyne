@@ -7,7 +7,7 @@
 #include <chrono>
 #include <thread>
 
-namespace mnesso::coordination {
+namespace mnemo::coordination {
 
 // ── Coordination ──
 
@@ -101,4 +101,4 @@ auto Coordination::get_lock(std::string_view lock_name) -> std::shared_ptr<Lock>
     return it->second;
 }
 
-} // namespace mnesso::coordination
+} // namespace mnemo::coordination

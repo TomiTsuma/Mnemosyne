@@ -10,7 +10,7 @@
 #include <functional>
 #include <unordered_map>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── CompressionCodec — base for all compression codecs ──
 class CompressionCodec {
@@ -49,4 +49,4 @@ private:
     std::unordered_map<std::string, std::function<std::shared_ptr<CompressionCodec>()>> registry_;
 };
 
-} // namespace mnesso::io
+} // namespace mnemo::io

@@ -11,10 +11,11 @@
 #include <unordered_map>
 #include <cstdint>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── Forward declarations ──
 class IASTVisitor;
+class ASTUseDatabase;
 class ASTSelectQuery;
 class ASTCreateTable;
 class ASTInsertQuery;
@@ -41,6 +42,7 @@ public:
 class IASTVisitor {
 public:
     virtual ~IASTVisitor() = default;
+    virtual void visit(ASTUseDatabase& n)     = 0;
     virtual void visit(ASTSelectQuery& n)     = 0;
     virtual void visit(ASTCreateTable& n)     = 0;
     virtual void visit(ASTInsertQuery& n)     = 0;
@@ -53,6 +55,15 @@ public:
     virtual void visit(ASTAlias& n)           = 0;
     virtual void visit(ASTSubQuery& n)        = 0;
     virtual void visit(QueryAST& n)           = 0;
+};
+
+// ── ASTUseDatabase ──
+class ASTUseDatabase final : public ASTNode {
+public:
+    std::string database_name;
+
+    void accept(const IASTVisitor& visitor) override {}
+    [[nodiscard]] auto to_string() const -> std::string override { return "ASTUseDatabase"; }
 };
 
 // ── ASTSelectQuery ──
@@ -205,7 +216,7 @@ public:
 // ── QueryAST — top-level parsed query (inherits ASTNode for polymorphism) ──
 class QueryAST final : public ASTNode {
 public:
-    enum class QueryType { SELECT, INSERT, CREATE, DROP, SHOW, DESCRIBE, EXPLAIN };
+    enum class QueryType { SELECT, INSERT, CREATE, DROP, SHOW, DESCRIBE, EXPLAIN, USE };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -251,6 +262,10 @@ public:
     struct Explain {
         std::shared_ptr<QueryAST> explain_query;
     } explain;
+
+    struct Use {
+        std::string database_name;
+    } use;
 };
 
 // ── Expression — base for expression AST nodes ──
@@ -311,4 +326,4 @@ struct OrderBy {
     Direction direction = Direction::ASC;
 };
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

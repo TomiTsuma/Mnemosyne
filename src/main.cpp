@@ -17,7 +17,7 @@
 #include <memory>
 #include <thread>
 
-namespace mnesso {
+namespace mnemo {
 
 // ── Global shutdown handler ──
 static volatile bool g_running = true;
@@ -27,10 +27,10 @@ void signal_handler(int signum) {
     g_running = false;
 }
 
-} // namespace mnesso
+} // namespace mnemo
 
 int main(int argc, char* argv[]) {
-    using namespace mnesso;
+    using namespace mnemo;
 
     // Install signal handlers
     std::signal(SIGINT, signal_handler);

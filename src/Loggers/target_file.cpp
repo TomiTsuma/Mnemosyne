@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── FileTarget ──
 
@@ -77,4 +77,4 @@ void FileTarget::flush() {
     }
 }
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

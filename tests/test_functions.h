@@ -10,7 +10,7 @@
 
 // ── Function tests ──
 TEST_CASE("Add function", "[function]") {
-    auto& factory = mnesso::functions::FunctionFactory::instance();
+    auto& factory = mnemo::functions::FunctionFactory::instance();
     auto func = factory.get("add");
     REQUIRE(func != nullptr);
     REQUIRE(func->info().name == "add");
@@ -18,7 +18,7 @@ TEST_CASE("Add function", "[function]") {
 }
 
 TEST_CASE("Comparison functions", "[function]") {
-    auto& factory = mnesso::functions::FunctionFactory::instance();
+    auto& factory = mnemo::functions::FunctionFactory::instance();
 
     REQUIRE(factory.get("eq") != nullptr);
     REQUIRE(factory.get("ne") != nullptr);
@@ -29,7 +29,7 @@ TEST_CASE("Comparison functions", "[function]") {
 }
 
 TEST_CASE("Function names", "[function]") {
-    auto& factory = mnesso::functions::FunctionFactory::instance();
+    auto& factory = mnemo::functions::FunctionFactory::instance();
     auto names = factory.names();
 
     REQUIRE(names.size() >= 6);

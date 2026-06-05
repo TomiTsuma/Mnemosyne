@@ -7,7 +7,7 @@
 #include "Storages/memory_storage.h"
 #include "Storages/storage_factory.h"
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 auto StorageFactory::instance() -> StorageFactory& {
     static StorageFactory inst;
@@ -60,4 +60,4 @@ struct RegisterBuiltinEngines {
 static RegisterBuiltinEngines init;
 } // namespace
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

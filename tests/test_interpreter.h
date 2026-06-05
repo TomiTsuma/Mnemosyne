@@ -10,20 +10,20 @@
 
 // ── Interpreter tests ──
 TEST_CASE("Interpreter executes SELECT", "[interpreter]") {
-    mnesso::interpreters::Context context;
+    mnemo::interpreters::Context context;
 
-    auto plan = std::make_shared<mnesso::planner::ExecutionPlan>(0, "test");
-    auto interpreter = mnesso::interpreters::InterpreterFactory::create_select(plan, context);
+    auto plan = std::make_shared<mnemo::planner::ExecutionPlan>(0, "test");
+    auto interpreter = mnemo::interpreters::InterpreterFactory::create_select(plan, context);
 
     auto result = interpreter->execute();
     REQUIRE(result.block != nullptr);
 }
 
 TEST_CASE("Interpreter handles errors", "[interpreter]") {
-    mnesso::interpreters::Context context;
+    mnemo::interpreters::Context context;
 
-    auto plan = std::make_shared<mnesso::planner::ExecutionPlan>(0, "test");
-    auto interpreter = mnesso::interpreters::InterpreterFactory::create_select(plan, context);
+    auto plan = std::make_shared<mnemo::planner::ExecutionPlan>(0, "test");
+    auto interpreter = mnemo::interpreters::InterpreterFactory::create_select(plan, context);
 
     auto result = interpreter->execute();
     REQUIRE(result.block != nullptr);

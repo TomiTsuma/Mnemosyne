@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── Parser ──
 
@@ -46,6 +46,9 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordExplain) {
         ast->query_type = QueryAST::QueryType::EXPLAIN;
         parse_explain(ast);
+    } else if (current_.type == TokenType::KeywordUse) {
+        ast->query_type = QueryAST::QueryType::USE;
+        parse_use(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -168,6 +171,20 @@ void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {
     consume(); // consume EXPLAIN
     // Parse the query to be explained
     ast->explain.explain_query = parse_query();
+}
+
+void Parser::parse_use(std::unique_ptr<QueryAST>& ast) {
+    auto& use = ast->use;
+
+    consume(); // consume USE
+
+    // Accept the optional DATABASE keyword (USE DATABASE <name>), matching
+    // ClickHouse's `ParserUseQuery` which allows both `USE db` and `USE DATABASE db`.
+    if (current_.type == TokenType::KeywordDatabase) {
+        consume(); // consume DATABASE
+    }
+
+    use.database_name = parse_table_name();
 }
 
 // ── Expression parsing ──
@@ -484,4 +501,4 @@ auto QueryParser::parse() -> std::unique_ptr<QueryAST> {
     return Parser::parse();  // calls base's parse_query() → std::unique_ptr<QueryAST>
 }
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

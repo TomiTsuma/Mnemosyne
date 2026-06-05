@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // ── FunctionFactory — singleton registry ──
 class FunctionFactory {
@@ -51,4 +51,4 @@ namespace Builtin {
 
 IFunctionPtr get_function(std::string_view name);
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

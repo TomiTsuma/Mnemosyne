@@ -9,7 +9,7 @@
 #include <optional>
 #include "Common/span_compat.h"
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── DataTypeDate — calendar date (days since 1970-01-01) ──
 class DataTypeDate final : public IDataType {
@@ -59,4 +59,4 @@ private:
     DataTypeDateTime() = default;
 };
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

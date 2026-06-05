@@ -10,11 +10,11 @@
 
 // ── Planner tests ──
 TEST_CASE("Planner creates plan for SELECT", "[planner]") {
-    mnesso::interpreters::Context context;
-    mnesso::planner::Planner planner(context);
+    mnemo::interpreters::Context context;
+    mnemo::planner::Planner planner(context);
 
     // Create a mock select node
-    auto select_node = std::make_shared<mnesso::analyzer::SelectNode>();
+    auto select_node = std::make_shared<mnemo::analyzer::SelectNode>();
     auto plan = planner.plan(select_node);
 
     REQUIRE(plan != nullptr);
@@ -22,10 +22,10 @@ TEST_CASE("Planner creates plan for SELECT", "[planner]") {
 }
 
 TEST_CASE("Planner estimates costs", "[planner]") {
-    mnesso::interpreters::Context context;
-    mnesso::planner::Planner planner(context);
+    mnemo::interpreters::Context context;
+    mnemo::planner::Planner planner(context);
 
-    auto select_node = std::make_shared<mnesso::analyzer::SelectNode>();
+    auto select_node = std::make_shared<mnemo::analyzer::SelectNode>();
     auto plan = planner.plan(select_node);
 
     auto cost = planner.estimate_cost(plan);

@@ -6,7 +6,7 @@
 #include <compare>
 #include <stdexcept>
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 Field::Field() : data_{std::monostate{}} {}
 
@@ -298,4 +298,4 @@ std::string Field::type_name() const {
     return type_name_for_index(data_.index());
 }
 
-} // namespace mnesso::core
+} // namespace mnemo::core

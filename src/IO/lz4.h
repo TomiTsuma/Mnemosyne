@@ -9,7 +9,7 @@
 #include "Common/span_compat.h"
 #include <vector>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── LZ4Codec — fast compression using LZ4 ──
 class LZ4Codec final : public CompressionCodec {
@@ -29,4 +29,4 @@ private:
     LZ4Codec() = default;
 };
 
-} // namespace mnesso::io
+} // namespace mnemo::io

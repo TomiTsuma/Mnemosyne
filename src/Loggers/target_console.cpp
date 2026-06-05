@@ -5,7 +5,7 @@
 #include <iostream>
 #include <iomanip>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── ConsoleTarget ──
 
@@ -60,4 +60,4 @@ auto ConsoleTarget::level() const -> LogLevel {
     return level_;
 }
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

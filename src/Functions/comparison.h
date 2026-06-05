@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // ── Eq — element-wise equality ──
 class FunctionEq final : public IFunction {
@@ -75,4 +75,4 @@ public:
     static auto create() -> IFunctionPtr { return std::make_shared<FunctionLe>(); }
 };
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

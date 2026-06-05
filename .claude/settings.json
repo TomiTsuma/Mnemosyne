@@ -1,8 +1,115 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+
+  // FIX: "claude-opus-4" is not a valid model string.
+  // Valid current identifiers: claude-opus-4-8, claude-opus-4-7, claude-opus-4-6, claude-sonnet-4-6
+  // claude-opus-4-0 is deprecated June 15, 2026.
+  "model": "claude-opus-4-8",
+
   "permissions": {
     "allow": [
-      "Bash(cmake --build build --config Release)",
-      "Bash(taskkill /F /IM mnemosyne_server.exe)"
+      "Read(**)",
+      "Write(**)",
+      "Edit(**)",
+      "WebSearch(*)",
+      "WebFetch(*)",
+
+      "Bash(git *)",
+      "Bash(cmake *)",
+      "Bash(ninja *)",
+      "Bash(make *)",
+
+      "Bash(python *)",
+      "Bash(pytest *)",
+      "Bash(uv *)",
+      "Bash(pip *)",
+
+      "Bash(node *)",
+      "Bash(npm *)",
+      "Bash(pnpm *)",
+      "Bash(yarn *)",
+
+      "Bash(docker *)",
+      "Bash(docker-compose *)",
+
+      "Bash(cargo *)",
+      "Bash(go *)"
+    ],
+
+    "deny": [
+      "Bash(rm -rf *)",
+      // NOTE: "Bash(format *)" blocks any command starting with "format" —
+      // intentional if you're guarding against disk format tools, but overly
+      // broad if you run code formatters like "format" (e.g. .NET CLI).
+      // Consider being more specific: "Bash(format.com *)" or just remove it.
+      "Bash(format *)",
+      "Bash(fdisk *)",
+      "Bash(mkfs *)",
+      "Bash(shutdown *)",
+      "Bash(reboot *)"
     ]
-  }
+  },
+
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "superpowers-dev@superpowers-marketplace": true,
+    "superpowers-chrome@superpowers-marketplace": true,
+
+    "claude-mem@thedotmack": true,
+
+    "engineering-skills@claude-code-skills": true,
+    "engineering-advanced-skills@claude-code-skills": true,
+
+    "agent-sdk-dev@claude-code-plugins": true,
+    "feature-dev@claude-code-plugins": true,
+
+    "autoresearch-agent@claude-code-skills": true,
+
+    "product-skills@claude-code-skills": true,
+    "product-manager@claude-code-skills": true,
+
+    "pm-skills@claude-code-skills": true,
+    "c-level-skills@claude-code-skills": true,
+    "business-growth-skills@claude-code-skills": true,
+    "finance-skills@claude-code-skills": true,
+
+    "marketing-skills@claude-code-skills": true,
+    "ra-qm-skills@claude-code-skills": true
+  },
+
+  "extraKnownMarketplaces": {
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      }
+    },
+
+    "thedotmack": {
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
+      }
+    },
+
+    "claude-code-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-code"
+      }
+    },
+
+    "claude-code-skills": {
+      "source": {
+        "source": "github",
+        "repo": "alirezarezvani/claude-skills"
+      }
+    }
+  },
+
+  "effortLevel": "xhigh"
 }

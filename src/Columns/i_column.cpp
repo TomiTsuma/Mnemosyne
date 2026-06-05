@@ -9,9 +9,9 @@
 #include <algorithm>
 #include <cstring>
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 // IColumn is mostly a header-only template interface, but some
 // shared utilities are implemented here.
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

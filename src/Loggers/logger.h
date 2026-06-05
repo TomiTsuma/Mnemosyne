@@ -12,7 +12,7 @@
 #include <vector>
 #include <mutex>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── Log levels ──
 enum class LogLevel : uint8_t {
@@ -77,4 +77,4 @@ private:
     void do_log(LogLevel level, std::string_view msg, std::string_view component);
 };
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

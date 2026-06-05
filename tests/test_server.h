@@ -10,10 +10,10 @@
 
 // ── Server tests ──
 TEST_CASE("HTTPHandler returns 200 on ping", "[server]") {
-    mnesso::interpreters::Context context;
-    mnesso::server::HTTPHandler handler(context);
+    mnemo::interpreters::Context context;
+    mnemo::server::HTTPHandler handler(context);
 
-    mnesso::server::Request req;
+    mnemo::server::Request req;
     req.method = "GET";
     req.path = "/ping";
 
@@ -22,9 +22,9 @@ TEST_CASE("HTTPHandler returns 200 on ping", "[server]") {
 }
 
 TEST_CASE("HTTPServer starts", "[server]") {
-    mnesso::interpreters::Context context;
-    auto handler = std::make_shared<mnesso::server::HTTPHandler>(context);
-    mnesso::server::HTTPServer server(handler, 0); // port 0 = random
+    mnemo::interpreters::Context context;
+    auto handler = std::make_shared<mnemo::server::HTTPHandler>(context);
+    mnemo::server::HTTPServer server(handler, 0); // port 0 = random
 
     server.start();
     REQUIRE(server.is_running());

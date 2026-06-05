@@ -3,7 +3,7 @@
 
 #include "settings.h"
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 Setting::Setting() : value_{false}, has_default_{false} {}
 
@@ -56,4 +56,4 @@ bool Settings::has(std::string_view name) const {
     return settings_.count(static_cast<std::string>(name)) > 0;
 }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

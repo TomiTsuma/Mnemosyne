@@ -3,7 +3,7 @@
 
 #include "context.h"
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 auto Context::get_storage(std::string_view name) -> std::shared_ptr<storages::IStorage> {
     auto it = storages_.find(static_cast<std::string>(name));
@@ -62,4 +62,4 @@ Context::Context(std::shared_ptr<databases::IDatabase> db) {
     }
 }
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

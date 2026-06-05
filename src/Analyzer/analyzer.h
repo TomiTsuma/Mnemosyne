@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace mnesso::analyzer {
+namespace mnemo::analyzer {
 
 using interpreters::Context;
 
@@ -83,4 +83,4 @@ private:
         -> std::shared_ptr<IQueryTreeNode>;
 };
 
-} // namespace mnesso::analyzer
+} // namespace mnemo::analyzer

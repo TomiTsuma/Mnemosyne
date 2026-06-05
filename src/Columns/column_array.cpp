@@ -2,7 +2,7 @@
 #include "Columns/column_array.h"
 #include "DataTypes/data_type_factory.h"
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 auto ColumnArray::create() -> std::shared_ptr<IColumn> {
     return std::make_shared<ColumnArray>();
@@ -99,4 +99,4 @@ void ColumnArray::decompress(std::span<const uint8_t> compressed) {
     throw common::Exception{"Not implemented", 0};
 }
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 struct ColumnDef {
     std::string name;
@@ -56,4 +56,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<storages::Table>> tables_;
 };
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

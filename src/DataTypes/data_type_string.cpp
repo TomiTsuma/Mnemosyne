@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <cstring>
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── DataTypeString ──
 
@@ -109,4 +109,4 @@ auto DataTypeFixedString::from_string(std::string_view text)
     return std::vector<uint8_t>{text.begin(), text.end()};
 }
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

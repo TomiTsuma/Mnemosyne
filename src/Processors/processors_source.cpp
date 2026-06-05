@@ -13,7 +13,7 @@
 #include <map>
 #include <numeric>
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── NoOpInputStream ──
 auto NoOpInputStream::getHeader() -> core::Block { return header_; }
@@ -682,6 +682,47 @@ auto CreateProcessor::result() const -> std::optional<core::Block> {
     return std::nullopt;
 }
 
+// ── UseProcessor ──
+
+UseProcessor::UseProcessor(std::string database_name, interpreters::Context& context)
+    : database_name_(std::move(database_name)), context_(context) {}
+
+auto UseProcessor::getHeader() const -> core::Block { return result_data_; }
+
+void UseProcessor::start() {
+    if (finished_) return;
+
+    // Fail loudly if the target database is unknown rather than silently
+    // switching to a non-existent context (no-fallback principle).
+    if (!context_.get_database(database_name_)) {
+        throw common::Exception{
+            "Unknown database: " + database_name_,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    context_.set_current_database(database_name_);
+
+    // USE produces no tabular output — return a single-cell acknowledgement
+    // so callers that inspect the result block see a success marker.
+    auto string_type = datatypes::get_data_type("String");
+    auto* raw_col = string_type->create_column();
+    auto col = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+    col->insert(core::Field(std::string{"OK"}));
+    result_data_.add_column("result", col);
+
+    finished_ = true;
+}
+
+auto UseProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
 // ── InsertProcessor ──
 
 InsertProcessor::InsertProcessor(std::string table,
@@ -1032,4 +1073,4 @@ auto SimpleLimitProcessor::result() const -> std::optional<core::Block> {
     return std::nullopt;
 }
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

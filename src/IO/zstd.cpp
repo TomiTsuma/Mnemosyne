@@ -6,7 +6,7 @@
 #include "IO/zstd.h"
 #include <algorithm>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 auto ZstdCodec::create() -> std::shared_ptr<ZstdCodec> {
     return std::shared_ptr<ZstdCodec>(new ZstdCodec());
@@ -32,4 +32,4 @@ auto ZstdCodec::compression_ratio() const -> double {
     return 0.3; // ZSTD typically achieves ~3:1 ratio
 }
 
-} // namespace mnesso::io
+} // namespace mnemo::io

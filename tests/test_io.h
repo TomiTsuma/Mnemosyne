@@ -11,7 +11,7 @@
 
 // ── Codec tests ──
 TEST_CASE("NativeCodec pass-through", "[codec]") {
-    auto codec = mnesso::io::NativeCodec::create();
+    auto codec = mnemo::io::NativeCodec::create();
     auto data = std::vector<uint8_t>{1, 2, 3, 4, 5};
 
     auto encoded = codec->encode(std::span<const uint8_t>(data.data(), data.size()));
@@ -22,7 +22,7 @@ TEST_CASE("NativeCodec pass-through", "[codec]") {
 }
 
 TEST_CASE("LZ4Codec round-trip", "[codec]") {
-    auto codec = mnesso::io::LZ4Codec::create();
+    auto codec = mnemo::io::LZ4Codec::create();
     auto data = std::vector<uint8_t>(1024); // 1KB of data
     for (size_t i = 0; i < data.size(); ++i) {
         data[i] = static_cast<uint8_t>(i % 256);

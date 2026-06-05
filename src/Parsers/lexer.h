@@ -9,7 +9,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── Token type enumeration ──
 enum class TokenType {
@@ -26,7 +26,7 @@ enum class TokenType {
     KeywordAny, KeywordAll, KeywordDistinct, KeywordValues,
     KeywordAsc, KeywordSum, KeywordCount,
     KeywordAvg, KeywordMin, KeywordMax,
-    KeywordDatabase,
+    KeywordDatabase, KeywordUse,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,
@@ -108,4 +108,4 @@ private:
     std::string       file_;
 };
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

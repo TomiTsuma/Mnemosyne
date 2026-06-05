@@ -16,7 +16,7 @@
 #include <numeric>
 #include "Columns/column_string.h"
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── BlockInterpreter ──
 
@@ -284,7 +284,8 @@ auto BlockInterpreter::create_processor_for_node(
         case planner::PlanNode::Type::SHOW:
         case planner::PlanNode::Type::DESCRIBE:
         case planner::PlanNode::Type::EXPLAIN:
-            // DDL commands — execute directly
+        case planner::PlanNode::Type::USE:
+            // DDL / session commands — execute directly
             execute_ddl_command(node);
             return std::make_shared<processors::EmptyBlockSource>();
 
@@ -407,6 +408,20 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
             }
             break;
         }
+        case planner::PlanNode::Type::USE: {
+            // USE <database> — set the session's current database.
+            // The target database name is carried in node->name (set by the planner).
+            // Fail loudly if the database is unknown rather than silently switching
+            // to a non-existent context (no-fallback principle).
+            const std::string& target = node->name;
+            if (!context_.get_database(target)) {
+                throw common::Exception{
+                    "Unknown database: " + target,
+                    static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+            }
+            context_.set_current_database(target);
+            break;
+        }
         default:
             break;
     }
@@ -463,4 +478,4 @@ std::function<bool(const core::Field&)> BlockInterpreter::build_predicate(
     };
 }
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

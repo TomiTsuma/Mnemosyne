@@ -12,11 +12,11 @@
 #include <string>
 #include <vector>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 class Context;
 }
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── SimpleScanProcessor — reads all rows from a table (block-based) ──
 class SimpleScanProcessor final : public Processor {
@@ -178,6 +178,25 @@ private:
     bool finished_ = false;
 };
 
+// ── UseProcessor — sets the session's current database ──
+class UseProcessor final : public Processor {
+public:
+    UseProcessor(std::string database_name, interpreters::Context& context);
+
+    [[nodiscard]] auto inputs()  const -> std::vector<std::shared_ptr<IInputStream>>  override { return {}; }
+    [[nodiscard]] auto outputs() const -> std::vector<std::shared_ptr<IOutputStream>> override { return {}; }
+    [[nodiscard]] auto is_finished() const -> bool override { return finished_; }
+    void start() override;
+    [[nodiscard]] auto getHeader() const -> core::Block override;
+    [[nodiscard]] auto result() const -> std::optional<core::Block> override;
+
+private:
+    std::string database_name_;
+    interpreters::Context& context_;
+    core::Block result_data_;
+    bool finished_ = false;
+};
+
 // ── DropProcessor — drops an existing table ──
 class DropProcessor final : public Processor {
 public:
@@ -257,4 +276,4 @@ private:
     bool finished_ = false;
 };
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

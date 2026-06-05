@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <numeric>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── SumState ──
 
@@ -126,4 +126,4 @@ auto FunctionSum::memory_usage() const -> size_t {
     return sizeof(double);
 }
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

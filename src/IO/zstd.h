@@ -9,7 +9,7 @@
 #include "Common/span_compat.h"
 #include <vector>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── ZstdCodec — high-ratio compression using ZSTD ──
 class ZstdCodec final : public CompressionCodec {
@@ -31,4 +31,4 @@ private:
     int level_;
 };
 
-} // namespace mnesso::io
+} // namespace mnemo::io

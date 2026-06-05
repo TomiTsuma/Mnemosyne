@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── SumState — aggregate state for SUM ──
 class SumState {

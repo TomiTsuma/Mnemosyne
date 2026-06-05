@@ -233,7 +233,7 @@
 * [ ] Verify namespace:
 
   ```cpp
-  mnesso::core::Field
+  mnemo::core::Field
   ```
 * [ ] Update all references
 

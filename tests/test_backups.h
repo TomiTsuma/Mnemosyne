@@ -8,7 +8,7 @@
 
 // ── Backup tests ──
 TEST_CASE("BackupManager creates backup", "[backup]") {
-    auto backup = mnesso::backups::Backup::create("test", "/tmp/mnemosyne_backups");
+    auto backup = mnemo::backups::Backup::create("test", "/tmp/mnemosyne_backups");
     REQUIRE(backup != nullptr);
 
     auto list = backup->list();

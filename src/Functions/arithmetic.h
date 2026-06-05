@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // ── Add — element-wise addition ──
 class FunctionAdd final : public IFunction {
@@ -79,4 +79,4 @@ private:
     bool prepared_ = false;
 };
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions
