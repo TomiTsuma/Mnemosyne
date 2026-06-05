@@ -45,6 +45,9 @@ public:
 
     // Memory-specific
     auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
+    auto drop_column(std::string name) -> void;
+    auto modify_column(std::string name, datatypes::DataTypePtr type) -> void;
+    auto truncate() -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
     void load_block(const core::Block& block);
 
@@ -52,6 +55,9 @@ private:
     MemoryStorage();
 
     void add_column_unlocked(std::string name, datatypes::DataTypePtr type);
+    void drop_column_unlocked(std::string name);
+    void modify_column_unlocked(std::string name, datatypes::DataTypePtr type);
+    void truncate_unlocked();
     void set_columns_unlocked(std::unordered_map<std::string, datatypes::DataTypePtr> types);
 
     std::string              name_;

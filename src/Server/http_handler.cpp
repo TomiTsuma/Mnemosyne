@@ -5,6 +5,10 @@
 #include "Server/http_server.h"
 #include "Interpreters/query_executor.h"
 #include "Interpreters/blockInterpreter.h"
+#include "Interpreters/interpreter_select_query.h"
+#include "Interpreters/interpreter_create_query.h"
+#include "Interpreters/interpreter_insert_query.h"
+#include "Interpreters/interpreter_drop_query.h"
 #include "Interpreters/context.h"
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
@@ -218,16 +222,40 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
             return Response::error_json(400, "Analysis error: " + errors);
         }
 
-        // Convert analyzed AST → QueryTree IR (required for planner)
-        auto query_tree = analyzer.buildQueryTree(result);
-
-        // Plan
-        planner::Planner planner{context_};
-        auto plan = planner.plan(query_tree);
-
-        // Execute
-        auto executor = interpreters::InterpreterFactory::create(plan, context_);
-        auto query_result = executor->execute();
+        interpreters::QueryResult query_result;
+        if (auto* query_ast = dynamic_cast<parsers::QueryAST*>(result.analyzed_ast.get())) {
+            switch (query_ast->query_type) {
+                case parsers::QueryAST::QueryType::SELECT: {
+                    auto block = interpreters::InterpreterSelectQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::INSERT: {
+                    auto block = interpreters::InterpreterInsertQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::CREATE: {
+                    auto block = interpreters::InterpreterCreateQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DROP: {
+                    auto block = interpreters::InterpreterDropQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        if (!query_result.block) {
+            auto query_tree = analyzer.buildQueryTree(result);
+            planner::Planner planner{context_};
+            auto plan = planner.plan(query_tree);
+            auto executor = interpreters::InterpreterFactory::create(plan, context_);
+            query_result = executor->execute();
+        }
 
         auto end = std::chrono::steady_clock::now();
         double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();

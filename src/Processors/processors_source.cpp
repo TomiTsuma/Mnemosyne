@@ -7,8 +7,10 @@
 #include "Common/exceptions.h"
 #include "Columns/column_vector.h"
 #include "Interpreters/context.h"
+#include "Storages/storage_factory.h"
 #include "Databases/database_memory.h"
 #include "DataTypes/data_type_factory.h"
+#include <unordered_map>
 #include <algorithm>
 #include <map>
 #include <numeric>
@@ -661,7 +663,31 @@ void CreateProcessor::start() {
         result_data_.add_column("result", col);
 
     } else {
-        // CREATE TABLE (not implemented yet for this use case)
+        // CREATE TABLE
+        const auto db_name = context_.current_database().empty()
+            ? std::string{"default"}
+            : context_.current_database();
+        auto db = context_.get_database(db_name);
+        if (!db) {
+            throw common::Exception{
+                "Unknown database: " + db_name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_DATABASE)};
+        }
+
+        std::unordered_map<std::string, datatypes::DataTypePtr> columns;
+        for (const auto& col_name : columns_) {
+            columns[col_name] = datatypes::get_data_type("String");
+        }
+
+        const auto engine = storages::StorageFactory::instance().has("Memory")
+            ? std::string{"Memory"}
+            : storages::StorageFactory::instance().names().front();
+
+        auto storage = db->create_table(name_, columns, engine);
+        if (storage) {
+            context_.register_storage(name_, storage);
+        }
+
         auto string_type = datatypes::get_data_type("String");
         auto* raw_col = string_type->create_column();
         auto col = std::shared_ptr<core::IColumn>(

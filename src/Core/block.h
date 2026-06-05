@@ -39,7 +39,7 @@ public:
     [[nodiscard]] auto column_count()  const -> size_t;
     [[nodiscard]] auto row_count()     const -> size_t;
     [[nodiscard]] auto has_columns()   const -> bool;
-    [[nodiscard]] bool empty()         const { return row_count_ == 0; }
+    [[nodiscard]] bool empty()         const { return row_count() == 0; }
 
     // Names and types
     [[nodiscard]] auto column_names()  const -> std::vector<std::string>;

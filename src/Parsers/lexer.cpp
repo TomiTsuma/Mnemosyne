@@ -38,6 +38,14 @@ auto Lexer::next() -> Token {
             advance_pos(1);
             return token;
         }
+        case '.': {
+            if (pos_ + 1 < source_.size() && std::isdigit(source_[pos_ + 1])) {
+                return read_number();
+            }
+            auto token = make_token(TokenType::Dot, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
         case ';': {
             auto token = make_token(TokenType::Semicolon, std::string(1, c));
             advance_pos(1);
@@ -283,6 +291,18 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "ASC") type = TokenType::KeywordAsc;
     else if (upper == "DESC") type = TokenType::KeywordDesc;
     else if (upper == "USE") type = TokenType::KeywordUse;
+    else if (upper == "ALTER") type = TokenType::KeywordAlter;
+    else if (upper == "IF") type = TokenType::KeywordIf;
+    else if (upper == "EXISTS") type = TokenType::KeywordExists;
+    else if (upper == "ENGINE") type = TokenType::KeywordEngine;
+    else if (upper == "TRUNCATE") type = TokenType::KeywordTruncate;
+    else if (upper == "DETACH") type = TokenType::KeywordDetach;
+    else if (upper == "ADD") type = TokenType::KeywordAdd;
+    else if (upper == "COLUMN") type = TokenType::KeywordColumn;
+    else if (upper == "MODIFY") type = TokenType::KeywordModify;
+    else if (upper == "IN") type = TokenType::KeywordIn;
+    else if (upper == "OVER") type = TokenType::KeywordOver;
+    else if (upper == "PARTITION") type = TokenType::KeywordPartition;
 
     return make_token(type, std::move(id));
 }

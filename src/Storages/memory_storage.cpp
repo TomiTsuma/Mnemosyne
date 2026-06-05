@@ -178,6 +178,30 @@ void MemoryStorage::add_column_unlocked(std::string name, datatypes::DataTypePtr
     column_types_[column_names_.back()] = std::move(type);
 }
 
+void MemoryStorage::drop_column_unlocked(std::string name) {
+    column_types_.erase(name);
+    column_names_.erase(
+        std::remove(column_names_.begin(), column_names_.end(), name),
+        column_names_.end());
+    if (data_.column_count() > 0) {
+        data_.erase_column(name);
+    }
+}
+
+void MemoryStorage::modify_column_unlocked(std::string name, datatypes::DataTypePtr type) {
+    if (column_types_.find(name) == column_types_.end()) {
+        throw common::Exception{
+            "Unknown column: " + name,
+            static_cast<int>(common::ErrorCode::UNKNOWN_COLUMN)};
+    }
+    column_types_[name] = std::move(type);
+}
+
+void MemoryStorage::truncate_unlocked() {
+    data_.reset();
+    empty_ = true;
+}
+
 void MemoryStorage::set_columns_unlocked(
     std::unordered_map<std::string, datatypes::DataTypePtr> types) {
     column_types_ = std::move(types);
@@ -190,6 +214,21 @@ void MemoryStorage::set_columns_unlocked(
 void MemoryStorage::add_column(std::string name, datatypes::DataTypePtr type) {
     std::lock_guard lock(mutex_);
     add_column_unlocked(std::move(name), std::move(type));
+}
+
+void MemoryStorage::drop_column(std::string name) {
+    std::lock_guard lock(mutex_);
+    drop_column_unlocked(std::move(name));
+}
+
+void MemoryStorage::modify_column(std::string name, datatypes::DataTypePtr type) {
+    std::lock_guard lock(mutex_);
+    modify_column_unlocked(std::move(name), std::move(type));
+}
+
+void MemoryStorage::truncate() {
+    std::lock_guard lock(mutex_);
+    truncate_unlocked();
 }
 
 void MemoryStorage::set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) {

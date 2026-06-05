@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <unordered_set>
 
 namespace mnemo::parsers {
 
@@ -34,9 +35,14 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordCreate) {
         ast->query_type = QueryAST::QueryType::CREATE;
         parse_create(ast);
-    } else if (current_.type == TokenType::KeywordDrop) {
+    } else if (current_.type == TokenType::KeywordDrop ||
+               current_.type == TokenType::KeywordTruncate ||
+               current_.type == TokenType::KeywordDetach) {
         ast->query_type = QueryAST::QueryType::DROP;
         parse_drop(ast);
+    } else if (current_.type == TokenType::KeywordAlter) {
+        ast->query_type = QueryAST::QueryType::ALTER;
+        parse_alter(ast);
     } else if (current_.type == TokenType::KeywordShow) {
         ast->query_type = QueryAST::QueryType::SHOW;
         parse_show(ast);
@@ -67,7 +73,42 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
 
     if (current_.type == TokenType::KeywordFrom) {
         consume(); // consume FROM
-        select.table = parse_table_name();
+        auto [table, alias] = parse_table_ref();
+        select.table = std::move(table);
+        select.table_alias = std::move(alias);
+
+        while (current_.type == TokenType::KeywordJoin ||
+               current_.type == TokenType::KeywordInner ||
+               current_.type == TokenType::KeywordLeft ||
+               current_.type == TokenType::KeywordRight) {
+            QueryAST::Select::JoinClause join;
+            join.join_type = "INNER";
+            if (current_.type == TokenType::KeywordLeft) {
+                join.join_type = "LEFT";
+                consume();
+                if (current_.type == TokenType::KeywordOuter) consume();
+            } else if (current_.type == TokenType::KeywordRight) {
+                join.join_type = "RIGHT";
+                consume();
+                if (current_.type == TokenType::KeywordOuter) consume();
+            } else if (current_.type == TokenType::KeywordInner) {
+                consume();
+            }
+            if (current_.type == TokenType::KeywordJoin) {
+                consume();
+            }
+            auto [jt, ja] = parse_table_ref();
+            join.table = std::move(jt);
+            join.alias = std::move(ja);
+            if (current_.type != TokenType::KeywordOn) {
+                throw common::Exception{
+                    "Parser: expected ON after JOIN",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume();
+            join.on = parse_expression();
+            select.joins.push_back(std::move(join));
+        }
     }
 
     if (current_.type == TokenType::KeywordWhere) {
@@ -117,7 +158,9 @@ void Parser::parse_insert(std::unique_ptr<QueryAST>& ast) {
     }
     consume(); // consume INTO
     insert.table = parse_table_name();
-    insert.columns = parse_column_list();
+    if (current_.type == TokenType::LParen) {
+        insert.columns = parse_column_list();
+    }
     if (current_.type == TokenType::KeywordValues) {
         consume(); // consume VALUES
         insert.values = parse_value_list();
@@ -130,22 +173,135 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
     consume(); // consume CREATE
     if (current_.type == TokenType::KeywordDatabase) {
         consume(); // consume DATABASE
+        create.if_not_exists = parse_if_not_exists();
         create.database_name = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
+        create.if_not_exists = parse_if_not_exists();
         create.table_name = parse_table_name();
+        create.table = create.table_name;
         create.columns = parse_column_definitions();
+        if (current_.type == TokenType::KeywordEngine) {
+            consume(); // consume ENGINE
+            if (current_.type != TokenType::Eq) {
+                throw common::Exception{
+                    "Parser: expected = after ENGINE",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // consume =
+            create.engine = parse_table_name();
+        }
     }
 }
 
 void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
     auto& drop = ast->drop;
 
-    consume(); // consume DROP
+    if (current_.type == TokenType::KeywordTruncate) {
+        drop.kind = QueryAST::Drop::Kind::Truncate;
+        consume();
+    } else if (current_.type == TokenType::KeywordDetach) {
+        drop.kind = QueryAST::Drop::Kind::Detach;
+        consume();
+    } else {
+        drop.kind = QueryAST::Drop::Kind::Drop;
+        consume(); // consume DROP
+    }
+
     if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
-        drop.table_name = parse_table_name();
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
     }
+}
+
+void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
+    auto& alter = ast->alter;
+
+    consume(); // consume ALTER
+    if (current_.type != TokenType::KeywordTable) {
+        throw common::Exception{
+            "Parser: expected TABLE after ALTER",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // consume TABLE
+    alter.table = parse_table_name();
+
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        ASTAlterQuery::AlterCommand cmd;
+
+        if (current_.type == TokenType::KeywordAdd) {
+            consume();
+            if (current_.type == TokenType::KeywordColumn) {
+                consume();
+            }
+            cmd.type = ASTAlterQuery::AlterCommand::Type::ADD_COLUMN;
+            cmd.column_name = parse_table_name();
+            cmd.column_type = parse_table_name();
+        } else if (current_.type == TokenType::KeywordDrop) {
+            consume();
+            if (current_.type == TokenType::KeywordColumn) {
+                consume();
+            }
+            cmd.type = ASTAlterQuery::AlterCommand::Type::DROP_COLUMN;
+            cmd.column_name = parse_table_name();
+        } else if (current_.type == TokenType::KeywordModify) {
+            consume();
+            if (current_.type == TokenType::KeywordColumn) {
+                consume();
+            }
+            cmd.type = ASTAlterQuery::AlterCommand::Type::MODIFY_COLUMN;
+            cmd.column_name = parse_table_name();
+            cmd.column_type = parse_table_name();
+        } else {
+            throw common::Exception{
+                "Parser: unknown ALTER command",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+
+        alter.commands.push_back(std::move(cmd));
+
+        if (current_.type == TokenType::Comma) {
+            consume();
+        } else {
+            break;
+        }
+    }
+}
+
+auto Parser::parse_if_not_exists() -> bool {
+    if (current_.type == TokenType::KeywordIf) {
+        consume();
+        if (current_.type != TokenType::KeywordNot) {
+            throw common::Exception{
+                "Parser: expected NOT after IF",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        if (current_.type != TokenType::KeywordExists) {
+            throw common::Exception{
+                "Parser: expected EXISTS after IF NOT",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::parse_if_exists() -> bool {
+    if (current_.type == TokenType::KeywordIf) {
+        consume();
+        if (current_.type != TokenType::KeywordExists) {
+            throw common::Exception{
+                "Parser: expected EXISTS after IF",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        return true;
+    }
+    return false;
 }
 
 void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
@@ -190,7 +346,6 @@ void Parser::parse_use(std::unique_ptr<QueryAST>& ast) {
 // ── Expression parsing ──
 
 auto Parser::parse_expression() -> std::shared_ptr<ASTExpr> {
-    std::fprintf(stderr, "parse_expression at token='%s' type=%d\n", current_.value.c_str(), static_cast<int>(current_.type));
     auto left = parse_comparison();
 
     while (current_.type == TokenType::KeywordAnd ||
@@ -213,8 +368,31 @@ auto Parser::parse_comparison() -> std::shared_ptr<ASTExpr> {
 
     while (current_.type == TokenType::Eq || current_.type == TokenType::Ne ||
            current_.type == TokenType::Gt || current_.type == TokenType::Lt ||
-           current_.type == TokenType::Ge || current_.type == TokenType::Le) {
+           current_.type == TokenType::Ge || current_.type == TokenType::Le ||
+           current_.type == TokenType::KeywordIn) {
         auto op = std::make_shared<ASTBinaryOp>();
+        if (current_.type == TokenType::KeywordIn) {
+            op->op = ASTBinaryOp::Op::In;
+            consume();
+            if (current_.type != TokenType::LParen) {
+                throw common::Exception{
+                    "Parser: expected ( after IN",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume();
+            auto subq = std::make_shared<ASTSubQueryExpr>();
+            subq->query = parse_subquery();
+            if (current_.type != TokenType::RParen) {
+                throw common::Exception{
+                    "Parser: expected ) after IN subquery",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume();
+            op->left = left;
+            op->right = subq;
+            left = op;
+            continue;
+        }
         switch (current_.type) {
             case TokenType::Eq: op->op = ASTBinaryOp::Op::Eq; break;
             case TokenType::Ne: op->op = ASTBinaryOp::Op::Ne; break;
@@ -264,6 +442,17 @@ auto Parser::parse_term() -> std::shared_ptr<ASTExpr> {
 auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
     if (current_.type == TokenType::LParen) {
         consume(); // consume (
+        if (current_.type == TokenType::KeywordSelect) {
+            auto subq = std::make_shared<ASTSubQueryExpr>();
+            subq->query = parse_subquery();
+            if (current_.type != TokenType::RParen) {
+                throw common::Exception{
+                    "Parser: expected ) after subquery",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume();
+            return subq;
+        }
         auto expr = parse_expression();
         if (current_.type != TokenType::RParen) {
             throw common::Exception{
@@ -332,9 +521,65 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
         current_.type == TokenType::KeywordAvg ||
         current_.type == TokenType::KeywordMin ||
         current_.type == TokenType::KeywordMax) {
-        auto col = std::make_shared<ASTColumnRef>();
-        col->column = current_.value;
+        std::string name = current_.value;
         consume();
+        if (current_.type == TokenType::LParen) {
+            consume();
+            auto func = std::make_shared<ASTFunction>();
+            func->name = name;
+            static const std::unordered_set<std::string> aggs = {
+                "COUNT", "SUM", "AVG", "MIN", "MAX"};
+            std::string upper = name;
+            std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+            func->is_aggregate = aggs.count(upper) > 0;
+            if (current_.type == TokenType::Star) {
+                auto star = std::make_shared<ASTColumnRef>();
+                star->column = "*";
+                func->args.push_back(star);
+                consume();
+            } else if (current_.type != TokenType::RParen) {
+                func->args.push_back(parse_expression());
+                while (current_.type == TokenType::Comma) {
+                    consume();
+                    func->args.push_back(parse_expression());
+                }
+            }
+            if (current_.type != TokenType::RParen) {
+                throw common::Exception{
+                    "Parser: expected ) after function call",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume();
+            if (current_.type == TokenType::KeywordOver) {
+                consume();
+                if (current_.type != TokenType::LParen) {
+                    throw common::Exception{
+                        "Parser: expected ( after OVER",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                consume();
+                ASTFunction::WindowSpec spec;
+                parse_window_spec(spec);
+                if (current_.type != TokenType::RParen) {
+                    throw common::Exception{
+                        "Parser: expected ) after OVER clause",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                consume();
+                func->window = std::move(spec);
+            }
+            return func;
+        }
+        if (current_.type == TokenType::Dot) {
+            consume();
+            auto col = std::make_shared<ASTColumnRef>();
+            col->table = name;
+            col->column = current_.value;
+            consume();
+            return col;
+        }
+        auto col = std::make_shared<ASTColumnRef>();
+        col->column = name;
         return col;
     }
 
@@ -366,11 +611,53 @@ auto Parser::parse_table_name() -> std::string {
     return name;
 }
 
+auto Parser::parse_table_ref() -> std::pair<std::string, std::string> {
+    std::string table = parse_table_name();
+    std::string alias;
+    if (current_.type == TokenType::Identifier) {
+        alias = current_.value;
+        consume();
+    }
+    return {table, alias};
+}
+
+auto Parser::parse_subquery() -> std::shared_ptr<QueryAST> {
+    auto sub = std::make_unique<QueryAST>();
+    sub->query_type = QueryAST::QueryType::SELECT;
+    parse_select(sub);
+    return sub;
+}
+
+void Parser::parse_window_spec(ASTFunction::WindowSpec& spec) {
+    if (current_.type == TokenType::KeywordPartition) {
+        consume();
+        if (current_.type != TokenType::KeywordBy) {
+            throw common::Exception{
+                "Parser: expected BY after PARTITION",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        spec.partition_by = parse_expression_list();
+    }
+    if (current_.type == TokenType::KeywordOrder) {
+        consume();
+        if (current_.type != TokenType::KeywordBy) {
+            throw common::Exception{
+                "Parser: expected BY after ORDER",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        auto orders = parse_order_by_list();
+        for (auto& ob : orders) {
+            spec.order_by.emplace_back(ob.column,
+                ob.direction == OrderBy::Direction::DESC);
+        }
+    }
+}
+
 auto Parser::parse_column_list() -> std::vector<std::string> {
     if (current_.type != TokenType::LParen) {
-        throw common::Exception{
-            "Parser: expected (",
-            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        return {};
     }
     consume(); // consume (
     std::vector<std::string> cols;

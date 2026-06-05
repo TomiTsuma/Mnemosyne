@@ -15,6 +15,10 @@ void Context::register_storage(std::string name,
     storages_[std::move(name)] = std::move(storage);
 }
 
+void Context::unregister_storage(std::string_view name) {
+    storages_.erase(std::string{name});
+}
+
 void Context::register_database(std::string name,
                                  std::shared_ptr<databases::IDatabase> db) {
     databases_[std::move(name)] = std::move(db);
@@ -58,7 +62,8 @@ void Context::set_setting(std::string_view name, common::SettingValueType value)
 
 Context::Context(std::shared_ptr<databases::IDatabase> db) {
     if (db) {
-        databases_["default"] = std::move(db);
+        current_db_ = db->name();
+        databases_[current_db_] = std::move(db);
     }
 }
 

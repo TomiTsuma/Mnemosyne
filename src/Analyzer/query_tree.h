@@ -8,6 +8,7 @@
 #include <vector>
 #include <variant>
 #include <optional>
+#include "Parsers/ast.h"
 
 namespace mnemo::analyzer {
 
@@ -46,6 +47,38 @@ public:
     std::vector<std::string> columns; // Column names for CREATE TABLE
 
     [[nodiscard]] auto node_type() const -> std::string override { return "Table"; }
+};
+
+class DDLNode final : public IQueryTreeNode {
+public:
+    enum class Kind {
+        CreateDatabase,
+        CreateTable,
+        Insert,
+        Drop,
+        Truncate,
+        Detach,
+        Alter,
+        ShowDatabases,
+        ShowTables,
+        Describe,
+        Explain,
+        Use,
+    };
+
+    Kind kind = Kind::CreateTable;
+    std::string database;
+    std::string table;
+    bool if_not_exists = false;
+    bool if_exists     = false;
+    std::string engine = "Memory";
+    std::vector<parsers::ColumnDef> column_defs;
+    std::vector<std::string> insert_columns;
+    std::vector<std::vector<std::string>> insert_values;
+    std::vector<parsers::ASTAlterQuery::AlterCommand> alter_commands;
+    std::string use_database;
+
+    [[nodiscard]] auto node_type() const -> std::string override { return "DDL"; }
 };
 
 class JoinNode final : public IQueryTreeNode {

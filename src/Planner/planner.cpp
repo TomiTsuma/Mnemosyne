@@ -29,61 +29,15 @@ auto Planner::plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
         if (select) {
             plan->root = plan_select(*select)->root;
         }
+    } else if (type == "DDL") {
+        auto* ddl = dynamic_cast<analyzer::DDLNode*>(tree.get());
+        if (ddl) {
+            plan->root = plan_ddl(*ddl)->root;
+        }
     } else if (type == "Table") {
         auto* table = dynamic_cast<analyzer::TableNode*>(tree.get());
         if (table) {
-            // Check if this is a DDL command (table name is "unknown" or special marker)
-            if (table->table == "unknown" && table->database == "unknown") {
-                // EXPLAIN command - create a generic DDL node
-                auto node = std::make_shared<PlanNode>();
-                node->node_type = PlanNode::Type::EXPLAIN;
-                node->name = "explain";
-                plan->root = node;
-            } else if (table->table == "show_tables") {
-                // SHOW TABLES command
-                auto node = std::make_shared<PlanNode>();
-                node->node_type = PlanNode::Type::SHOW;
-                node->show_type = "TABLES";
-                plan->root = node;
-            } else if (table->table == "show_databases") {
-                // SHOW DATABASES command
-                auto node = std::make_shared<PlanNode>();
-                node->node_type = PlanNode::Type::SHOW;
-                node->show_type = "DATABASES";
-                plan->root = node;
-            } else if (table->table == "use_database") {
-                // USE <database> command — the target database name is carried
-                // in the TableNode's database field (set by the analyzer).
-                auto node = std::make_shared<PlanNode>();
-                node->node_type = PlanNode::Type::USE;
-                node->name = table->database;  // target database name
-                plan->root = node;
-            } else if (table->table.empty() && !table->database.empty()) {
-                // CREATE DATABASE command
-                auto node = std::make_shared<PlanNode>();
-                node->node_type = PlanNode::Type::CREATE;
-                node->name = table->database;
-                plan->root = node;
-            } else if (!table->table.empty() && table->database == context_.current_database()) {
-                // This could be CREATE TABLE or DROP TABLE - check if table exists
-                // For now, treat as regular table scan if table exists, otherwise as DDL
-                auto storage = context_.get_storage(table->table);
-                if (storage) {
-                    // Table exists - regular scan
-                    plan->root = plan_table(*table)->root;
-                } else {
-                    // Table doesn't exist - assume it's CREATE TABLE
-                    auto node = std::make_shared<PlanNode>();
-                    node->node_type = PlanNode::Type::CREATE;
-                    node->table_name = table->table;
-                    node->columns = table->columns; // Pass column definitions
-                    node->name = "create_table";
-                    plan->root = node;
-                }
-            } else {
-                // Regular table scan
-                plan->root = plan_table(*table)->root;
-            }
+            plan->root = plan_table(*table)->root;
         }
     } else if (type == "Join") {
         auto* join = dynamic_cast<analyzer::JoinNode*>(tree.get());
@@ -314,8 +268,82 @@ std::shared_ptr<ExecutionPlan> Planner::plan_table(analyzer::TableNode& node) {
     auto scan = std::make_shared<PlanNode>(PlanNode::Type::SCAN);
     scan->name = node.database.empty() ? node.table
         : node.database + "." + node.table;
-    scan->table = node.table; // Set table field for SCAN processor
+    scan->table = node.table;
     plan->root = scan;
+    return plan;
+}
+
+std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
+    auto plan = std::make_shared<ExecutionPlan>(++plan_id_, "ddl-" + std::to_string(plan_id_));
+    auto plan_node = std::make_shared<PlanNode>();
+
+    switch (node.kind) {
+        case analyzer::DDLNode::Kind::CreateDatabase:
+            plan_node->node_type = PlanNode::Type::CREATE;
+            plan_node->name = node.database;
+            plan_node->if_not_exists = node.if_not_exists;
+            break;
+        case analyzer::DDLNode::Kind::CreateTable:
+            plan_node->node_type = PlanNode::Type::CREATE;
+            plan_node->table_name = node.table;
+            plan_node->if_not_exists = node.if_not_exists;
+            plan_node->engine = node.engine;
+            plan_node->column_defs = node.column_defs;
+            for (const auto& col : node.column_defs) {
+                plan_node->columns.push_back(col.name);
+            }
+            break;
+        case analyzer::DDLNode::Kind::Insert:
+            plan_node->node_type = PlanNode::Type::INSERT;
+            plan_node->table = node.table;
+            plan_node->columns = node.insert_columns;
+            plan_node->values = node.insert_values;
+            break;
+        case analyzer::DDLNode::Kind::Drop:
+            plan_node->node_type = PlanNode::Type::DROP;
+            plan_node->table_name = node.table;
+            plan_node->if_exists = node.if_exists;
+            plan_node->drop_kind = parsers::QueryAST::Drop::Kind::Drop;
+            break;
+        case analyzer::DDLNode::Kind::Truncate:
+            plan_node->node_type = PlanNode::Type::TRUNCATE;
+            plan_node->table_name = node.table;
+            plan_node->if_exists = node.if_exists;
+            plan_node->drop_kind = parsers::QueryAST::Drop::Kind::Truncate;
+            break;
+        case analyzer::DDLNode::Kind::Detach:
+            plan_node->node_type = PlanNode::Type::DETACH;
+            plan_node->table_name = node.table;
+            plan_node->if_exists = node.if_exists;
+            plan_node->drop_kind = parsers::QueryAST::Drop::Kind::Detach;
+            break;
+        case analyzer::DDLNode::Kind::Alter:
+            plan_node->node_type = PlanNode::Type::ALTER;
+            plan_node->table_name = node.table;
+            plan_node->alter_commands = node.alter_commands;
+            break;
+        case analyzer::DDLNode::Kind::ShowDatabases:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "DATABASES";
+            break;
+        case analyzer::DDLNode::Kind::ShowTables:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TABLES";
+            break;
+        case analyzer::DDLNode::Kind::Describe:
+            plan_node->node_type = PlanNode::Type::DESCRIBE;
+            plan_node->table_name = node.table;
+            break;
+        case analyzer::DDLNode::Kind::Explain:
+            plan_node->node_type = PlanNode::Type::EXPLAIN;
+            break;
+        case analyzer::DDLNode::Kind::Use:
+            plan_node->node_type = PlanNode::Type::USE;
+            plan_node->name = node.use_database;
+            break;
+    }
+
+    plan->root = plan_node;
     return plan;
 }
 

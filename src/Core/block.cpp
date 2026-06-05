@@ -83,7 +83,13 @@ auto Block::column_count() const -> size_t {
 }
 
 auto Block::row_count() const -> size_t {
-    return row_count_;
+    size_t count = 0;
+    for (const auto& entry : columns_) {
+        if (entry.column) {
+            count = std::max(count, entry.column->size());
+        }
+    }
+    return count;
 }
 
 auto Block::has_columns() const -> bool {
@@ -110,10 +116,11 @@ Field Block::get_row_value(size_t col_idx, size_t row_idx) const {
             " out of range",
             static_cast<int>(ErrorCode::LOGICAL_ERROR)};
     }
-    if (row_idx >= row_count_) {
+    const auto rows = row_count();
+    if (row_idx >= rows) {
         throw Exception{
             "Block::get_row_value: row index " + std::to_string(row_idx) +
-            " out of range (rows: " + std::to_string(row_count_) + ")",
+            " out of range (rows: " + std::to_string(rows) + ")",
             static_cast<int>(ErrorCode::LOGICAL_ERROR)};
     }
     return columns_[col_idx].column->get(row_idx);

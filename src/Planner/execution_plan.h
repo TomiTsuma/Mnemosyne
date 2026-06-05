@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include "DataTypes/data_type.h"
+#include "Parsers/ast.h"
 
 namespace mnemo::planner {
 
@@ -45,8 +46,11 @@ struct PlanNode {
         SORT,       // ORDER BY
         LIMIT,      // LIMIT / OFFSET
         INSERT,     // INSERT INTO
-        CREATE,     // CREATE TABLE
+        CREATE,     // CREATE TABLE / DATABASE
         DROP,       // DROP TABLE
+        ALTER,      // ALTER TABLE
+        TRUNCATE,   // TRUNCATE TABLE
+        DETACH,     // DETACH TABLE
         SHOW,       // SHOW TABLES / DATABASES
         DESCRIBE,   // DESCRIBE TABLE
         EXPLAIN,    // EXPLAIN PLAN
@@ -70,6 +74,14 @@ struct PlanNode {
     std::string   show_type;          // what to show (SHOW)
     std::string   explain_plan;       // plan description (EXPLAIN)
     std::vector<std::vector<std::string>> values;  // row data (INSERT)
+
+    // DDL metadata
+    bool if_not_exists = false;
+    bool if_exists     = false;
+    std::string engine = "Memory";
+    parsers::QueryAST::Drop::Kind drop_kind = parsers::QueryAST::Drop::Kind::Drop;
+    std::vector<parsers::ColumnDef> column_defs;
+    std::vector<parsers::ASTAlterQuery::AlterCommand> alter_commands;
 
     // Per-operator metadata
     struct FilterSpec {

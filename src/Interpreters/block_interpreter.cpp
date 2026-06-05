@@ -2,7 +2,11 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Interpreters/blockInterpreter.h"
-#include "Interpreters/context.h"
+#include "Interpreters/interpreter_ddl_utils.h"
+#include "Interpreters/interpreter_create_query.h"
+#include "Interpreters/interpreter_insert_query.h"
+#include "Interpreters/interpreter_drop_query.h"
+#include "Interpreters/interpreter_alter_query.h"
 #include "Planner/execution_plan.h"
 #include "Processors/processors_source.h"
 #include "Processors/processor.h"
@@ -281,6 +285,9 @@ auto BlockInterpreter::create_processor_for_node(
         case planner::PlanNode::Type::INSERT:
         case planner::PlanNode::Type::CREATE:
         case planner::PlanNode::Type::DROP:
+        case planner::PlanNode::Type::ALTER:
+        case planner::PlanNode::Type::TRUNCATE:
+        case planner::PlanNode::Type::DETACH:
         case planner::PlanNode::Type::SHOW:
         case planner::PlanNode::Type::DESCRIBE:
         case planner::PlanNode::Type::EXPLAIN:
@@ -304,62 +311,25 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
 
     switch (node->node_type) {
         case planner::PlanNode::Type::CREATE: {
-            // CREATE DATABASE or CREATE TABLE
-            if (!node->table_name.empty()) {
-                // CREATE TABLE
-                auto storage = context_.get_storage(node->table_name);
-                if (!storage) {
-                    // Create new table in current database
-                    auto current_db = context_.current_database();
-                    if (current_db.empty()) {
-                        // If no current database, use "default" or the first available
-                        current_db = "default";
-                        context_.set_current_database(current_db);
-                    }
-                    auto db = context_.get_database(current_db);
-                    if (!db) {
-                        // If database doesn't exist, create it
-                        auto& db_manager = databases::DatabaseManager::instance();
-                        db_manager.create_database(current_db);
-                        db = db_manager.get_database(current_db);
-                        if (db) {
-                            context_.register_database(current_db, db);
-                        }
-                    }
-                    if (db) {
-                        // Create table with specified columns
-                        std::unordered_map<std::string, datatypes::DataTypePtr> columns;
-                        for (auto& col : node->columns) {
-                            // Default to String type for now
-                            columns[col] = datatypes::get_data_type("String");
-                        }
-                        db->create_table(node->table_name, columns, "Memory");
-                        
-                        // Register the storage in context
-                        auto new_storage = db->table(node->table_name);
-                        if (new_storage) {
-                            context_.register_storage(node->table_name, new_storage);
-                        }
-                    }
-                }
-            } else {
-                // CREATE DATABASE
-                auto& db_manager = databases::DatabaseManager::instance();
-                db_manager.create_database(node->name);
-                // Register the database in context
-                auto db = db_manager.get_database(node->name);
-                if (db) {
-                    context_.register_database(node->name, db);
-                }
-            }
+            auto block = InterpreterCreateQuery::execute(context_, ddl_utils::query_from_plan(*node));
+            result_.block = std::make_shared<core::Block>(std::move(block));
             break;
         }
-        case planner::PlanNode::Type::DROP: {
-            // DROP TABLE
-            auto db = context_.get_database(context_.current_database());
-            if (db && !node->table_name.empty()) {
-                db->drop_table(node->table_name);
-            }
+        case planner::PlanNode::Type::INSERT: {
+            auto block = InterpreterInsertQuery::execute(context_, ddl_utils::query_from_plan(*node));
+            result_.block = std::make_shared<core::Block>(std::move(block));
+            break;
+        }
+        case planner::PlanNode::Type::DROP:
+        case planner::PlanNode::Type::TRUNCATE:
+        case planner::PlanNode::Type::DETACH: {
+            auto block = InterpreterDropQuery::execute(context_, ddl_utils::query_from_plan(*node));
+            result_.block = std::make_shared<core::Block>(std::move(block));
+            break;
+        }
+        case planner::PlanNode::Type::ALTER: {
+            auto block = InterpreterAlterQuery::execute(context_, ddl_utils::query_from_plan(*node));
+            result_.block = std::make_shared<core::Block>(std::move(block));
             break;
         }
         case planner::PlanNode::Type::SHOW: {
@@ -389,30 +359,24 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
             break;
         }
         case planner::PlanNode::Type::DESCRIBE: {
-            // DESCRIBE TABLE
-            auto storage = context_.get_storage(node->table_name);
+            auto storage = ddl_utils::resolve_storage(context_, node->table_name);
             if (storage) {
                 auto columns = storage->columns();
                 auto col_types = storage->column_types();
-                // Results would be returned via result_.block
-            }
-            break;
-        }
-        case planner::PlanNode::Type::INSERT: {
-            // INSERT INTO
-            auto storage = context_.get_storage(node->table);
-            if (storage) {
-                // For now, skip INSERT execution to avoid type conversion issues
-                // This needs proper type handling based on column types
-                (void)storage;
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                for (const auto& col_name : columns) {
+                    name_col->insert(core::Field(col_name));
+                    type_col->insert(core::Field(col_types.at(col_name)->name()));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("type", type_col);
+                result_.block = block;
             }
             break;
         }
         case planner::PlanNode::Type::USE: {
-            // USE <database> — set the session's current database.
-            // The target database name is carried in node->name (set by the planner).
-            // Fail loudly if the database is unknown rather than silently switching
-            // to a non-existent context (no-fallback principle).
             const std::string& target = node->name;
             if (!context_.get_database(target)) {
                 throw common::Exception{
@@ -420,6 +384,7 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                     static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
             }
             context_.set_current_database(target);
+            result_.block = std::make_shared<core::Block>(ddl_utils::make_ok_block());
             break;
         }
         default:

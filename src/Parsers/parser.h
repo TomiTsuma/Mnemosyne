@@ -49,6 +49,9 @@ protected:
     auto parse_insert(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_create(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_drop(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_alter(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_if_not_exists() -> bool;
+    auto parse_if_exists() -> bool;
     auto parse_show(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_describe(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_explain(std::unique_ptr<QueryAST>& ast) -> void;
@@ -62,6 +65,9 @@ protected:
 
     // ── Clause parsing helpers ──
     auto parse_table_name() -> std::string;
+    auto parse_table_ref() -> std::pair<std::string, std::string>;
+    auto parse_subquery() -> std::shared_ptr<QueryAST>;
+    auto parse_window_spec(ASTFunction::WindowSpec& spec) -> void;
     auto parse_database_name() -> std::string;
     auto parse_column_list() -> std::vector<std::string>;
     auto parse_column_definitions() -> std::vector<ColumnDef>;

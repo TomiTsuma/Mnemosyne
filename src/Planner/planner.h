@@ -29,6 +29,7 @@ public:
     std::shared_ptr<ExecutionPlan> plan_sort(analyzer::SortNode& node);
     std::shared_ptr<ExecutionPlan> plan_limit(analyzer::LimitNode& node);
     std::shared_ptr<ExecutionPlan> plan_table(analyzer::TableNode& node);
+    std::shared_ptr<ExecutionPlan> plan_ddl(analyzer::DDLNode& node);
 
     // Cost estimation
     auto estimate_cost(std::shared_ptr<ExecutionPlan> plan) -> double;

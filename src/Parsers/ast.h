@@ -23,6 +23,7 @@ class ASTExpr;
 class ASTLiteral;
 class ASTColumnRef;
 class ASTFunction;
+class QueryAST;
 class ASTBinaryOp;
 class ASTUnaryOp;
 class ASTAlias;
@@ -84,24 +85,55 @@ public:
     [[nodiscard]] auto to_string() const -> std::string override { return "ASTSelectQuery"; }
 };
 
-// ── ASTCreateTable ──
-class ASTCreateTable final : public ASTNode {
-public:
+// ── ASTDDLQuery — shared fields for DDL statements ──
+struct ASTDDLQuery {
     std::string database;
     std::string table;
+    bool if_not_exists = false;
+    bool if_exists     = false;
+};
+
+// ── ASTCreateTable / ASTCreateQuery ──
+class ASTCreateTable final : public ASTNode, public ASTDDLQuery {
+public:
     struct ColumnDef {
         std::string name;
         std::string type_name;
-        bool        nullable;
+        bool        nullable = false;
         std::optional<std::string> comment;
     };
     std::vector<ColumnDef> columns;
-    std::string engine;
+    std::string engine = "Memory";
     std::string order_by;
     std::string primary_key;
 
     void accept(const IASTVisitor& visitor) override {}
     [[nodiscard]] auto to_string() const -> std::string override { return "ASTCreateTable"; }
+};
+
+// ── ASTDropQuery ──
+class ASTDropQuery final : public ASTNode, public ASTDDLQuery {
+public:
+    enum class Kind { Drop, Detach, Truncate };
+    Kind kind = Kind::Drop;
+
+    void accept(const IASTVisitor& visitor) override {}
+    [[nodiscard]] auto to_string() const -> std::string override { return "ASTDropQuery"; }
+};
+
+// ── ASTAlterQuery ──
+class ASTAlterQuery final : public ASTNode, public ASTDDLQuery {
+public:
+    struct AlterCommand {
+        enum class Type { ADD_COLUMN, DROP_COLUMN, MODIFY_COLUMN };
+        Type type = Type::ADD_COLUMN;
+        std::string column_name;
+        std::string column_type;
+    };
+    std::vector<AlterCommand> commands;
+
+    void accept(const IASTVisitor& visitor) override {}
+    [[nodiscard]] auto to_string() const -> std::string override { return "ASTAlterQuery"; }
 };
 
 // ── ASTInsertQuery ──
@@ -146,10 +178,16 @@ public:
 // ── ASTFunction ──
 class ASTFunction : public ASTExpr {
 public:
+    struct WindowSpec {
+        std::vector<std::shared_ptr<ASTExpr>> partition_by;
+        std::vector<std::pair<std::string, bool>> order_by;
+    };
+
     std::string    name;
     std::vector<std::shared_ptr<ASTExpr>> args;
-    bool            is_aggregate;
+    bool            is_aggregate = false;
     std::vector<std::shared_ptr<ASTExpr>> distinct_args;
+    std::optional<WindowSpec> window;
 
     void accept(const IASTVisitor& visitor) override {}
     [[nodiscard]] std::string to_string() const override;
@@ -158,7 +196,7 @@ public:
 // ── ASTBinaryOp ──
 class ASTBinaryOp : public ASTExpr {
 public:
-    enum class Op { Add, Sub, Mul, Div, Eq, Ne, Gt, Lt, Ge, Le, And, Or, Like, NotLike };
+    enum class Op { Add, Sub, Mul, Div, Eq, Ne, Gt, Lt, Ge, Le, And, Or, Like, NotLike, In };
     Op       op;
     std::shared_ptr<ASTExpr> left;
     std::shared_ptr<ASTExpr> right;
@@ -198,6 +236,19 @@ public:
     [[nodiscard]] std::string to_string() const override;
 };
 
+// ── ASTSubQueryExpr — subquery used as an expression (WHERE IN, scalar) ──
+class ASTSubQueryExpr final : public ASTExpr {
+public:
+    std::shared_ptr<QueryAST> query;
+
+    void accept(const IASTVisitor& visitor) override {}
+    [[nodiscard]] std::string to_string() const override;
+};
+
+inline std::string ASTSubQueryExpr::to_string() const {
+    return query ? "(subquery)" : "(null subquery)";
+}
+
 // ── ASTFromClause ──
 class ASTFromClause final : public ASTNode {
 public:
@@ -216,7 +267,7 @@ public:
 // ── QueryAST — top-level parsed query (inherits ASTNode for polymorphism) ──
 class QueryAST final : public ASTNode {
 public:
-    enum class QueryType { SELECT, INSERT, CREATE, DROP, SHOW, DESCRIBE, EXPLAIN, USE };
+    enum class QueryType { SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -225,8 +276,17 @@ public:
     }
 
     struct Select {
+        struct JoinClause {
+            std::string join_type = "INNER";
+            std::string table;
+            std::string alias;
+            std::shared_ptr<ASTExpr> on;
+        };
+
         std::vector<std::shared_ptr<ASTExpr>> columns;
         std::string table;
+        std::string table_alias;
+        std::vector<JoinClause> joins;
         std::shared_ptr<ASTExpr> where;
         std::vector<std::shared_ptr<ASTExpr>> group_by;
         std::shared_ptr<ASTExpr> having;
@@ -240,15 +300,21 @@ public:
         std::vector<std::vector<std::string>> values;
     } insert;
 
-    struct Create {
+    struct Create : ASTDDLQuery {
         std::string database_name;
         std::string table_name;
         std::vector<ColumnDef> columns;
+        std::string engine = "Memory";
     } create;
 
-    struct Drop {
-        std::string table_name;
+    struct Drop : ASTDDLQuery {
+        enum class Kind { Drop, Detach, Truncate };
+        Kind kind = Kind::Drop;
     } drop;
+
+    struct Alter : ASTDDLQuery {
+        std::vector<ASTAlterQuery::AlterCommand> commands;
+    } alter;
 
     struct Show {
         enum class ShowType { DATABASES, TABLES };

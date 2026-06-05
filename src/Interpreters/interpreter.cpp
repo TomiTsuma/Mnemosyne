@@ -112,6 +112,13 @@ auto Interpreter::create_processor(Plan plan,
                 root->table_name, *context);
             return drop_proc;
         }
+        case PlanNode::Type::ALTER:
+        case PlanNode::Type::TRUNCATE:
+        case PlanNode::Type::DETACH: {
+            auto drop_proc = std::make_shared<processors::DropProcessor>(
+                root->table_name, *context);
+            return drop_proc;
+        }
         case PlanNode::Type::SHOW: {
             auto show_proc = std::make_shared<processors::ShowProcessor>(
                 root->show_type, *context);

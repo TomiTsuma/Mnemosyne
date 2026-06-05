@@ -219,7 +219,25 @@ std::string format_query(const QueryAST& query) {
             break;
         }
         case QueryAST::QueryType::DROP: {
-            out << "DROP TABLE " << query.drop.table_name;
+            out << "DROP TABLE " << query.drop.table;
+            break;
+        }
+        case QueryAST::QueryType::ALTER: {
+            out << "ALTER TABLE " << query.alter.table;
+            for (const auto& cmd : query.alter.commands) {
+                out << " ";
+                switch (cmd.type) {
+                    case ASTAlterQuery::AlterCommand::Type::ADD_COLUMN:
+                        out << "ADD COLUMN " << cmd.column_name << " " << cmd.column_type;
+                        break;
+                    case ASTAlterQuery::AlterCommand::Type::DROP_COLUMN:
+                        out << "DROP COLUMN " << cmd.column_name;
+                        break;
+                    case ASTAlterQuery::AlterCommand::Type::MODIFY_COLUMN:
+                        out << "MODIFY COLUMN " << cmd.column_name << " " << cmd.column_type;
+                        break;
+                }
+            }
             break;
         }
         case QueryAST::QueryType::SHOW: {

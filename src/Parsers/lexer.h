@@ -27,6 +27,9 @@ enum class TokenType {
     KeywordAsc, KeywordSum, KeywordCount,
     KeywordAvg, KeywordMin, KeywordMax,
     KeywordDatabase, KeywordUse,
+    KeywordAlter, KeywordIf, KeywordExists, KeywordEngine,
+    KeywordTruncate, KeywordDetach, KeywordAdd, KeywordColumn, KeywordModify,
+    KeywordIn, KeywordOver, KeywordPartition,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,

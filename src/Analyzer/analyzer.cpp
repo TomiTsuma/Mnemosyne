@@ -2,6 +2,7 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Analyzer/analyzer.h"
+#include "Interpreters/interpreter_ddl_utils.h"
 #include "Common/exceptions.h"
 #include "Functions/function_factory.h"
 #include "AggregateFunctions/aggregate_function_factory.h"
@@ -21,25 +22,43 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
 
     switch (ast->query_type) {
         case parsers::QueryAST::QueryType::SELECT: {
-            // Resolve table reference
-            if (!ast->select.table.empty()) {
-                auto storage = context_.get_storage(ast->select.table);
+            auto register_table = [&](const std::string& table, const std::string& alias) {
+                auto storage = interpreters::ddl_utils::resolve_storage(context_, table);
                 if (!storage) {
-                    result.errors.push_back("Unknown table: " + ast->select.table);
-                    result.valid = false;
-                    return result;
+                    result.errors.push_back("Unknown table: " + table);
+                    return;
                 }
-                result.tables[ast->select.table] = Context::TableInfo{ast->select.table, context_.current_database()};
-                
-                // Resolve columns from the table
+                const std::string key = alias.empty() ? table : alias;
+                result.tables[key] = Context::TableInfo{table, context_.current_database()};
+
                 auto cols = storage->columns();
                 auto col_types = storage->column_types();
                 for (const auto& col_name : cols) {
-                    result.columns[col_name] = Context::ColumnInfo{ast->select.table, ""};
-                    if (col_types.find(col_name) != col_types.end()) {
-                        result.column_types[col_name] = col_types.at(col_name);
+                    const std::string full_key = table + "." + col_name;
+                    result.columns[full_key] = Context::ColumnInfo{table, col_name};
+                    if (col_types.contains(col_name)) {
+                        result.column_types[full_key] = col_types.at(col_name);
+                    }
+                    if (!result.column_types.contains(col_name)) {
+                        result.columns[col_name] = Context::ColumnInfo{table, col_name};
+                        if (col_types.contains(col_name)) {
+                            result.column_types[col_name] = col_types.at(col_name);
+                        }
+                    }
+                    const std::string alias_key = key + "." + col_name;
+                    result.columns[alias_key] = Context::ColumnInfo{table, col_name};
+                    if (col_types.contains(col_name)) {
+                        result.column_types[alias_key] = col_types.at(col_name);
                     }
                 }
+            };
+
+            if (!ast->select.table.empty()) {
+                register_table(ast->select.table,
+                    ast->select.table_alias.empty() ? ast->select.table : ast->select.table_alias);
+            }
+            for (const auto& join : ast->select.joins) {
+                register_table(join.table, join.alias.empty() ? join.table : join.alias);
             }
             
             // Resolve column references in expressions
@@ -62,6 +81,13 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
                 auto having_errors = resolve_expression_columns(result, ast->select.having);
                 result.errors.insert(result.errors.end(), having_errors.begin(), having_errors.end());
             }
+
+            for (const auto& join : ast->select.joins) {
+                if (join.on) {
+                    auto on_errors = resolve_expression_columns(result, join.on);
+                    result.errors.insert(result.errors.end(), on_errors.begin(), on_errors.end());
+                }
+            }
             
             result.valid = result.errors.empty();
             result.analyzed_ast = ast;
@@ -78,6 +104,11 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
             break;
         }
         case parsers::QueryAST::QueryType::DROP: {
+            result.analyzed_ast = ast;
+            result.valid = true;
+            break;
+        }
+        case parsers::QueryAST::QueryType::ALTER: {
             result.analyzed_ast = ast;
             result.valid = true;
             break;
@@ -188,27 +219,58 @@ std::vector<std::string> Analyzer::resolve_expression_columns(
 
     // Handle ASTColumnRef
     if (auto* col_ref = dynamic_cast<parsers::ASTColumnRef*>(expr.get())) {
-        // Handle "*" wildcard - expand to all columns
         if (col_ref->column == "*") {
-            // "*" is valid, no error - it will be expanded during projection
             return errors;
         }
 
-        // Check if column exists
-        std::string key = col_ref->table.empty() ? col_ref->column
-                                                  : col_ref->table + "." + col_ref->column;
-
-        if (result.column_types.find(key) == result.column_types.end()) {
-            // Try just the column name
-            if (result.column_types.find(col_ref->column) == result.column_types.end()) {
-                errors.push_back("Unknown column: " + key);
-                result.unresolved_columns.insert(key);
-            }
+        std::string table_name;
+        if (!col_ref->table.empty()) {
+            auto it = result.tables.find(col_ref->table);
+            table_name = (it != result.tables.end()) ? it->second.name : col_ref->table;
         }
+
+        const std::string key = table_name.empty()
+            ? col_ref->column
+            : table_name + "." + col_ref->column;
+        const std::string alias_key = col_ref->table.empty()
+            ? col_ref->column
+            : col_ref->table + "." + col_ref->column;
+
+        if (!result.column_types.contains(key) &&
+            !result.column_types.contains(alias_key) &&
+            !result.column_types.contains(col_ref->column)) {
+            errors.push_back("Unknown column: " +
+                (col_ref->table.empty() ? col_ref->column : col_ref->table + "." + col_ref->column));
+            result.unresolved_columns.insert(key);
+        }
+    }
+
+    if (dynamic_cast<parsers::ASTSubQueryExpr*>(expr.get())) {
+        return errors;
     }
 
     // Handle ASTFunction (check arguments)
     if (auto* func = dynamic_cast<parsers::ASTFunction*>(expr.get())) {
+        std::string upper = func->name;
+        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+        static const std::unordered_set<std::string> builtins = {
+            "COUNT", "SUM", "AVG", "MIN", "MAX"};
+        if (builtins.count(upper)) {
+            for (auto& arg : func->args) {
+                if (auto* col = dynamic_cast<parsers::ASTColumnRef*>(arg.get())) {
+                    if (col->column == "*") continue;
+                }
+                auto arg_errors = resolve_expression_columns(result, arg);
+                errors.insert(errors.end(), arg_errors.begin(), arg_errors.end());
+            }
+            if (func->window) {
+                for (auto& part : func->window->partition_by) {
+                    auto pe = resolve_expression_columns(result, part);
+                    errors.insert(errors.end(), pe.begin(), pe.end());
+                }
+            }
+            return errors;
+        }
         for (auto& arg : func->args) {
             auto arg_errors = resolve_expression_columns(result, arg);
             errors.insert(errors.end(), arg_errors.begin(), arg_errors.end());
@@ -282,45 +344,91 @@ auto Analyzer::buildQueryTree(AnalyzeResult& result)
             case parsers::QueryAST::QueryType::SELECT:
                 return buildSelectNode(result);
             case parsers::QueryAST::QueryType::INSERT:
-                // For INSERT, pass the table name
-                return buildTableNode(query_ast->insert.table, context_.current_database());
             case parsers::QueryAST::QueryType::CREATE:
-                // For CREATE, pass the database or table name
-                if (!query_ast->create.database_name.empty()) {
-                    return buildTableNode("", query_ast->create.database_name);
-                } else {
-                    // Extract column names from CREATE TABLE
-                    std::vector<std::string> col_names;
-                    for (auto& col_def : query_ast->create.columns) {
-                        col_names.push_back(col_def.name);
-                    }
-                    return buildTableNode(query_ast->create.table_name, context_.current_database(), col_names);
-                }
             case parsers::QueryAST::QueryType::DROP:
-                // For DROP, pass the table name
-                return buildTableNode(query_ast->drop.table_name, context_.current_database());
+            case parsers::QueryAST::QueryType::ALTER:
             case parsers::QueryAST::QueryType::SHOW:
-                // For SHOW, pass the correct marker based on show type
-                if (query_ast->show.show_type == parsers::QueryAST::Show::ShowType::DATABASES) {
-                    return buildTableNode("show_databases", context_.current_database());
-                } else {
-                    return buildTableNode("show_tables", context_.current_database());
-                }
             case parsers::QueryAST::QueryType::DESCRIBE:
-                // For DESCRIBE, pass the table name
-                return buildTableNode(query_ast->describe.table_name, context_.current_database());
             case parsers::QueryAST::QueryType::EXPLAIN:
-                // For EXPLAIN, pass unknown for now
-                return buildTableNode("unknown", "unknown");
             case parsers::QueryAST::QueryType::USE:
-                // For USE, encode the target database in the TableNode: the
-                // "use_database" marker is recognised by the planner, and the
-                // database field carries the name passed to `set_current_database`.
-                return buildTableNode("use_database", query_ast->use.database_name);
+                return buildDDLNode(*query_ast);
         }
     }
 
     return nullptr;
+}
+
+auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
+    -> std::shared_ptr<DDLNode> {
+    auto node = std::make_shared<DDLNode>();
+
+    switch (query_ast.query_type) {
+        case parsers::QueryAST::QueryType::INSERT:
+            node->kind = DDLNode::Kind::Insert;
+            node->table = query_ast.insert.table;
+            node->database = context_.current_database();
+            node->insert_columns = query_ast.insert.columns;
+            node->insert_values = query_ast.insert.values;
+            break;
+        case parsers::QueryAST::QueryType::CREATE:
+            if (!query_ast.create.database_name.empty()) {
+                node->kind         = DDLNode::Kind::CreateDatabase;
+                node->database     = query_ast.create.database_name;
+                node->if_not_exists = query_ast.create.if_not_exists;
+            } else {
+                node->kind          = DDLNode::Kind::CreateTable;
+                node->table         = query_ast.create.table_name;
+                node->database      = context_.current_database();
+                node->if_not_exists = query_ast.create.if_not_exists;
+                node->engine        = query_ast.create.engine;
+                node->column_defs   = query_ast.create.columns;
+            }
+            break;
+        case parsers::QueryAST::QueryType::DROP:
+            node->table     = query_ast.drop.table;
+            node->database  = context_.current_database();
+            node->if_exists = query_ast.drop.if_exists;
+            switch (query_ast.drop.kind) {
+                case parsers::QueryAST::Drop::Kind::Truncate:
+                    node->kind = DDLNode::Kind::Truncate;
+                    break;
+                case parsers::QueryAST::Drop::Kind::Detach:
+                    node->kind = DDLNode::Kind::Detach;
+                    break;
+                default:
+                    node->kind = DDLNode::Kind::Drop;
+                    break;
+            }
+            break;
+        case parsers::QueryAST::QueryType::ALTER:
+            node->kind           = DDLNode::Kind::Alter;
+            node->table          = query_ast.alter.table;
+            node->database       = context_.current_database();
+            node->alter_commands = query_ast.alter.commands;
+            break;
+        case parsers::QueryAST::QueryType::SHOW:
+            node->kind = query_ast.show.show_type == parsers::QueryAST::Show::ShowType::DATABASES
+                ? DDLNode::Kind::ShowDatabases
+                : DDLNode::Kind::ShowTables;
+            node->database = context_.current_database();
+            break;
+        case parsers::QueryAST::QueryType::DESCRIBE:
+            node->kind     = DDLNode::Kind::Describe;
+            node->table    = query_ast.describe.table_name;
+            node->database = context_.current_database();
+            break;
+        case parsers::QueryAST::QueryType::EXPLAIN:
+            node->kind = DDLNode::Kind::Explain;
+            break;
+        case parsers::QueryAST::QueryType::USE:
+            node->kind         = DDLNode::Kind::Use;
+            node->use_database = query_ast.use.database_name;
+            break;
+        default:
+            break;
+    }
+
+    return node;
 }
 
 auto Analyzer::buildTableNode(const std::string& table_name,

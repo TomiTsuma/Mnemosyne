@@ -79,6 +79,8 @@ private:
                         const std::string& db_name,
                         const std::vector<std::string>& columns = {})
         -> std::shared_ptr<TableNode>;
+    auto buildDDLNode(const parsers::QueryAST& query_ast)
+        -> std::shared_ptr<DDLNode>;
     auto buildExpressionNode(std::shared_ptr<parsers::ASTExpr> expr)
         -> std::shared_ptr<IQueryTreeNode>;
 };
