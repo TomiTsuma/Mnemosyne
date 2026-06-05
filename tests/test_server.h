@@ -21,6 +21,21 @@ TEST_CASE("HTTPHandler returns 200 on ping", "[server]") {
     REQUIRE(response.status_code == 200);
 }
 
+TEST_CASE("HTTPHandler returns 200 on status without crashing", "[server]") {
+    // Regression test: handle_status dereferences context_.pool(). A Context
+    // whose pool_ was never initialised would dereference a null unique_ptr
+    // here and segfault. The pool must always be valid.
+    mnemo::interpreters::Context context;
+    mnemo::server::HTTPHandler handler(context);
+
+    mnemo::server::Request req;
+    req.method = "GET";
+    req.path = "/status";
+
+    auto response = handler.handle(req);
+    REQUIRE(response.status_code == 200);
+}
+
 TEST_CASE("HTTPServer starts", "[server]") {
     mnemo::interpreters::Context context;
     auto handler = std::make_shared<mnemo::server::HTTPHandler>(context);
