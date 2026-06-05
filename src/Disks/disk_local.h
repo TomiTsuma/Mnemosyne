@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <cstdint>
 
-namespace mnesso::disks {
+namespace mnemo::disks {
 
 // ── LocalFileDisk — standard filesystem back-end ──
 class LocalFileDisk final : public IDisk {
@@ -57,4 +57,4 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace mnesso::disks
+} // namespace mnemo::disks

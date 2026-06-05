@@ -9,7 +9,7 @@
 #include <memory>
 #include <optional>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── QueryResult — output of a query ──
 struct QueryResult {
@@ -52,4 +52,4 @@ public:
         Context& context);
 };
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

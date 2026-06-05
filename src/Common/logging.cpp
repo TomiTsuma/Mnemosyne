@@ -8,7 +8,7 @@
 #include <ctime>
 #include <mutex>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 namespace {
     std::atomic<LogLevel> global_level{LogLevel::INFO};
@@ -64,4 +64,4 @@ void log_impl(LogLevel level, std::string_view msg, const char* file, int line) 
 void set_log_level(LogLevel level) { global_level.store(level); }
 LogLevel get_log_level() { return global_level.load(); }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

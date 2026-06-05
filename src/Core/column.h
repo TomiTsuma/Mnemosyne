@@ -11,12 +11,12 @@
 #include "Common/span_compat.h"
 #include "field.h"
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 class IDataType;
 using DataTypePtr = std::shared_ptr<IDataType>;
 }
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 class IColumn;
 using ColumnPtr = std::shared_ptr<IColumn>;
@@ -83,4 +83,4 @@ public:
     virtual void  decompress(std::span<const uint8_t> compressed) = 0;
 };
 
-} // namespace mnesso::core
+} // namespace mnemo::core

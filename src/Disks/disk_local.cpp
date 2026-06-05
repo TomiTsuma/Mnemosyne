@@ -16,7 +16,7 @@
 #include <unistd.h>
 #endif
 
-namespace mnesso::disks {
+namespace mnemo::disks {
 
 auto LocalFileDisk::create(std::string name, std::string path)
     -> std::shared_ptr<LocalFileDisk> {
@@ -176,4 +176,4 @@ auto LocalFileDisk::stats() const -> DiskStats {
 
 // get_raw_ptr is not part of the LocalFileDisk public interface — do not define it here.
 
-} // namespace mnesso::disks
+} // namespace mnemo::disks

@@ -6,7 +6,7 @@
 #include "Core/block.h"
 #include <memory>
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── IOutputStream — interface for writing blocks ──
 class IOutputStream {
@@ -20,4 +20,4 @@ public:
     virtual void write(const core::Block& block) = 0;
 };
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

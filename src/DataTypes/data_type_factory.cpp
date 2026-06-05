@@ -8,14 +8,14 @@
 #include "Common/exceptions.h"
 
 // Forward declarations for types not yet implemented
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
     class DataTypeArray;
     class DataTypeUUID;
     class DataTypeBool;
     class DataTypeDecimal;
 }
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── TypeFactory ──
 
@@ -131,4 +131,4 @@ DataTypePtr get_data_type(std::string_view name) {
     return dt;
 }
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

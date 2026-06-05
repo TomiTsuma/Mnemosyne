@@ -14,7 +14,7 @@
 #include <concepts>
 #include <cstring>
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 // ── ColumnVector<T> — contiguous memory array of fixed-size elements ──
 // This is the most common column type — every numeric type, date, etc.
@@ -236,4 +236,4 @@ private:
     size_t size_ = 0;
 };
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

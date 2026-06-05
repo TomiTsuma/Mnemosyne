@@ -12,7 +12,7 @@
 #include "Core/field.h"
 #include "Core/column.h"
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 // Re-export from core
 using core::Field;
@@ -48,4 +48,4 @@ struct ColumnMetadata {
     std::string type_name;
 };
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

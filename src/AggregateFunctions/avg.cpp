@@ -6,7 +6,7 @@
 #include "Core/field.h"
 #include "Common/exceptions.h"
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── AvgState ──
 
@@ -131,4 +131,4 @@ auto FunctionAvg::memory_usage() const -> size_t {
     return sizeof(double) + sizeof(int64_t);
 }
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

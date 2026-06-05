@@ -6,7 +6,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::planner {
+namespace mnemo::planner {
 
 // ── Planner ──
 
@@ -50,6 +50,13 @@ auto Planner::plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
                 auto node = std::make_shared<PlanNode>();
                 node->node_type = PlanNode::Type::SHOW;
                 node->show_type = "DATABASES";
+                plan->root = node;
+            } else if (table->table == "use_database") {
+                // USE <database> command — the target database name is carried
+                // in the TableNode's database field (set by the analyzer).
+                auto node = std::make_shared<PlanNode>();
+                node->node_type = PlanNode::Type::USE;
+                node->name = table->database;  // target database name
                 plan->root = node;
             } else if (table->table.empty() && !table->database.empty()) {
                 // CREATE DATABASE command
@@ -346,4 +353,4 @@ std::optional<size_t> Planner::find_best_index(
     return std::nullopt;
 }
 
-} // namespace mnesso::planner
+} // namespace mnemo::planner

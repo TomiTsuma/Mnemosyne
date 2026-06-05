@@ -7,7 +7,7 @@
 #include "Common/exceptions.h"
 #include <stdexcept>
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 using common::Exception;
 using common::ErrorCode;
@@ -191,4 +191,4 @@ auto NumberTypeFactory::all_ids() -> std::vector<TypeId> {
     };
 }
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

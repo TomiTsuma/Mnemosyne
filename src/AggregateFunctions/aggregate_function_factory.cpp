@@ -9,7 +9,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── AggregateFunctionFactory ──
 
@@ -76,4 +76,4 @@ AggregateFunctionPtr get_aggregate_function(
     return func;
 }
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

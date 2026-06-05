@@ -11,7 +11,7 @@
 #include <memory>
 #include <chrono>
 
-namespace mnesso::disks {
+namespace mnemo::disks {
 
 // ── Disk stats ──
 struct DiskStats {
@@ -63,4 +63,4 @@ public:
     [[nodiscard]] virtual auto get_raw_ptr() const -> void* { return nullptr; }
 };
 
-} // namespace mnesso::disks
+} // namespace mnemo::disks

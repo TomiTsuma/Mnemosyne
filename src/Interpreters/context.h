@@ -14,7 +14,7 @@
 #include <optional>
 #include <vector>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── Query context — carries all state for a single query ──
 class Context {
@@ -115,4 +115,4 @@ private:
 // ── Global context — singleton accessible from anywhere ──
 Context& get_global_context();
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

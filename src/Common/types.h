@@ -7,7 +7,7 @@
 #include <string>
 #include <chrono>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 // ── Numeric type aliases ──
 using Int8    = std::int8_t;
@@ -97,4 +97,4 @@ ScopeGuard<F> make_scope_guard(F&& f) {
     return ScopeGuard<F>(std::forward<F>(f));
 }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

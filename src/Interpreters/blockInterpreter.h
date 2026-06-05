@@ -9,7 +9,7 @@
 #include "Processors/processor.h"
 #include <memory>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── BlockInterpreter — interprets a plan into a pipeline of processors ──
 class BlockInterpreter final : public IInterpreter {
@@ -41,4 +41,4 @@ private:
     void execute_ddl_command(std::shared_ptr<planner::PlanNode> node);
 };
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

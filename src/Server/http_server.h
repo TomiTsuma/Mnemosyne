@@ -19,7 +19,7 @@
 #include <netinet/in.h>
 #endif
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // ── HTTPServer — simple threaded HTTP server ──
 class HTTPServer {
@@ -64,4 +64,4 @@ private:
     std::atomic<bool> running_ = false;
 };
 
-} // namespace mnesso::server
+} // namespace mnemo::server

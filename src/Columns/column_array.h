@@ -10,7 +10,7 @@
 #include "DataTypes/data_type_factory.h"
 #include "Common/exceptions.h"
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 class ColumnArray final : public IColumn {
 public:
@@ -52,4 +52,4 @@ private:
     size_t                 size_ = 0;
 };
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

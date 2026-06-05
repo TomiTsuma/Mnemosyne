@@ -12,7 +12,7 @@
 #include "Planner/planner.h"
 #include "Interpreters/query_executor.h"
 
-namespace mnesso::tests {
+namespace mnemo::tests {
 
 class Level1DDLTest : public ::testing::Test {
 protected:
@@ -108,4 +108,4 @@ TEST_F(Level1DDLTest, DropTable) {
     EXPECT_FALSE(db->table_exists("temp_table"));
 }
 
-} // namespace mnesso::tests
+} // namespace mnemo::tests

@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace mnesso::backups {
+namespace mnemo::backups {
 
 // ── Backup info ──
 struct BackupInfo {
@@ -65,4 +65,4 @@ private:
     mutable std::mutex        mutex_;
 };
 
-} // namespace mnesso::backups
+} // namespace mnemo::backups

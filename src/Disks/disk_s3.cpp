@@ -5,7 +5,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::disks {
+namespace mnemo::disks {
 
 auto S3Disk::create(std::string name,
                     std::string endpoint,
@@ -102,4 +102,4 @@ auto S3Disk::set_bucket(std::string bucket) -> void {
     bucket_ = std::move(bucket);
 }
 
-} // namespace mnesso::disks
+} // namespace mnemo::disks

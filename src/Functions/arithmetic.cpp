@@ -10,7 +10,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 namespace {
 
@@ -243,4 +243,4 @@ bool FunctionMod::can_execute(const std::vector<datatypes::DataTypePtr>& arg_typ
            (id2 >= datatypes::TypeId::UInt8 && id2 <= datatypes::TypeId::Float64);
 }
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

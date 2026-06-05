@@ -16,7 +16,7 @@
 #include <variant>
 #include <unordered_map>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // ── HTTP handler response ──
 struct HTTPResponse {
@@ -91,4 +91,4 @@ private:
         -> core::Block;
 };
 
-} // namespace mnesso::server
+} // namespace mnemo::server

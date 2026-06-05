@@ -7,7 +7,7 @@
 #include <optional>
 #include <cstdint>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 // ── Value types used throughout the settings system ──
 using SettingValueType = std::variant<
@@ -102,4 +102,4 @@ inline Settings default_settings() {
     return s;
 }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

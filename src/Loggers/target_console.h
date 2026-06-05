@@ -6,7 +6,7 @@
 #include "logger.h"
 #include <string>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── ConsoleTarget — logs to stdout/stderr ──
 class ConsoleTarget final : public LogTarget {
@@ -29,4 +29,4 @@ private:
     bool     error_to_stderr_ = true;
 };
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

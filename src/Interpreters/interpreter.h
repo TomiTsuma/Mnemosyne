@@ -11,7 +11,7 @@
 #include <memory>
 #include <string_view>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── Plan — lightweight plan handle forwarded to the executor ──
 struct Plan {
@@ -42,4 +42,4 @@ private:
     databases::DatabaseManager& db_manager_;
 };
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

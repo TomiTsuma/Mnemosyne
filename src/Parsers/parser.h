@@ -11,7 +11,7 @@
 #include <vector>
 #include <source_location>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── ParseError — result of a parsing failure ──
 struct ParseError {
@@ -44,6 +44,7 @@ public:
 protected:
     // ── Query parsing — override in derived classes ──
     auto parse_query() -> std::unique_ptr<QueryAST>;
+    auto parse_use(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_select(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_insert(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_create(std::unique_ptr<QueryAST>& ast) -> void;
@@ -61,6 +62,7 @@ protected:
 
     // ── Clause parsing helpers ──
     auto parse_table_name() -> std::string;
+    auto parse_database_name() -> std::string;
     auto parse_column_list() -> std::vector<std::string>;
     auto parse_column_definitions() -> std::vector<ColumnDef>;
     auto parse_value_list() -> std::vector<std::vector<std::string>>;
@@ -82,4 +84,4 @@ protected:
 template<typename T>
 using ParseResult = std::variant<std::shared_ptr<T>, ParseError>;
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

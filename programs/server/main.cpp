@@ -21,13 +21,13 @@
 #include "loggers/target_console.h"
 
 // ── Global state ──
-std::shared_ptr<mnesso::interpreters::Context> g_context;
-std::shared_ptr<mnesso::server::Server> g_server;
+std::shared_ptr<mnemo::interpreters::Context> g_context;
+std::shared_ptr<mnemo::server::Server> g_server;
 std::atomic<bool> g_running{true};
 
 // ── Signal handling ──
 void handle_signal(int sig) {
-    mnesso::loggers::Logger::get_instance().fatal(
+    mnemo::loggers::Logger::get_instance().fatal(
         std::format("Received signal {}", sig));
     g_running.store(false);
     if (g_server) g_server->stop();
@@ -41,42 +41,41 @@ auto main(int argc, char** argv) -> int {
         (void)argc; (void)argv; // suppress unused warnings for now
 
         // Initialize loggers
-        auto& logger = mnesso::loggers::Logger::get_instance();
-        logger.add_target(mnesso::loggers::ConsoleTarget::create());
+        auto& logger = mnemo::loggers::Logger::get_instance();
+        logger.add_target(mnemo::loggers::ConsoleTarget::create());
 
         // Initialize databases
-        mnesso::databases::DatabaseFactory::instance().register_engine(
-            mnesso::databases::BuiltinEngines::MEMORY,
+        mnemo::databases::DatabaseFactory::instance().register_engine(
+            mnemo::databases::BuiltinEngines::MEMORY,
             []() {
-                return mnesso::databases::DatabaseMemory::create("system", "");
+                return mnemo::databases::DatabaseMemory::create("system", "");
             });
 
         // Initialize storages
-        mnesso::storages::StorageFactory::instance().register_engine(
-            mnesso::storages::BuiltinEngines::FILE,
+        mnemo::storages::StorageFactory::instance().register_engine(
+            mnemo::storages::BuiltinEngines::FILE,
             [](auto) {
-                return mnesso::storages::FileStorage::create("default", "/tmp/mnemosyne");
+                return mnemo::storages::FileStorage::create("default", "/tmp/mnemosyne");
             });
-
         // Setup signal handlers
         std::signal(SIGINT, handle_signal);
         std::signal(SIGTERM, handle_signal);
 
         // Create context and server
-        g_context = std::make_shared<mnesso::interpreters::Context>(nullptr);
-        auto server = std::make_shared<mnesso::server::Server>(g_context);
+        g_context = std::make_shared<mnemo::interpreters::Context>(nullptr);
+        auto server = std::make_shared<mnemo::server::Server>(g_context);
         g_server = server;
         g_running.store(true);
         server->start();
 
-        mnesso::loggers::Logger::get_instance().info("Mnemosyne server started");
+        mnemo::loggers::Logger::get_instance().info("Mnemosyne server started");
 
         // Wait for shutdown
         while (g_running.load()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        mnesso::loggers::Logger::get_instance().info("Mnemosyne server stopped");
+        mnemo::loggers::Logger::get_instance().info("Mnemosyne server stopped");
 
     } catch (const std::exception& e) {
         std::cerr << "Fatal error: " << e.what() << "\n";

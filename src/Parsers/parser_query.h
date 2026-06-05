@@ -7,7 +7,7 @@
 #include "ast.h"
 #include <memory>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── QueryParser — parses SQL SELECT queries into ASTSelectQuery ──
 class QueryParser final : public Parser {
@@ -17,6 +17,7 @@ public:
     auto parse() -> std::unique_ptr<QueryAST> override;
 
     // ── Grammar rules ──
+    auto parse_use_database() -> std::shared_ptr<ASTUseDatabase>;
     auto parse_select_query() -> std::shared_ptr<ASTSelectQuery>;
     auto parse_select_list()  -> std::vector<std::shared_ptr<ASTExpr>>;
     auto parse_from_clause()  -> std::shared_ptr<ASTFromClause>;
@@ -44,4 +45,4 @@ private:
     auto consume(TokenType type) -> std::optional<Token>;
 };
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers

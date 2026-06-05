@@ -10,7 +10,7 @@
 
 // ── Disk tests ──
 TEST_CASE("LocalFileDisk stats", "[disk]") {
-    auto disk = mnesso::disks::LocalFileDisk::create("test", "/tmp/mnemosyne_test");
+    auto disk = mnemo::disks::LocalFileDisk::create("test", "/tmp/mnemosyne_test");
     REQUIRE(disk != nullptr);
 
     auto stats = disk->stats();
@@ -19,7 +19,7 @@ TEST_CASE("LocalFileDisk stats", "[disk]") {
 }
 
 TEST_CASE("Disk path operations", "[disk]") {
-    auto disk = mnesso::disks::LocalFileDisk::create("test", "/tmp/mnemosyne_test");
+    auto disk = mnemo::disks::LocalFileDisk::create("test", "/tmp/mnemosyne_test");
     auto result = disk->create_dir("subdir");
     REQUIRE(result);
 

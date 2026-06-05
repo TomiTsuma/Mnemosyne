@@ -8,7 +8,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 auto DictionaryStorage::create(std::string name) -> std::shared_ptr<DictionaryStorage> {
     auto storage = std::shared_ptr<DictionaryStorage>(new DictionaryStorage());
@@ -158,4 +158,4 @@ auto DictionaryStorage::set_columns(std::unordered_map<std::string, datatypes::D
     }
 }
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

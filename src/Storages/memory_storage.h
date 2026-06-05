@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 // ── MemoryStorage — temporary in-memory table ──
 class MemoryStorage final : public IStorage {
@@ -62,4 +62,4 @@ private:
     mutable std::mutex       mutex_;
 };
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

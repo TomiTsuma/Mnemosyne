@@ -9,7 +9,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // ── FunctionEq ──
 
@@ -257,4 +257,4 @@ bool FunctionLe::can_execute(const std::vector<datatypes::DataTypePtr>& arg_type
            (id2 >= datatypes::TypeId::UInt8 && id2 <= datatypes::TypeId::Float64);
 }
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

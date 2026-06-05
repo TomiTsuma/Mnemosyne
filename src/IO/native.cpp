@@ -4,7 +4,7 @@
 #include "IO/native.h"
 #include <algorithm>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 auto NativeCodec::create() -> std::shared_ptr<NativeCodec> {
     return std::make_shared<NativeCodec>();
@@ -29,4 +29,4 @@ auto NativeCodec::compression_ratio() const -> double {
     return 1.0; // No compression
 }
 
-} // namespace mnesso::io
+} // namespace mnemo::io

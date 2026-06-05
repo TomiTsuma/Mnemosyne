@@ -10,7 +10,7 @@
 #include "Planner/planner.h"
 #include "Interpreters/query_executor.h"
 
-namespace mnesso::tests {
+namespace mnemo::tests {
 
 class Level5AggregatesTest : public ::testing::Test {
 protected:
@@ -122,4 +122,4 @@ TEST_F(Level5AggregatesTest, MultipleAggregates) {
     EXPECT_TRUE(result.valid);
 }
 
-} // namespace mnesso::tests
+} // namespace mnemo::tests

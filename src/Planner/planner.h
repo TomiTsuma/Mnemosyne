@@ -10,7 +10,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace mnesso::planner {
+namespace mnemo::planner {
 
 // ── Planner — takes analyzed query tree and produces execution plan ──
 class Planner {
@@ -50,4 +50,4 @@ private:
     std::uint64_t plan_id_ = 0;
 };
 
-} // namespace mnesso::planner
+} // namespace mnemo::planner

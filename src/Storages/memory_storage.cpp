@@ -5,7 +5,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 namespace {
 
@@ -216,4 +216,4 @@ void MemoryStorage::load_block(const core::Block& block) {
     empty_ = data_.row_count() == 0;
 }
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

@@ -6,7 +6,7 @@
 #include "Core/block.h"
 #include <memory>
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── IInputStream — interface for reading blocks ──
 class IInputStream {
@@ -23,4 +23,4 @@ public:
     [[nodiscard]] virtual auto is_finished() -> bool = 0;
 };
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

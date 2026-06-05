@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── CountState — aggregate state for COUNT ──
 class CountState {
@@ -50,4 +50,4 @@ private:
     uint64_t count_ = 0;
 };
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

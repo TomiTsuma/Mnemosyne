@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── TypeFactory — singleton registry for all data types ──
 class TypeFactory {
@@ -45,4 +45,4 @@ private:
 // ── Global type lookup (auto-registers known types on first call) ──
 DataTypePtr get_data_type(std::string_view name);
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

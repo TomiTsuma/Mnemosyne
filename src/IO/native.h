@@ -9,7 +9,7 @@
 #include "Common/span_compat.h"
 #include <vector>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── NativeCodec — pass-through (no compression) ──
 class NativeCodec final : public CompressionCodec {
@@ -26,4 +26,4 @@ public:
     static constexpr auto CodecName = "Native";
 };
 
-} // namespace mnesso::io
+} // namespace mnemo::io

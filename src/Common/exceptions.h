@@ -5,7 +5,7 @@
 #include <source_location>
 #include <cstdint>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 // ── Base exception for all Mnemosyne errors ──
 class Exception : public std::runtime_error {
@@ -96,4 +96,4 @@ class FatalError        : public Exception { public: using Exception::Exception;
 #define THROW_MNEM(logical_msg) \
     THROW_EXCEPTION(LogicalError, 9900, logical_msg)
 
-} // namespace mnesso::common
+} // namespace mnemo::common

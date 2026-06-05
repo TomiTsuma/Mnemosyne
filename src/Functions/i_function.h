@@ -11,7 +11,7 @@
 #include "DataTypes/data_type.h"
 #include "Core/block.h"
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 class IFunction;
 using IFunctionPtr = std::shared_ptr<IFunction>;
@@ -44,4 +44,4 @@ public:
     [[nodiscard]] virtual bool can_execute(const std::vector<datatypes::DataTypePtr>& arg_types) const = 0;
 };
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

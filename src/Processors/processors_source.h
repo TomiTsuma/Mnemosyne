@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace mnesso::processors {
+namespace mnemo::processors {
 
 // ── NoOpStream — pass-through stream with no processing ──
 class NoOpInputStream final : public IInputStream {
@@ -211,4 +211,4 @@ private:
     core::Block current_block_;
 };
 
-} // namespace mnesso::processors
+} // namespace mnemo::processors

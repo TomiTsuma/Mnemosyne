@@ -13,7 +13,7 @@
 #include <optional>
 #include "Common/settings.h"
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 // ── FileStorage — persists columns as files on disk ──
 class FileStorage final : public IStorage {
@@ -63,4 +63,4 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

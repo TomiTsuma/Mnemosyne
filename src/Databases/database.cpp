@@ -9,7 +9,7 @@
 #include "Storages/table.h"
 #include "database.h"
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 // ── Database ──
 
@@ -82,7 +82,7 @@ auto Database::create_table(std::string                                         
         tbl->add_column(col_name, std::move(type));
     }
     // auto storage = storages::MemoryStorage::create(engine); This is for only memory storage
-    auto storage   = mnesso::storages::StorageFactory::instance().create(std::move(name), engine);
+    auto storage   = mnemo::storages::StorageFactory::instance().create(std::move(name), engine);
     tbl->storage() = storage;
     tables_[tbl->name()] = tbl;
     return storage;
@@ -107,7 +107,7 @@ auto Database::get_table(std::string_view name) const -> std::shared_ptr<storage
 void Database::create_table(std::string name, std::vector<ColumnDef> columns) {
     auto table = std::make_shared<storages::Table>(std::move(name));
     for (const auto& col : columns) {
-        auto dt = mnesso::datatypes::get_data_type(col.data_type);
+        auto dt = mnemo::datatypes::get_data_type(col.data_type);
         table->add_column(col.name, dt);
     }
     tables_[table->name()] = table;
@@ -130,4 +130,4 @@ bool Database::has_table(std::string_view name) const {
     return tables_.find(std::string{name}) != tables_.end();
 }
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

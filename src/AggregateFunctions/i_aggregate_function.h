@@ -12,7 +12,7 @@
 #include "Core/field.h"
 #include "DataTypes/data_type.h"
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 using core::Field;
 
@@ -55,4 +55,4 @@ public:
     [[nodiscard]] virtual auto memory_usage() const -> size_t = 0;
 };
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

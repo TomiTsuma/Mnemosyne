@@ -7,7 +7,7 @@
 #include "Server/tcp_server.h"
 #include <iostream>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 Server::Server(std::shared_ptr<interpreters::Context> ctx)
     : context_(std::move(ctx)) {}
@@ -52,4 +52,4 @@ bool Server::is_running() const {
     return running_;
 }
 
-} // namespace mnesso::server
+} // namespace mnemo::server

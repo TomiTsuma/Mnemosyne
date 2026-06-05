@@ -7,9 +7,9 @@
 #include "Server/tcp_server.h"
 #include <iostream>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
-TCPServer::TCPServer(std::shared_ptr<mnesso::interpreters::Context> ctx,
+TCPServer::TCPServer(std::shared_ptr<mnemo::interpreters::Context> ctx,
                      uint16_t port)
     : context_(std::move(ctx)), port_(port) {}
 
@@ -39,4 +39,4 @@ void TCPServer::shutdown() {
     stop();
 }
 
-} // namespace mnesso::server
+} // namespace mnemo::server

@@ -7,10 +7,10 @@
 #include <algorithm>
 #include <iostream>
 
-using mnesso::common::Exception;
-using mnesso::common::ErrorCode;
+using mnemo::common::Exception;
+using mnemo::common::ErrorCode;
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 Block::Block() = default;
 
@@ -141,4 +141,4 @@ void Block::compact() {
     }
 }
 
-} // namespace mnesso::core
+} // namespace mnemo::core

@@ -5,7 +5,7 @@
 #include <chrono>
 #include <format>
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 // ── Counter ──
 
@@ -47,4 +47,4 @@ void Timer::restart() {
     start_ = std::chrono::steady_clock::now();
 }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

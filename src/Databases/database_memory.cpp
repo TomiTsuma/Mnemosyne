@@ -6,7 +6,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 auto DatabaseMemory::create(std::string name, std::string path)
     -> std::shared_ptr<DatabaseMemory> {
@@ -112,4 +112,4 @@ void DatabaseMemory::clear_all() {
     tables_.clear();
 }
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

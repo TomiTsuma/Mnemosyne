@@ -8,7 +8,7 @@
 #include <memory>
 #include <mutex>
 
-namespace mnesso::loggers {
+namespace mnemo::loggers {
 
 // ── FileTarget — logs to a file ──
 class FileTarget final : public LogTarget {
@@ -32,4 +32,4 @@ private:
     std::mutex          mutex_;
 };
 
-} // namespace mnesso::loggers
+} // namespace mnemo::loggers

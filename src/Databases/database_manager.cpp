@@ -6,7 +6,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 // ── DatabaseManager ──
 
@@ -105,4 +105,4 @@ auto DatabaseManager::get_table_storage(std::string_view database, std::string_v
     return nullptr;
 }
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // ── Factory — registry of all aggregate functions ──
 class AggregateFunctionFactory {
@@ -34,4 +34,4 @@ private:
             const std::vector<datatypes::DataTypePtr>&)>> registry_;
 };
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

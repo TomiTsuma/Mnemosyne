@@ -10,12 +10,12 @@
 
 // ── Common tests ──
 TEST_CASE("Settings defaults", "[common]") {
-    auto settings = mnesso::common::default_settings();
+    auto settings = mnemo::common::default_settings();
     REQUIRE(settings.names().size() > 0);
 }
 
 TEST_CASE("ThreadPool creates threads", "[common]") {
-    mnesso::common::ThreadPool pool(4);
+    mnemo::common::ThreadPool pool(4);
     REQUIRE(pool.size() == 4);
     REQUIRE(pool.active_count() == 0);
 

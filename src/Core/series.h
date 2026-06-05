@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-namespace mnesso::core {
+namespace mnemo::core {
 
 // ── Series — a thin view over a contiguous numeric array ──
 // Used in the vectorized execution engine as a temporary container
@@ -125,4 +125,4 @@ void series_unary_op(Series<T> out, Series<T> in, Op op) {
     }
 }
 
-} // namespace mnesso::core
+} // namespace mnemo::core

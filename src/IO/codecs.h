@@ -8,7 +8,7 @@
 #include "Common/span_compat.h"
 #include <memory>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 // ── BinaryCodec — compact binary serialization ──
 class BinaryCodec {
@@ -40,4 +40,4 @@ private:
     static std::vector<std::string> split_csv_line(const std::string& line);
 };
 
-} // namespace mnesso::io
+} // namespace mnemo::io

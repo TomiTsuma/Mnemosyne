@@ -6,7 +6,7 @@
 #include "IO/lz4.h"
 #include <algorithm>
 
-namespace mnesso::io {
+namespace mnemo::io {
 
 auto LZ4Codec::create() -> std::shared_ptr<LZ4Codec> {
     return std::shared_ptr<LZ4Codec>(new LZ4Codec());
@@ -32,4 +32,4 @@ auto LZ4Codec::compression_ratio() const -> double {
     return 0.5; // LZ4 typically achieves ~2:1 ratio
 }
 
-} // namespace mnesso::io
+} // namespace mnemo::io

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 // ── StorageFactory — singleton registry for storage engines ──
 class StorageFactory {
@@ -39,4 +39,4 @@ namespace BuiltinEngines {
     inline constexpr auto NULL_ENGINE = "Null";
 }
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

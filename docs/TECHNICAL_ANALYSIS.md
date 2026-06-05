@@ -776,7 +776,7 @@ Based on the codebase, the following external libraries are likely used:
 ## 18. Code Quality & Style
 
 ### Strengths
-- **Consistent naming**: `mnesso::` namespace throughout
+- **Consistent naming**: `mnemo::` namespace throughout
 - **Smart pointers**: Heavy use of `std::shared_ptr` and `std::make_shared`
 - **Modern C++17**: Uses `std::optional`, `std::variant`, `std::string_view`, `std::span`
 - **Factory pattern**: Consistent use of factory pattern for extensibility

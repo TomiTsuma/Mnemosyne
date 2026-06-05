@@ -9,7 +9,7 @@
 #include <optional>
 #include "Common/span_compat.h"
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── DataTypeString — variable-length UTF-8 string ──
 class DataTypeString final : public IDataType {
@@ -50,4 +50,4 @@ private:
     size_t fixed_size_;
 };
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

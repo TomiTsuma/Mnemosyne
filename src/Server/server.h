@@ -7,9 +7,9 @@
 #include <string>
 #include <atomic>
 
-namespace mnesso::interpreters { class Context; }
+namespace mnemo::interpreters { class Context; }
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 class HTTPHandler;
 class HTTPServer;
@@ -38,4 +38,4 @@ private:
     std::atomic<bool>                      running_ = false;
 };
 
-} // namespace mnesso::server
+} // namespace mnemo::server

@@ -6,9 +6,9 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::aggregate_functions {
+namespace mnemo::aggregate_functions {
 
 // IAggregateFunction is mostly a header-only template interface.
 // Concrete implementations are in sum.cpp, count.cpp, avg.cpp, min_max.cpp.
 
-} // namespace mnesso::aggregate_functions
+} // namespace mnemo::aggregate_functions

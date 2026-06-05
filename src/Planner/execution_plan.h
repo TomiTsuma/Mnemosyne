@@ -12,7 +12,7 @@
 #include <functional>
 #include "DataTypes/data_type.h"
 
-namespace mnesso::planner {
+namespace mnemo::planner {
 
 // ── Operator types for execution plan nodes ──
 enum class PlanNodeType : uint8_t {
@@ -50,6 +50,7 @@ struct PlanNode {
         SHOW,       // SHOW TABLES / DATABASES
         DESCRIBE,   // DESCRIBE TABLE
         EXPLAIN,    // EXPLAIN PLAN
+        USE,        // USE DATABASE (sets the session's current database)
     };
 
     PlanNodeType  type;
@@ -127,4 +128,4 @@ public:
     [[nodiscard]] auto explain() const -> std::string;
 };
 
-} // namespace mnesso::planner
+} // namespace mnemo::planner

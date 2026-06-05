@@ -10,7 +10,7 @@ Mnemosyne supports a subset of SQL with extensions for analytical workloads.
                    | <delete_statement> | <create_database_statement>
                    | <create_table_statement> | <drop_table_statement>
                    | <alter_table_statement> | <drop_database_statement>
-                   | <set_statement> | <explain_statement>
+                   | <use_statement> | <set_statement> | <explain_statement>
 
 <select_statement> → SELECT [ALL | DISTINCT] <select_list>
                     [FROM <table_name>]
@@ -45,6 +45,7 @@ Mnemosyne supports a subset of SQL with extensions for analytical workloads.
 <alter_table_statement>  → ALTER TABLE <table_name> ADD <column_def>
                            | ALTER TABLE <table_name> DROP <column>
 
+<use_statement>     → USE [DATABASE] <name>
 <set_statement>     → SET <name> = <value>
 <explain_statement> → EXPLAIN <select_statement>
 
@@ -72,7 +73,7 @@ Mnemosyne supports a subset of SQL with extensions for analytical workloads.
 
 - SELECT, FROM, WHERE, GROUP, BY, HAVING, ORDER, LIMIT, ALL, DISTINCT
 - INSERT, INTO, VALUES, UPDATE, SET, DELETE
-- CREATE, DATABASE, TABLE, DROP, ALTER, ADD, COLUMN
+- CREATE, DATABASE, TABLE, DROP, ALTER, ADD, COLUMN, USE
 - IF, EXISTS, NOT, NULL, AND, OR, IN, BETWEEN, CASE, WHEN, THEN, ELSE, END
 - ASC, DESC
 - JOIN, ON, LEFT, RIGHT, INNER, OUTER
@@ -133,6 +134,9 @@ UPDATE orders SET amount = 200.0 WHERE name = 'Alice';
 DELETE FROM orders WHERE amount < 10.0;
 
 CREATE TABLE users (id INT64 NOT NULL, name VARCHAR);
+
+USE analytics;          -- set the session's current database
+USE DATABASE analytics; -- equivalent, with the optional DATABASE keyword
 
 EXPLAIN SELECT * FROM orders WHERE amount > 100.0;
 ```

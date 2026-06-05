@@ -10,7 +10,7 @@
 #include "Planner/planner.h"
 #include "Interpreters/query_executor.h"
 
-namespace mnesso::tests {
+namespace mnemo::tests {
 
 class Level3FilteringTest : public ::testing::Test {
 protected:
@@ -110,4 +110,4 @@ TEST_F(Level3FilteringTest, WhereComparisonOperators) {
     }
 }
 
-} // namespace mnesso::tests
+} // namespace mnemo::tests

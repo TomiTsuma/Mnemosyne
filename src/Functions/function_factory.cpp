@@ -7,7 +7,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // ── FunctionFactory ──
 
@@ -75,4 +75,4 @@ IFunctionPtr get_function(std::string_view name) {
     return func;
 }
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

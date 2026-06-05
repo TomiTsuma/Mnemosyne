@@ -5,7 +5,7 @@
 #include "database_memory.h"
 #include "Common/exceptions.h"
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 auto DatabaseFactory::instance() -> DatabaseFactory& {
     static DatabaseFactory inst;
@@ -58,4 +58,4 @@ namespace {
     static RegisterBuiltinEngines init;
 }
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

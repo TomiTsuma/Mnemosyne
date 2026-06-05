@@ -10,7 +10,7 @@
 #include "Planner/planner.h"
 #include "Interpreters/query_executor.h"
 
-namespace mnesso::tests {
+namespace mnemo::tests {
 
 class Level2DMLTest : public ::testing::Test {
 protected:
@@ -134,4 +134,4 @@ TEST_F(Level2DMLTest, SelectSpecificColumns) {
     EXPECT_EQ(read_block.column_count(), 2);
 }
 
-} // namespace mnesso::tests
+} // namespace mnemo::tests

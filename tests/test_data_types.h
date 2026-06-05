@@ -12,18 +12,18 @@
 
 // ── Data type tests ──
 TEST_CASE("TypeId equality", "[data_type]") {
-    REQUIRE(mnesso::datatypes::TypeId::UInt8 < mnesso::datatypes::TypeId::UInt16);
-    REQUIRE(mnesso::datatypes::TypeId::Int64 < mnesso::datatypes::TypeId::Float64);
+    REQUIRE(mnemo::datatypes::TypeId::UInt8 < mnemo::datatypes::TypeId::UInt16);
+    REQUIRE(mnemo::datatypes::TypeId::Int64 < mnemo::datatypes::TypeId::Float64);
 }
 
 TEST_CASE("TypeRegistry singleton", "[data_type]") {
-    auto& registry = mnesso::datatypes::TypeFactory::instance();
-    auto& registry2 = mnesso::datatypes::TypeFactory::instance();
+    auto& registry = mnemo::datatypes::TypeFactory::instance();
+    auto& registry2 = mnemo::datatypes::TypeFactory::instance();
     REQUIRE(&registry == &registry2);
 }
 
 TEST_CASE("DataType registration", "[data_type]") {
-    auto type = mnesso::datatypes::get_data_type("Int64");
+    auto type = mnemo::datatypes::get_data_type("Int64");
     REQUIRE(type != nullptr);
     REQUIRE(type->name() == "Int64");
 }

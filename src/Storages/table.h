@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 class Table {
 public:
@@ -25,4 +25,4 @@ private:
     std::shared_ptr<IStorage> storage_;
 };
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

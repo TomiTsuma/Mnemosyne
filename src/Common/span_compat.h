@@ -40,7 +40,7 @@ namespace std { using std::experimental::span; }
 // ── Minimal polyfill (e.g. MSVC with <span> stub before C++20 mode is active) ──
 #if !defined(MN_HAS_STD_SPAN)
 
-namespace mnesso::compat {
+namespace mnemo::compat {
 
 inline constexpr std::size_t dynamic_extent = static_cast<std::size_t>(-1);
 
@@ -94,11 +94,11 @@ private:
     size_type size_;
 };
 
-} // namespace mnesso::compat
+} // namespace mnemo::compat
 
 namespace std {
-template<typename T, std::size_t Extent = mnesso::compat::dynamic_extent>
-using span = mnesso::compat::span<T, Extent>;
+template<typename T, std::size_t Extent = mnemo::compat::dynamic_extent>
+using span = mnemo::compat::span<T, Extent>;
 } // namespace std
 
 #  define MN_HAS_STD_SPAN 1

@@ -11,7 +11,7 @@
 #include <vector>
 #include <optional>
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 class IDataType;
 using DataTypePtr = std::shared_ptr<IDataType>;
@@ -68,4 +68,4 @@ bool types_are_equivalent(const DataTypePtr& a, const DataTypePtr& b);
 TypeId resolve_type_id(std::string_view name);
 std::string type_id_to_string(TypeId id);
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

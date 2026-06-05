@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 
-namespace mnesso::analyzer {
+namespace mnemo::analyzer {
 
 // ── Pass — a transformation that modifies the AST ──
 class Pass {
@@ -63,4 +63,4 @@ public:
 // ── Run all passes in order ──
 void run_all_passes(std::shared_ptr<parsers::ASTNode>& ast);
 
-} // namespace mnesso::analyzer
+} // namespace mnemo::analyzer

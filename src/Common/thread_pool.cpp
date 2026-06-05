@@ -3,7 +3,7 @@
 
 #include "thread_pool.h"
 
-namespace mnesso::common {
+namespace mnemo::common {
 
 namespace {
     size_t default_thread_count() {
@@ -65,4 +65,4 @@ size_t ThreadPool::size()       const { return workers_.size(); }
 size_t ThreadPool::active_count() const { return active_.load(); }
 size_t ThreadPool::queue_size()   const { return pending_.load(); }
 
-} // namespace mnesso::common
+} // namespace mnemo::common

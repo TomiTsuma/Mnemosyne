@@ -11,7 +11,7 @@
 #include <chrono>
 #include <cstdint>
 
-namespace mnesso::disks {
+namespace mnemo::disks {
 
 // ── S3Disk — S3-compatible object store ──
 class S3Disk final : public IDisk {
@@ -65,4 +65,4 @@ private:
     bool use_ssl_ = true;
 };
 
-} // namespace mnesso::disks
+} // namespace mnemo::disks

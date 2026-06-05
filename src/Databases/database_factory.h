@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 // ── DatabaseFactory — singleton registry for database engines ──
 class DatabaseFactory {
@@ -38,4 +38,4 @@ namespace BuiltinEngines {
     inline constexpr auto NAMESPACE = "Namespace";
 }
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

@@ -7,9 +7,9 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 
-namespace mnesso::functions {
+namespace mnemo::functions {
 
 // IFunction is mostly a header-only template interface.
 // Concrete implementations are in arithmetic.cpp and comparison.cpp.
 
-} // namespace mnesso::functions
+} // namespace mnemo::functions

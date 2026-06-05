@@ -14,7 +14,7 @@
 #include <optional>
 #include "Common/settings.h"
 
-namespace mnesso::storages {
+namespace mnemo::storages {
 
 // ── IStorage — abstract storage interface ──
 // All concrete storages (File, Memory, Dictionary, etc.) implement this.
@@ -63,4 +63,4 @@ public:
     virtual auto flush() -> bool { return false; }
 };
 
-} // namespace mnesso::storages
+} // namespace mnemo::storages

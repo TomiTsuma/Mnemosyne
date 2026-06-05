@@ -8,7 +8,7 @@
 #include "Common/exceptions.h"
 #include <chrono>
 
-namespace mnesso::interpreters {
+namespace mnemo::interpreters {
 
 // ── InterpreterFactory ──
 
@@ -59,4 +59,4 @@ auto InterpreterFactory::create_ddl(
     return std::make_shared<BlockInterpreter>(std::move(plan), context);
 }
 
-} // namespace mnesso::interpreters
+} // namespace mnemo::interpreters

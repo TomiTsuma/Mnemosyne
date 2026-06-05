@@ -10,7 +10,7 @@
 #include "Common/span_compat.h"
 #include <vector>
 
-namespace mnesso::datatypes {
+namespace mnemo::datatypes {
 
 // ── Concrete types ──
 class DataTypeNumber final : public IDataType {
@@ -68,4 +68,4 @@ DataTypePtr make_data_type_int64();
 DataTypePtr make_data_type_float32();
 DataTypePtr make_data_type_float64();
 
-} // namespace mnesso::datatypes
+} // namespace mnemo::datatypes

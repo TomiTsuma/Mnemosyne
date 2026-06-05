@@ -20,7 +20,7 @@
 #include <cstring>
 #include <cctype>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // ── Simple HTTP request parser ──
 struct ParsedRequest {
@@ -287,4 +287,4 @@ void HTTPServer::accept_loop() {
     }
 }
 
-} // namespace mnesso::server
+} // namespace mnemo::server

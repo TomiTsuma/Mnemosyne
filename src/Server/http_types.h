@@ -13,7 +13,7 @@
 #include <thread>
 #include <atomic>
 
-namespace mnesso::server {
+namespace mnemo::server {
 
 // Forward declare HTTPHandler for HTTPServer
 class HTTPHandler;
@@ -76,4 +76,4 @@ struct Response {
     }
 };
 
-} // namespace mnesso::server
+} // namespace mnemo::server

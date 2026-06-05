@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 // ── IDatabase — catalog of tables backed by storage engines ──
 class IDatabase {
@@ -36,4 +36,4 @@ public:
         std::string engine) -> std::shared_ptr<storages::IStorage> = 0;
 };
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mnesso::databases {
+namespace mnemo::databases {
 
 class DatabaseManager {
 public:
@@ -43,4 +43,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<IDatabase>> idatabases_;
 };
 
-} // namespace mnesso::databases
+} // namespace mnemo::databases

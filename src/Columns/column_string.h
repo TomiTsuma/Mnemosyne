@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace mnesso::columns {
+namespace mnemo::columns {
 
 // ── ColumnString — variable-length UTF-8 strings with offset table ──
 // Strings are stored in a single contiguous buffer. Each row's offset
@@ -212,4 +212,4 @@ private:
     size_t size_ = 0;
 };
 
-} // namespace mnesso::columns
+} // namespace mnemo::columns

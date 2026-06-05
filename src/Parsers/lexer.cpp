@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace mnesso::parsers {
+namespace mnemo::parsers {
 
 // ── Lexer ──
 
@@ -282,6 +282,7 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "DISTINCT") type = TokenType::KeywordDistinct;
     else if (upper == "ASC") type = TokenType::KeywordAsc;
     else if (upper == "DESC") type = TokenType::KeywordDesc;
+    else if (upper == "USE") type = TokenType::KeywordUse;
 
     return make_token(type, std::move(id));
 }
@@ -318,4 +319,4 @@ auto Lexer::eof() const -> bool {
     return pos_ >= source_.size();
 }
 
-} // namespace mnesso::parsers
+} // namespace mnemo::parsers
