@@ -65,62 +65,66 @@ auto Interpreter::create_processor(Plan plan,
 
     switch (root->node_type) {
         case PlanNode::Type::SCAN: {
-            auto scan_proc = std::make_shared<processors::ScanProcessor>(root->table);
+            auto scan_proc = std::make_shared<processors::SimpleScanProcessor>(root->table, *context);
             return scan_proc;
         }
         case PlanNode::Type::FILTER: {
-            auto filter_proc = std::make_shared<processors::FilterProcessor>(
+            auto filter_proc = std::make_shared<processors::SimpleFilterProcessor>(
                 core::Block{}, root->expression);
             return filter_proc;
         }
         case PlanNode::Type::PROJECT: {
-            auto project_proc = std::make_shared<processors::ProjectProcessor>(
+            auto project_proc = std::make_shared<processors::SimpleProjectProcessor>(
                 core::Block{}, root->columns);
             return project_proc;
         }
         case PlanNode::Type::GROUP_BY: {
-            auto group_by_proc = std::make_shared<processors::GroupByProcessor>(
+            auto group_by_proc = std::make_shared<processors::SimpleGroupByProcessor>(
                 core::Block{});
             return group_by_proc;
         }
         case PlanNode::Type::SORT: {
-            auto sort_proc = std::make_shared<processors::SortProcessor>(
+            auto sort_proc = std::make_shared<processors::SimpleSortProcessor>(
                 core::Block{}, root->order_by);
             return sort_proc;
         }
         case PlanNode::Type::LIMIT: {
-            auto limit_proc = std::make_shared<processors::LimitProcessor>(
+            auto limit_proc = std::make_shared<processors::SimpleLimitProcessor>(
                 core::Block{}, root->offset, root->limit);
             return limit_proc;
         }
         case PlanNode::Type::INSERT: {
             auto insert_proc = std::make_shared<processors::InsertProcessor>(
-                root->table, root->columns, root->values);
+                root->table, root->columns, root->values, *context);
             return insert_proc;
         }
         case PlanNode::Type::CREATE: {
+            // Check if this is CREATE DATABASE or CREATE TABLE
+            // CREATE DATABASE sets node->name, CREATE TABLE sets node->table_name
+            bool is_database = !root->name.empty() && root->table_name.empty();
+            std::string target_name = is_database ? root->name : root->table_name;
             auto create_proc = std::make_shared<processors::CreateProcessor>(
-                root->table_name, root->columns);
+                target_name, root->columns, is_database, *context);
             return create_proc;
         }
         case PlanNode::Type::DROP: {
             auto drop_proc = std::make_shared<processors::DropProcessor>(
-                root->table_name);
+                root->table_name, *context);
             return drop_proc;
         }
         case PlanNode::Type::SHOW: {
             auto show_proc = std::make_shared<processors::ShowProcessor>(
-                root->show_type);
+                root->show_type, *context);
             return show_proc;
         }
         case PlanNode::Type::DESCRIBE: {
             auto describe_proc = std::make_shared<processors::DescribeProcessor>(
-                root->table_name);
+                root->table_name, *context);
             return describe_proc;
         }
         case PlanNode::Type::EXPLAIN: {
             auto explain_proc = std::make_shared<processors::ExplainProcessor>(
-                root->explain_plan);
+                root->explain_plan, *context);
             return explain_proc;
         }
         default:

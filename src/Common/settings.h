@@ -69,8 +69,8 @@ class DefaultSettings {
 public:
     // Network
     static constexpr std::string_view DEFAULT_HOST   = "127.0.0.1";
-    static constexpr int64_t          DEFAULT_PORT   = 9000;
-    static constexpr int64_t          HTTP_PORT      = 8123;
+    static constexpr int64_t          DEFAULT_PORT   = 4311;
+    static constexpr int64_t          HTTP_PORT      = 1143;
 
     // Storage
     static constexpr std::string_view DEFAULT_DATA_PATH = "/var/lib/mnemosyne/data";

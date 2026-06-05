@@ -48,7 +48,7 @@ protected:
 
         id_col->insert(4);
         dept_col->insert("Sales");
-        salary_col->insert(90000.0);
+        salary_col->insert(43110.0);
 
         id_col->insert(5);
         dept_col->insert("Marketing");

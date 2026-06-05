@@ -1,11 +1,13 @@
 // src/Databases/database.cpp — Database implementation
 // Mnemosyne: A column-oriented analytical DBMS
 
-#include "database.h"
+#include <algorithm>
+#include "Common/exceptions.h"
 #include "DataTypes/data_type_factory.h"
 #include "Storages/memory_storage.h"
-#include "Common/exceptions.h"
-#include <algorithm>
+#include "Storages/storage_factory.h"
+#include "Storages/table.h"
+#include "database.h"
 
 namespace mnesso::databases {
 
@@ -32,14 +34,15 @@ auto Database::tables() const -> std::vector<std::string> {
 }
 
 auto Database::attach_table(std::string name, std::shared_ptr<storages::IStorage> table) -> void {
-    auto tbl = std::make_shared<storages::Table>(std::move(name));
-    tbl->storage() = std::move(table);
+    auto tbl             = std::make_shared<storages::Table>(std::move(name));
+    tbl->storage()       = std::move(table);
     tables_[tbl->name()] = tbl;
 }
 
 auto Database::detach_table(std::string name) -> std::shared_ptr<storages::IStorage> {
     auto it = tables_.find(std::move(name));
-    if (it == tables_.end()) return nullptr;
+    if (it == tables_.end())
+        return nullptr;
     auto storage = it->second->storage();
     tables_.erase(it);
     return storage;
@@ -47,10 +50,11 @@ auto Database::detach_table(std::string name) -> std::shared_ptr<storages::IStor
 
 auto Database::rename_table(std::string from, std::string to) -> bool {
     auto it = tables_.find(std::move(from));
-    if (it == tables_.end()) return false;
+    if (it == tables_.end())
+        return false;
     auto storage = it->second->storage();
     tables_.erase(it);
-    auto tbl = std::make_shared<storages::Table>(std::move(to));
+    auto tbl       = std::make_shared<storages::Table>(std::move(to));
     tbl->storage() = storage;
     tables_.insert({tbl->name(), tbl});
     return true;
@@ -70,15 +74,15 @@ auto Database::drop_table(std::string name) -> bool {
     return true;
 }
 
-auto Database::create_table(
-    std::string name,
-    std::unordered_map<std::string, datatypes::DataTypePtr> columns,
-    std::string engine) -> std::shared_ptr<storages::IStorage> {
+auto Database::create_table(std::string                                             name,
+                            std::unordered_map<std::string, datatypes::DataTypePtr> columns,
+                            std::string engine) -> std::shared_ptr<storages::IStorage> {
     auto tbl = std::make_shared<storages::Table>(std::move(name));
     for (const auto& [col_name, type] : columns) {
         tbl->add_column(col_name, std::move(type));
     }
-    auto storage = storages::MemoryStorage::create(engine);
+    // auto storage = storages::MemoryStorage::create(engine); This is for only memory storage
+    auto storage   = mnesso::storages::StorageFactory::instance().create(std::move(name), engine);
     tbl->storage() = storage;
     tables_[tbl->name()] = tbl;
     return storage;
@@ -88,20 +92,22 @@ auto Database::create_table(
 
 auto Database::get_table(std::string_view name) -> std::shared_ptr<storages::Table> {
     auto it = tables_.find(std::string{name});
-    if (it == tables_.end()) return nullptr;
+    if (it == tables_.end())
+        return nullptr;
     return it->second;
 }
 
 auto Database::get_table(std::string_view name) const -> std::shared_ptr<storages::Table> {
     auto it = tables_.find(std::string{name});
-    if (it == tables_.end()) return nullptr;
+    if (it == tables_.end())
+        return nullptr;
     return it->second;
 }
 
 void Database::create_table(std::string name, std::vector<ColumnDef> columns) {
     auto table = std::make_shared<storages::Table>(std::move(name));
     for (const auto& col : columns) {
-        auto dt = datatypes::get_data_type(col.data_type);
+        auto dt = mnesso::datatypes::get_data_type(col.data_type);
         table->add_column(col.name, dt);
     }
     tables_[table->name()] = table;

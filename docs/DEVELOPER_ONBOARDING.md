@@ -60,8 +60,8 @@ Expected output:
   Mnemosyne DBMS v0.1.0
   Column-oriented analytical database
 ========================================
-[Server] Starting on port 8123 (HTTP)
-[Server] Use http://localhost:8123 to connect
+[Server] Starting on port 1143 (HTTP)
+[Server] Use http://localhost:1143 to connect
 ```
 
 ### WSL2 / Linux
@@ -393,11 +393,11 @@ Column names in a `Block` are case-sensitive. `SELECT name FROM t` and `SELECT N
 
 The project uses CMake's `FetchContent` for `cpp-httplib`, `lz4`, and `zstd`. If you're offline or behind a proxy, these downloads will fail. Run `cmake --configure` once while online, then you can build offline.
 
-### 7. Port 8123 Conflicts
+### 7. Port 1143 Conflicts
 
-The HTTP server defaults to port 8123. If it's already in use:
-- Windows: `netstat -ano | findstr :8123` → `taskkill /PID <pid> /F`
-- Linux: `lsof -i :8123` → `kill <pid>`
+The HTTP server defaults to port 1143. If it's already in use:
+- Windows: `netstat -ano | findstr :1143` → `taskkill /PID <pid> /F`
+- Linux: `lsof -i :1143` → `kill <pid>`
 - Or edit `programs/server/main.cpp` to change the port
 
 ### 8. Test File Location

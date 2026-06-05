@@ -9,7 +9,7 @@
 
 ## 1. What Is This?
 
-Mnemosyne is a **column-oriented analytical database management system** written in C++23, inspired by ClickHouse's architecture. It provides a full query stack: SQL parsing (lexer + recursive-descent parser), semantic analysis, query planning (DAG of plan nodes), pipeline execution (processors), and storage backends (in-memory and file-based). It ships with an HTTP server (port 8123) and a web UI (`public/index.html`) for querying, plus a CLI REPL client. The project targets analytical workloads — OLAP-style scans, aggregations, and filtering — with a focus on columnar data layout for memory efficiency.
+Mnemosyne is a **column-oriented analytical database management system** written in C++23, inspired by ClickHouse's architecture. It provides a full query stack: SQL parsing (lexer + recursive-descent parser), semantic analysis, query planning (DAG of plan nodes), pipeline execution (processors), and storage backends (in-memory and file-based). It ships with an HTTP server (port 1143) and a web UI (`public/index.html`) for querying, plus a CLI REPL client. The project targets analytical workloads — OLAP-style scans, aggregations, and filtering — with a focus on columnar data layout for memory efficiency.
 
 ---
 
@@ -56,7 +56,7 @@ Mnemosyne is a **column-oriented analytical database management system** written
 │   ├── Loggers/            # Logger, TargetConsole, TargetFile
 │   └── Common/             # Settings, Exceptions, ThreadPool, types, span_compat
 ├── programs/               # [BINARIES] Server + CLI client
-│   ├── server/             # mnemosyne_server (HTTP + TCP, port 8123)
+│   ├── server/             # mnemosyne_server (HTTP + TCP, port 1143)
 │   └── client/             # MnemosyneClient REPL
 ├── tests/                  # [TESTS] Unit tests (gtest/ctest), per-subsystem headers
 ├── benchmark/              # [BENCHMARKS] Performance benchmarks
@@ -88,7 +88,7 @@ Mnemosyne is a **column-oriented analytical database management system** written
 
 | Entrypoint | File | Purpose |
 |------|------|-----|
-| **Server binary** | `programs/server/main.cpp` | `mnemosyne_server` — HTTP (8123) + TCP daemon, initializes Context, StorageFactory, DatabaseFactory, Logger, handles SIGINT/SIGTERM |
+| **Server binary** | `programs/server/main.cpp` | `mnemosyne_server` — HTTP (1143) + TCP daemon, initializes Context, StorageFactory, DatabaseFactory, Logger, handles SIGINT/SIGTERM |
 | **Client binary** | `programs/client/main.cpp` | `mnemosyne_client` — REPL CLI client (stubbed HTTP connect) |
 | **Web UI** | `public/index.html` | Dark-themed query editor, table browser, schema viewer, settings panel |
 | **npm package** | N/A | Not applicable — native C++ binary, no npm |
@@ -138,7 +138,7 @@ The codebase is a **single CMake project** with no package manager (no npm/pip/c
 - **Build**: CMake 3.28+ with C++23. Supports MSVC (Windows), GCC (Linux/WSL), Clang (macOS/WSL).
 - **Container**: Docker multi-stage build (`docker/Dockerfile`) + `docker-compose.yml` for local deployment.
 - **CI**: GitHub Actions on `push`/`PR` to `main`/`develop`. Builds on `ubuntu-24.04` + `macos-14` with GCC 13. Runs sanitizers (UBSan/ASan) on Ubuntu, release builds on macOS. Lint step runs `clang-tidy-18` on all `src/*.cpp`.
-- **Runtime**: Server listens on port **8123** (HTTP) + TCP. Exposes REST endpoints (`/query`, `/databases`, `/tables/{db}`, `/schema/{db}/{table}`, `/settings`, `/metrics`, `/ping`).
+- **Runtime**: Server listens on port **1143** (HTTP) + TCP. Exposes REST endpoints (`/query`, `/databases`, `/tables/{db}`, `/schema/{db}/{table}`, `/settings`, `/metrics`, `/ping`).
 - **Storage**: In-memory (`MemoryStorage`) or file-based (`FileStorage` — columns stored as `.bin` files on disk).
 - **Configuration**: `configs/mnemosyne.example.yml` (template config file).
 

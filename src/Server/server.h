@@ -22,7 +22,7 @@ public:
     ~Server();
 
     // Start HTTP and TCP servers
-    void start(uint16_t http_port = 8123, uint16_t tcp_port = 9000);
+    void start(uint16_t http_port = 1143, uint16_t tcp_port = 4311);
 
     // Stop both servers
     void stop();

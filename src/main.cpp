@@ -53,14 +53,14 @@ int main(int argc, char* argv[]) {
 
     // Create HTTPHandler (has a reference member, so use new + shared_ptr constructor)
     auto http_handler = std::shared_ptr<server::HTTPHandler>(new server::HTTPHandler(*context));
-    server::HTTPServer http_server(http_handler, 8123);
+    server::HTTPServer http_server(http_handler, 1143);
 
     std::cout << "========================================\n";
     std::cout << "  Mnemosyne DBMS v0.1.0\n";
     std::cout << "  Column-oriented analytical database\n";
     std::cout << "========================================\n";
-    std::cout << "[Server] Starting on port 8123 (HTTP)\n";
-    std::cout << "[Server] Use http://localhost:8123 to connect\n";
+    std::cout << "[Server] Starting on port 1143 (HTTP)\n";
+    std::cout << "[Server] Use http://localhost:1143 to connect\n";
     std::cout << "[Server] Available endpoints:\n";
     std::cout << "  GET  /ping           — health check\n";
     std::cout << "  GET  /query?query=   — execute SQL\n";

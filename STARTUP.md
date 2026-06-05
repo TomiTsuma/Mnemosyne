@@ -79,13 +79,13 @@ You'll see:
   Mnemosyne DBMS v0.1.0
   Column-oriented analytical database
 ========================================
-[Server] Starting on port 8123 (HTTP)
-[Server] Use http://localhost:8123 to connect
+[Server] Starting on port 1143 (HTTP)
+[Server] Use http://localhost:1143 to connect
 ```
 
 ### 5. Open the UI
 
-Open your browser to: **http://localhost:8123**
+Open your browser to: **http://localhost:1143**
 
 You now have a full web-based query interface with:
 - SQL query editor (with autocomplete)
@@ -128,7 +128,7 @@ cmake --build . --config Release
 
 ### 4. Open the UI
 
-Open **http://localhost:8123** in your browser.
+Open **http://localhost:1143** in your browser.
 
 ---
 
@@ -179,7 +179,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF -DENABLE_BENCHMARK=OFF
 
 ### Via the Web UI (recommended)
 
-1. Open **http://localhost:8123**
+1. Open **http://localhost:1143**
 2. Type SQL in the query editor: `SELECT 1 + 1 AS result`
 3. Click **▶ Run** or press **Ctrl+Enter**
 4. Results appear in the table view below
@@ -188,13 +188,13 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF -DENABLE_BENCHMARK=OFF
 
 ```bash
 # Simple query
-curl "http://localhost:8123/query?query=SELECT+1"
+curl "http://localhost:1143/query?query=SELECT+1"
 
 # With format
-curl "http://localhost:8123/query?query=SELECT+1&format=JSON"
+curl "http://localhost:1143/query?query=SELECT+1&format=JSON"
 
 # POST query
-curl -X POST "http://localhost:8123/query" -d "SELECT 1"
+curl -X POST "http://localhost:1143/query" -d "SELECT 1"
 ```
 
 ### Available HTTP Endpoints
@@ -239,9 +239,9 @@ sudo apt install clang-18
 cmake .. -DCMAKE_CXX_COMPILER=clang++-18
 ```
 
-### "Port 8123 already in use"
+### "Port 1143 already in use"
 Another process is using the port. Either:
-- Kill the process: `netstat -ano | findstr :8123` → `taskkill /PID <pid> /F`
+- Kill the process: `netstat -ano | findstr :1143` → `taskkill /PID <pid> /F`
 - Or edit `programs/server/main.cpp` to change the port
 
 ### "Winsock not initialized" (Windows)

@@ -293,8 +293,12 @@ auto Analyzer::buildQueryTree(AnalyzeResult& result)
                 // For DROP, pass the table name
                 return buildTableNode(query_ast->drop.table_name, context_.current_database());
             case parsers::QueryAST::QueryType::SHOW:
-                // For SHOW, pass a special marker
-                return buildTableNode("show_tables", context_.current_database());
+                // For SHOW, pass the correct marker based on show type
+                if (query_ast->show.show_type == parsers::QueryAST::Show::ShowType::DATABASES) {
+                    return buildTableNode("show_databases", context_.current_database());
+                } else {
+                    return buildTableNode("show_tables", context_.current_database());
+                }
             case parsers::QueryAST::QueryType::DESCRIBE:
                 // For DESCRIBE, pass the table name
                 return buildTableNode(query_ast->describe.table_name, context_.current_database());

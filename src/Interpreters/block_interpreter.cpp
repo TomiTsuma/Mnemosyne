@@ -14,6 +14,7 @@
 #include <chrono>
 #include <algorithm>
 #include <numeric>
+#include "Columns/column_string.h"
 
 namespace mnesso::interpreters {
 
@@ -40,8 +41,10 @@ auto BlockInterpreter::execute() -> QueryResult {
         auto outputs = pipeline_->outputs();
         if (outputs.empty()) {
             // For DDL commands (CREATE, DROP, etc.), no output is expected
-            // Return an empty block to indicate success
-            result_.block = std::make_shared<core::Block>(core::Block{});
+            // Return an empty block to indicate success only if we didn't pre-populate it
+            if (!result_.block) {
+                result_.block = std::make_shared<core::Block>(core::Block{});
+            }
             return result_;
         }
 
@@ -66,7 +69,10 @@ auto BlockInterpreter::execute() -> QueryResult {
             result_block = std::make_shared<core::Block>(header);
         }
 
-        result_.block = result_block;
+        if (!result_.block) {
+            result_.block = result_block;
+        }
+
     } catch (const common::Exception& e) {
         result_.error = e.what();
     }
@@ -359,12 +365,24 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
             // SHOW DATABASES or SHOW TABLES
             if (node->show_type == "DATABASES") {
                 auto db_names = context_.databases();
-                // Results would be returned via result_.block
+                auto col = std::make_shared<columns::ColumnString>();
+                for (size_t i=0; i < db_names.size(); i++){
+                    col->insert_at(i, core::Field(db_names[i]));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("databases",col);
+                result_.block = block;
             } else if (node->show_type == "TABLES") {
                 auto db = context_.get_database(context_.current_database());
                 if (db) {
                     auto table_names = db->tables();
-                    // Results would be returned via result_.block
+                    auto col = std::make_shared<columns::ColumnString>();
+                    for (size_t i=0; i < table_names.size(); i++){
+                        col->insert_at(i, core::Field(table_names[i]));
+                    }
+                    auto block = std::make_shared<core::Block>();
+                    block->add_column("tables", col);
+                    result_.block = block;
                 }
             }
             break;
@@ -421,7 +439,9 @@ std::function<bool(const core::Field&)> BlockInterpreter::build_predicate(
         // Simple equality check
         return std::visit([&](auto&& v) -> bool {
             using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_integral_v<T>) {
+            if constexpr (std::is_same_v<T, bool>) {
+                return v == (value_str == "1" || value_str == "true");
+            } else if constexpr (std::is_integral_v<T>) {
                 try {
                     return v == std::stoll(value_str);
                 } catch (...) {
@@ -433,8 +453,6 @@ std::function<bool(const core::Field&)> BlockInterpreter::build_predicate(
                 } catch (...) {
                     return false;
                 }
-            } else if constexpr (std::is_same_v<T, bool>) {
-                return v == (value_str == "1" || value_str == "true");
             } else if constexpr (std::is_same_v<T, std::string>) {
                 return v == value_str;
             } else {

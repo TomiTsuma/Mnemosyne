@@ -253,10 +253,10 @@ cmake --build build -j$(nproc)
 ./build/programs/server/Mnemo_server configs/Mnemo.example.yml
 
 # Connect with the CLI client
-./build/programs/client/Mnemo_client --host 127.0.0.1 --port 9000
+./build/programs/client/Mnemo_client --host 127.0.0.1 --port 4311
 
 # Or via HTTP
-curl 'http://127.0.0.1:8123/?query=SELECT%201'
+curl 'http://127.0.0.1:1143/?query=SELECT%201'
 ```
 
 ### Run with Docker

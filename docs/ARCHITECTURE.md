@@ -8,32 +8,32 @@ Mnemosyne is a column-oriented analytical database management system written in 
 SQL String
     │
     ▼
-┌──────────┐
-│  Lexer    │  Tokenize SQL into tokens
-└─────┬─────┘
+┌────────────┐
+│  Lexer     │  Tokenize SQL into tokens
+└─────┬──────┘
       │
       ▼
-┌──────────┐
-│  Parser   │  Recursive descent parser → AST
-└─────┬─────┘
+┌────────────┐
+│  Parser    │  Recursive descent parser → AST
+└─────┬──────┘
       │
       ▼
-┌──────────┐
-│ Analyzer  │  Semantic analysis → Query Tree
-└─────┬─────┘
+┌────────────┐
+│ Analyzer   │  Semantic analysis → Query Tree
+└─────┬──────┘
       │
       ▼
-┌──────────┐
-│ Planner   │  Query Tree → Execution DAG
-└─────┬─────┘
+┌────────────┐
+│ Planner    │  Query Tree → Execution DAG
+└─────┬──────┘
       │
       ▼
-┌──────────┐
-│Interpreter│  DAG → Processor Pipeline
-└─────┬─────┘
+┌────────────┐
+│Interpreter │  DAG → Processor Pipeline
+└─────┬──────┘
       │
       ▼
-┌──────────┐
+┌────────────┐
 │Processors │  Execute pipeline → Block results
 └─────┬─────┘
       │

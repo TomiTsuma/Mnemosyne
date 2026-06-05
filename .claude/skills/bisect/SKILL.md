@@ -77,7 +77,7 @@ fi
 ```bash
 #!/bin/bash
 # Server is already running when this script is called.
-# Use clickhouse-client on the default port (9000).
+# Use clickhouse-client on the default port (4311).
 set -e
 
 OUTPUT=$("$CH_PATH" client --multiquery 2>&1 <<'SQL'

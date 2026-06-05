@@ -41,7 +41,7 @@ ${CMAKE_SOURCE_DIR}/src
 
 # ------------------------------------------------------------------------------
 
-option(ENABLE_TESTS "Enable test targets" OFF)
+option(ENABLE_TESTS "Enable test targets" ON)
 option(ENABLE_BENCHMARK "Enable benchmark targets" OFF)
 option(ENABLE_SIMD "Enable SIMD optimizations" ON)
 
@@ -147,6 +147,8 @@ endif()
 # Benchmarks
 
 # ------------------------------------------------------------------------------
+
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
 if(ENABLE_BENCHMARK)
 add_subdirectory(benchmark)

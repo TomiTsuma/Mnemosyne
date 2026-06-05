@@ -2,9 +2,13 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "processors_source.h"
+#include "processors.h"
 #include "processor.h"
 #include "Common/exceptions.h"
 #include "Columns/column_vector.h"
+#include "Interpreters/context.h"
+#include "Databases/database_memory.h"
+#include "DataTypes/data_type_factory.h"
 #include <algorithm>
 #include <map>
 #include <numeric>
@@ -346,13 +350,11 @@ void GroupByProcessor::start() {
     // Build result block
     core::Block result;
     for (auto& col_name : group_by_columns_) {
-        auto col = all_data.get_column(col_name)->clone();
-        col->clear();
+        auto col = all_data.get_column(col_name)->clone_empty();
         result.add_column(col_name, col);
     }
     for (auto& [agg_name, agg_cols] : aggregates_) {
         auto col = std::make_shared<columns::ColumnVector<int64_t>>();
-        col->clear();
         result.add_column(agg_name, col);
     }
 
@@ -469,8 +471,7 @@ void SortProcessor::start() {
     result_block_ = all_data.clone();
     for (auto& col_name : all_data.column_names()) {
         auto col = all_data.get_column(col_name);
-        auto sorted_col = col->clone();
-        sorted_col->clear();
+        auto sorted_col = col->clone_empty();
         for (auto idx : indices) {
             sorted_col->insert(col->get(idx));
         }
@@ -549,8 +550,7 @@ void LimitProcessor::start() {
     current_block_ = all_data.clone();
     for (auto& col_name : all_data.column_names()) {
         auto col = all_data.get_column(col_name);
-        auto limited_col = col->clone();
-        limited_col->clear();
+        auto limited_col = col->clone_empty();
         for (size_t i = start_row; i < end_row; ++i) {
             limited_col->insert(col->get(i));
         }
@@ -567,6 +567,469 @@ auto LimitProcessor::inputs() const -> std::vector<std::shared_ptr<IInputStream>
 }
 auto LimitProcessor::outputs() const -> std::vector<std::shared_ptr<IOutputStream>> {
     return {std::static_pointer_cast<IOutputStream>(out_stream_)};
+}
+
+// ── ShowProcessor ──
+
+ShowProcessor::ShowProcessor(std::string show_type, interpreters::Context& context)
+    : show_type_(std::move(show_type)), context_(context) {}
+
+auto ShowProcessor::getHeader() const -> core::Block { return result_data_; }
+
+void ShowProcessor::start() {
+    if (finished_) return;
+
+    // Build result block based on show_type
+    if (show_type_ == "DATABASES") {
+        // Get list of databases from context
+        auto db_names = context_.databases();
+
+        // Create a column for database names
+        auto string_type = datatypes::get_data_type("String");
+        auto* raw_col = string_type->create_column();
+        auto col = std::shared_ptr<core::IColumn>(
+            static_cast<core::IColumn*>(raw_col),
+            [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+        // Add database names to the column
+        for (const auto& db_name : db_names) {
+            col->insert(core::Field(std::string(db_name)));
+        }
+
+        // Build result block
+        result_data_.add_column("name", col);
+
+    } else if (show_type_ == "TABLES") {
+        // Get current database
+        auto current_db = context_.current_database();
+        auto db = context_.get_database(current_db);
+
+        if (db) {
+            // Get list of tables from database
+            auto table_names = db->tables();
+
+            // Create a column for table names
+            auto string_type = datatypes::get_data_type("String");
+            auto* raw_col = string_type->create_column();
+            auto col = std::shared_ptr<core::IColumn>(
+                static_cast<core::IColumn*>(raw_col),
+                [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+            // Add table names to the column
+            for (const auto& table_name : table_names) {
+                col->insert(core::Field(std::string(table_name)));
+            }
+
+            // Build result block
+            result_data_.add_column("name", col);
+        }
+    }
+
+    finished_ = true;
+}
+
+auto ShowProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── CreateProcessor ──
+
+CreateProcessor::CreateProcessor(std::string name, std::vector<std::string> columns, bool is_database, interpreters::Context& context)
+    : name_(std::move(name)), columns_(std::move(columns)), is_database_(is_database), context_(context) {}
+
+auto CreateProcessor::getHeader() const -> core::Block { return result_data_; }
+
+void CreateProcessor::start() {
+    if (finished_) return;
+
+    if (is_database_) {
+        // CREATE DATABASE
+        auto db = databases::DatabaseMemory::create(name_, "");
+        context_.register_database(name_, db);
+
+        // Build success result
+        auto string_type = datatypes::get_data_type("String");
+        auto* raw_col = string_type->create_column();
+        auto col = std::shared_ptr<core::IColumn>(
+            static_cast<core::IColumn*>(raw_col),
+            [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+        col->insert(core::Field(std::string{"OK"}));
+        result_data_.add_column("result", col);
+
+    } else {
+        // CREATE TABLE (not implemented yet for this use case)
+        auto string_type = datatypes::get_data_type("String");
+        auto* raw_col = string_type->create_column();
+        auto col = std::shared_ptr<core::IColumn>(
+            static_cast<core::IColumn*>(raw_col),
+            [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+        col->insert(core::Field(std::string{"OK"}));
+        result_data_.add_column("result", col);
+    }
+
+    finished_ = true;
+}
+
+auto CreateProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── InsertProcessor ──
+
+InsertProcessor::InsertProcessor(std::string table,
+                                 std::vector<std::string> columns,
+                                 std::vector<std::vector<std::string>> values,
+                                 interpreters::Context& context)
+    : table_(std::move(table)), columns_(std::move(columns)), values_(std::move(values)), context_(context) {}
+
+auto InsertProcessor::getHeader() const -> core::Block { return result_data_; }
+
+void InsertProcessor::start() {
+    if (finished_) return;
+
+    // Get storage for the target table
+    auto storage = context_.get_storage(table_);
+    if (!storage) {
+        finished_ = true;
+        return;
+    }
+
+    // Build a block from the values
+    core::Block block;
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        const auto& col_name = columns_[i];
+        auto col_type = storage->column_types().at(col_name);
+        auto* raw_col = col_type->create_column();
+        auto col = std::shared_ptr<core::IColumn>(
+            static_cast<core::IColumn*>(raw_col),
+            [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+        for (const auto& row : values_) {
+            if (i < row.size()) {
+                // Parse the string value based on column type
+                auto val_str = row[i];
+                // Remove quotes if present
+                if (val_str.size() >= 2 && val_str.front() == '\'' && val_str.back() == '\'') {
+                    val_str = val_str.substr(1, val_str.size() - 2);
+                }
+                col->insert(core::Field(val_str));
+            } else {
+                col->insert_default();
+            }
+        }
+
+        block.add_column(col_name, col);
+    }
+
+    // Write to storage
+    if (block.column_count() > 0) {
+        storage->write(block);
+    }
+
+    // Build result
+    auto string_type = datatypes::get_data_type("String");
+    auto* raw_col = string_type->create_column();
+    auto col = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+    col->insert(core::Field(std::string{"OK"}));
+    result_data_.add_column("result", col);
+
+    finished_ = true;
+}
+
+auto InsertProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── DropProcessor ──
+
+DropProcessor::DropProcessor(std::string table_name, interpreters::Context& context)
+    : table_name_(std::move(table_name)), context_(context) {}
+
+auto DropProcessor::getHeader() const -> core::Block { return header_; }
+
+void DropProcessor::start() {
+    if (finished_) return;
+
+    // Get current database
+    auto current_db = context_.current_database();
+    auto db = context_.get_database(current_db);
+
+    if (db) {
+        db->drop_table(table_name_);
+    }
+
+    // Build result
+    auto string_type = datatypes::get_data_type("String");
+    auto* raw_col = string_type->create_column();
+    auto col = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+    col->insert(core::Field(std::string{"OK"}));
+    result_data_.add_column("result", col);
+
+    header_ = result_data_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto DropProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── DescribeProcessor ──
+
+DescribeProcessor::DescribeProcessor(std::string table_name, interpreters::Context& context)
+    : table_name_(std::move(table_name)), context_(context) {}
+
+auto DescribeProcessor::getHeader() const -> core::Block { return header_; }
+
+void DescribeProcessor::start() {
+    if (finished_) return;
+
+    // Get storage for the table
+    auto storage = context_.get_storage(table_name_);
+    if (!storage) {
+        finished_ = true;
+        return;
+    }
+
+    // Build result block with column names and types
+    auto col_names = storage->columns();
+    auto col_types = storage->column_types();
+
+    auto string_type = datatypes::get_data_type("String");
+    auto* raw_col_name = string_type->create_column();
+    auto* raw_col_type = string_type->create_column();
+    auto col_name = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col_name),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+    auto col_type = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col_type),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+    for (const auto& col : col_names) {
+        col_name->insert(core::Field(col));
+        col_type->insert(core::Field(col_types[col]->name()));
+    }
+
+    result_data_.add_column("name", col_name);
+    result_data_.add_column("type", col_type);
+
+    header_ = result_data_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto DescribeProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── ExplainProcessor ──
+
+ExplainProcessor::ExplainProcessor(std::string explain_plan, interpreters::Context& context)
+    : explain_plan_(std::move(explain_plan)), context_(context) {}
+
+auto ExplainProcessor::getHeader() const -> core::Block { return header_; }
+
+void ExplainProcessor::start() {
+    if (finished_) return;
+
+    // Build result block with the plan as a string
+    auto string_type = datatypes::get_data_type("String");
+    auto* raw_col = string_type->create_column();
+    auto col = std::shared_ptr<core::IColumn>(
+        static_cast<core::IColumn*>(raw_col),
+        [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+    col->insert(core::Field(explain_plan_));
+    result_data_.add_column("plan", col);
+
+    header_ = result_data_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto ExplainProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── Simpler processors for Interpreter (block-based, no streaming) ──
+
+// ── SimpleScanProcessor (simpler version) ──
+
+SimpleScanProcessor::SimpleScanProcessor(std::string table, interpreters::Context& context)
+    : table_(std::move(table)), context_(context) {}
+
+auto SimpleScanProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleScanProcessor::start() {
+    if (finished_) return;
+
+    // Get storage for the table
+    auto storage = context_.get_storage(table_);
+    if (!storage) {
+        finished_ = true;
+        return;
+    }
+
+    // Read all data from storage — read all columns in one call
+    auto all_cols = storage->columns();
+    result_data_ = storage->read(all_cols);
+
+    header_ = result_data_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleScanProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── SimpleFilterProcessor (simpler version) ──
+
+SimpleFilterProcessor::SimpleFilterProcessor(core::Block header, std::string expression)
+    : header_(std::move(header)), expression_(std::move(expression)) {}
+
+auto SimpleFilterProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleFilterProcessor::start() {
+    if (finished_) return;
+
+    // For now, just pass through the header
+    // Full implementation would apply the predicate to filter rows
+    header_ = header_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleFilterProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── SimpleProjectProcessor (simpler version) ──
+
+SimpleProjectProcessor::SimpleProjectProcessor(core::Block header, std::vector<std::string> columns)
+    : header_(std::move(header)), columns_(std::move(columns)) {}
+
+auto SimpleProjectProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleProjectProcessor::start() {
+    if (finished_) return;
+
+    // For now, just pass through the header
+    // Full implementation would project specific columns
+    header_ = header_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleProjectProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── SimpleGroupByProcessor (simpler version) ──
+
+SimpleGroupByProcessor::SimpleGroupByProcessor(core::Block header)
+    : header_(std::move(header)) {}
+
+auto SimpleGroupByProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleGroupByProcessor::start() {
+    if (finished_) return;
+
+    // For now, just pass through the header
+    // Full implementation would perform grouping and aggregation
+    header_ = header_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleGroupByProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── SimpleSortProcessor (simpler version) ──
+
+SimpleSortProcessor::SimpleSortProcessor(core::Block header, std::vector<std::string> order_by)
+    : header_(std::move(header)), order_by_(std::move(order_by)) {}
+
+auto SimpleSortProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleSortProcessor::start() {
+    if (finished_) return;
+
+    // For now, just pass through the header
+    // Full implementation would sort the rows
+    header_ = header_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleSortProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
+}
+
+// ── SimpleLimitProcessor (simpler version) ──
+
+SimpleLimitProcessor::SimpleLimitProcessor(core::Block header, size_t offset, size_t limit)
+    : header_(std::move(header)), offset_(offset), limit_(limit) {}
+
+auto SimpleLimitProcessor::getHeader() const -> core::Block { return header_; }
+
+void SimpleLimitProcessor::start() {
+    if (finished_) return;
+
+    // For now, just pass through the header
+    // Full implementation would apply limit and offset
+    header_ = header_.clone();
+    header_.reset();
+    finished_ = true;
+}
+
+auto SimpleLimitProcessor::result() const -> std::optional<core::Block> {
+    if (finished_) {
+        return result_data_;
+    }
+    return std::nullopt;
 }
 
 } // namespace mnesso::processors

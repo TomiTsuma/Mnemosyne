@@ -10,10 +10,10 @@ Stateless tests are located in `tests/queries/0_stateless/`.
 3. Wait for server to be ready: `./build/programs/clickhouse client -q "SELECT 1"`
 
 ### Running Tests
-Run tests with the correct port environment variables (default config uses TCP=9000, HTTP=8123):
+Run tests with the correct port environment variables (default config uses TCP=4311, HTTP=1143):
 
 ```bash
-CLICKHOUSE_PORT_TCP=9000 CLICKHOUSE_PORT_HTTP=8123 ./tests/clickhouse-test <test_name>
+CLICKHOUSE_PORT_TCP=4311 CLICKHOUSE_PORT_HTTP=1143 ./tests/clickhouse-test <test_name>
 ```
 
 ### Useful Flags

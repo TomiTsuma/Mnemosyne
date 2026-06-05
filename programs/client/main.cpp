@@ -24,7 +24,7 @@
 class MnemosyneClient {
 public:
     MnemosyneClient(std::string host = "127.0.0.1",
-                    uint16_t port = 8123)
+                    uint16_t port = 1143)
         : host_(host), port_(port) {}
 
     auto connect() -> bool {
@@ -70,7 +70,7 @@ private:
 auto main(int argc, char** argv) -> int {
     try {
         std::string host = "127.0.0.1";
-        uint16_t port = 8123;
+        uint16_t port = 1143;
 
         if (argc > 1) host = argv[1];
         if (argc > 2) port = static_cast<uint16_t>(std::stoi(argv[2]));

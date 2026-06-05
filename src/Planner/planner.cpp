@@ -45,6 +45,12 @@ auto Planner::plan(std::shared_ptr<analyzer::IQueryTreeNode> tree)
                 node->node_type = PlanNode::Type::SHOW;
                 node->show_type = "TABLES";
                 plan->root = node;
+            } else if (table->table == "show_databases") {
+                // SHOW DATABASES command
+                auto node = std::make_shared<PlanNode>();
+                node->node_type = PlanNode::Type::SHOW;
+                node->show_type = "DATABASES";
+                plan->root = node;
             } else if (table->table.empty() && !table->database.empty()) {
                 // CREATE DATABASE command
                 auto node = std::make_shared<PlanNode>();

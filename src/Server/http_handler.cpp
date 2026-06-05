@@ -236,6 +236,8 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
 
         // Format output
         if (fmt == "JSON") {
+            std::cerr << "[DEBUG] JSON serialization: row_count=" << query_result.block->row_count() 
+                      << ", column_count=" << query_result.block->column_count() << std::endl;
             std::ostringstream oss;
             oss << "{\n"
                 << "  \"rows\": " << query_result.block->row_count() << ",\n"
