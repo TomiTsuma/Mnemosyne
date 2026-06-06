@@ -15,6 +15,12 @@
 #include "StorageUnits/storage_unit_manager.h"
 #include "Nodes/node_catalog.h"
 #include "Nodes/node_manager.h"
+#include "ReplicaGroups/replica_group_catalog.h"
+#include "ReplicaGroups/replica_group_manager.h"
+#include "ShardGroups/shard_group_catalog.h"
+#include "ShardGroups/shard_group_manager.h"
+#include "Connectors/connector_catalog.h"
+#include "Connectors/connector_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -51,9 +57,19 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
         case parsers::QueryAST::Create::Kind::Cluster:
             do_create_cluster(context, query.create);
             break;
+        case parsers::QueryAST::Create::Kind::ReplicaGroup:
+            do_create_replica_group(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::ShardGroup:
+            do_create_shard_group(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Connector:
+            do_create_connector(context, query.create);
+            break;
         default:
             throw common::Exception{
-                "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, STORAGE_UNIT, NODE, or CLUSTER",
+                "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, STORAGE_UNIT, "
+                "NODE, CLUSTER, REPLICA_GROUP, SHARD_GROUP, or CONNECTOR",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 
@@ -144,6 +160,32 @@ auto InterpreterCreateQuery::do_create_table(
             file->set_data_path(table_path);
             file->set_storage_unit_name(create.storage_unit_name);
             disk->create_dir(table_path);
+        }
+    }
+
+    if (!create.shard_group_name.empty()) {
+        auto& sg_mgr = shard_groups::ShardGroupManager::instance();
+        if (!sg_mgr.has_group(create.shard_group_name)) {
+            throw common::Exception{
+                "Unknown shard group: " + create.shard_group_name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        sg_mgr.acquire_group(create.shard_group_name);
+        if (storage) {
+            storage->set_shard_group_name(create.shard_group_name);
+        }
+    }
+
+    if (!create.replica_group_name.empty()) {
+        auto& rg_mgr = replica_groups::ReplicaGroupManager::instance();
+        if (!rg_mgr.has_group(create.replica_group_name)) {
+            throw common::Exception{
+                "Unknown replica group: " + create.replica_group_name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        rg_mgr.acquire_group(create.replica_group_name);
+        if (storage) {
+            storage->set_replica_group_name(create.replica_group_name);
         }
     }
 
@@ -295,6 +337,62 @@ auto InterpreterCreateQuery::do_create_cluster(
     nodes::ClusterEntry entry;
     entry.name = create.cluster_name;
     nodes::NodeManager::instance().create_cluster(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_replica_group(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    replica_groups::ReplicaGroupEntry entry;
+    entry.name = create.replica_group_name;
+    entry.replication_factor = create.replica_count > 0 ? create.replica_count : 1;
+    if (!create.consistency_mode.empty()) {
+        entry.consistency_mode = replica_groups::parse_consistency_mode(create.consistency_mode);
+    }
+    if (!create.replica_strategy.empty()) {
+        entry.strategy = replica_groups::parse_replica_strategy(create.replica_strategy);
+    }
+    if (!create.placement_policy.empty()) {
+        entry.placement_policy = replica_groups::parse_placement_policy(create.placement_policy);
+    }
+    replica_groups::ReplicaGroupManager::instance().create_group(std::move(entry),
+                                                                 create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_shard_group(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    shard_groups::ShardGroupEntry entry;
+    entry.name = create.shard_group_name;
+    entry.shard_count = create.shard_count > 0 ? create.shard_count : 1;
+    entry.shard_key = create.shard_key;
+    if (!create.shard_type.empty()) {
+        entry.strategy = shard_groups::parse_shard_strategy(create.shard_type);
+    }
+    shard_groups::ShardGroupManager::instance().create_group(std::move(entry),
+                                                             create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_connector(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    auto& mgr = connectors::ConnectorManager::instance();
+    if (mgr.has_connector(create.connector_name)) {
+        if (create.if_not_exists) {
+            return;
+        }
+        throw common::Exception{
+            "Connector already exists: " + create.connector_name,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    connectors::ConnectorEntry entry;
+    entry.name = create.connector_name;
+    entry.type = connectors::parse_connector_type(create.connector_type);
+    if (!create.auth_method.empty()) {
+        entry.auth = connectors::parse_auth_method(create.auth_method);
+    }
+    entry.properties = create.connector_properties;
+    mgr.create_connector(std::move(entry));
 }
 
 } // namespace mnemo::interpreters

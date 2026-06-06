@@ -20,6 +20,11 @@ private:
         -> void;
     static auto do_drop_storage_unit(Context& context, const parsers::QueryAST::Drop& drop)
         -> void;
+    static auto do_drop_replica_group(Context& context, const parsers::QueryAST::Drop& drop)
+        -> void;
+    static auto do_drop_shard_group(Context& context, const parsers::QueryAST::Drop& drop)
+        -> void;
+    static auto do_drop_connector(Context& context, const parsers::QueryAST::Drop& drop) -> void;
     static auto do_truncate(Context& context, const parsers::QueryAST::Drop& drop) -> void;
     static auto do_detach(Context& context, const parsers::QueryAST::Drop& drop) -> void;
 };

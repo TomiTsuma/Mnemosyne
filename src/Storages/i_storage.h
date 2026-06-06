@@ -61,6 +61,14 @@ public:
 
     // Flush — persist to disk
     virtual auto flush() -> bool { return false; }
+
+    // Optional replica group attachment (REPLICA_GROUP first-class entity)
+    [[nodiscard]] virtual auto replica_group_name() const -> std::string { return {}; }
+    virtual auto set_replica_group_name(std::string name) -> void { (void)name; }
+
+    // Optional shard group attachment (SHARD_GROUP first-class entity)
+    [[nodiscard]] virtual auto shard_group_name() const -> std::string { return {}; }
+    virtual auto set_shard_group_name(std::string name) -> void { (void)name; }
 };
 
 } // namespace mnemo::storages

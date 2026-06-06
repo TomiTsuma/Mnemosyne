@@ -336,6 +336,28 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "CLUSTER") type = TokenType::KeywordCluster;
     else if (upper == "CLUSTERS") type = TokenType::KeywordClusters;
     else if (upper == "REPLICAS") type = TokenType::KeywordReplicas;
+    else if (upper == "REPLICA") type = TokenType::KeywordReplica;
+    else if (upper == "REPLICA_GROUP") type = TokenType::KeywordReplicaGroup;
+    else if (upper == "REPLICA_GROUPS") type = TokenType::KeywordReplicaGroups;
+    else if (upper == "REPLICATION") type = TokenType::KeywordReplication;
+    else if (upper == "STATUS") type = TokenType::KeywordStatus;
+    else if (upper == "CONSISTENCY") type = TokenType::KeywordConsistency;
+    else if (upper == "QUORUM") type = TokenType::KeywordQuorum;
+    else if (upper == "SYNCHRONOUS") type = TokenType::KeywordSynchronous;
+    else if (upper == "ASYNCHRONOUS") type = TokenType::KeywordAsynchronous;
+    else if (upper == "PLACEMENT") type = TokenType::KeywordPlacement;
+    else if (upper == "NODE_AWARE") type = TokenType::KeywordNodeAware;
+    else if (upper == "SHARD") type = TokenType::KeywordShard;
+    else if (upper == "SHARDS") type = TokenType::KeywordShards;
+    else if (upper == "SHARD_GROUP") type = TokenType::KeywordShardGroup;
+    else if (upper == "SHARD_GROUPS") type = TokenType::KeywordShardGroups;
+    else if (upper == "KEY") type = TokenType::KeywordKey;
+    else if (upper == "CONNECTOR") type = TokenType::KeywordConnector;
+    else if (upper == "CONNECTORS") type = TokenType::KeywordConnectors;
+    else if (upper == "TEST") type = TokenType::KeywordTest;
+    else if (upper == "DISCOVER") type = TokenType::KeywordDiscover;
+    else if (upper == "AUTH") type = TokenType::KeywordAuth;
+    else if (upper == "SCHEMA") type = TokenType::KeywordSchema;
 
     return make_token(type, std::move(id));
 }

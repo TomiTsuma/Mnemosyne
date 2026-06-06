@@ -269,10 +269,13 @@ class QueryAST final : public ASTNode {
 public:
     enum class QueryType {
         SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH,
-        REGISTER, DRAIN, REMOVE
+        REGISTER, DRAIN, REMOVE, TEST, DISCOVER
     };
 
-    enum class ObjectKind { Table, View, MaterializedView, StorageUnit, Node, Cluster };
+    enum class ObjectKind {
+        Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup, ShardGroup,
+        Connector
+    };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -291,6 +294,9 @@ public:
         std::vector<std::shared_ptr<ASTExpr>> columns;
         std::string table;
         std::string table_alias;
+        bool from_connector = false;
+        std::string connector_name;
+        std::string connector_resource;
         std::vector<JoinClause> joins;
         std::shared_ptr<ASTExpr> where;
         std::vector<std::shared_ptr<ASTExpr>> group_by;
@@ -306,7 +312,10 @@ public:
     } insert;
 
     struct Create : ASTDDLQuery {
-        enum class Kind { Database, Table, View, MaterializedView, StorageUnit, Node, Cluster };
+        enum class Kind {
+            Database, Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup,
+            ShardGroup, Connector
+        };
         Kind kind = Kind::Table;
 
         std::string database_name;
@@ -322,6 +331,19 @@ public:
         std::string node_type;
         std::string node_role;
         std::string cluster_name;
+        std::string replica_group_name;
+        uint32_t replica_count = 0;
+        std::string consistency_mode;
+        std::string replica_strategy;
+        std::string placement_policy;
+        std::string shard_group_name;
+        uint32_t shard_count = 0;
+        std::string shard_key;
+        std::string shard_type;
+        std::string connector_name;
+        std::string connector_type;
+        std::string auth_method;
+        std::unordered_map<std::string, std::string> connector_properties;
     } create;
 
     struct Drop : ASTDDLQuery {
@@ -331,7 +353,7 @@ public:
     } drop;
 
     struct Alter : ASTDDLQuery {
-        enum class Target { Table, Node };
+        enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector };
         Target target = Target::Table;
         std::vector<ASTAlterQuery::AlterCommand> commands;
         struct NodeSet {
@@ -339,6 +361,9 @@ public:
             std::string value;
         };
         std::vector<NodeSet> node_sets;
+        std::vector<NodeSet> replica_group_sets;
+        std::vector<NodeSet> shard_group_sets;
+        std::vector<NodeSet> connector_sets;
     } alter;
 
     struct RegisterNode {
@@ -359,11 +384,24 @@ public:
     struct Show {
         enum class ShowType {
             DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS, STORAGE_UNITS, STORAGE_USAGE,
-            NODES, NODE_METRICS, NODE_CAPABILITIES, NODE_PARTITIONS, NODE_REPLICAS, CLUSTERS
+            NODES, NODE_METRICS, NODE_CAPABILITIES, NODE_PARTITIONS, NODE_REPLICAS, CLUSTERS,
+            REPLICA_GROUPS, REPLICATION_STATUS,
+            SHARD_GROUPS, SHARDS, SHARD_STATUS,
+            CONNECTORS, CONNECTOR_CAPABILITIES, CONNECTOR_STATUS
         };
         ShowType show_type = ShowType::DATABASES;
         std::string node_name;
+        std::string connector_name;
     } show;
+
+    struct TestQuery {
+        ObjectKind object_kind = ObjectKind::Connector;
+        std::string name;
+    } test_query;
+
+    struct Discover {
+        std::string connector_name;
+    } discover;
 
     struct Describe {
         ObjectKind object_kind = ObjectKind::Table;

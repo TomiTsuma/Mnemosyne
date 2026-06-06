@@ -180,4 +180,24 @@ auto FileStorage::storage_unit_name() const -> std::string {
     return storage_unit_name_;
 }
 
+auto FileStorage::set_replica_group_name(std::string name) -> void {
+    std::lock_guard lock(mutex_);
+    replica_group_name_ = std::move(name);
+}
+
+auto FileStorage::replica_group_name() const -> std::string {
+    std::lock_guard lock(mutex_);
+    return replica_group_name_;
+}
+
+auto FileStorage::set_shard_group_name(std::string name) -> void {
+    std::lock_guard lock(mutex_);
+    shard_group_name_ = std::move(name);
+}
+
+auto FileStorage::shard_group_name() const -> std::string {
+    std::lock_guard lock(mutex_);
+    return shard_group_name_;
+}
+
 } // namespace mnemo::storages

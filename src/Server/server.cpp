@@ -7,6 +7,8 @@
 #include "Server/tcp_server.h"
 #include "Nodes/membership_service.h"
 #include "Nodes/node_manager.h"
+#include "ReplicaGroups/replica_failover_service.h"
+#include "ReplicaGroups/replica_group_manager.h"
 #include <iostream>
 
 namespace mnemo::server {
@@ -24,7 +26,12 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
 
     nodes::NodeManager::instance().bootstrap_self(
         "local", "127.0.0.1", http_port, "default");
+    nodes::NodeManager::instance().add_offline_callback(
+        [](std::string_view node_id) {
+            replica_groups::ReplicaGroupManager::instance().on_node_offline(node_id);
+        });
     nodes::MembershipService::instance().start();
+    replica_groups::ReplicaFailoverService::instance().start();
 
     // Create HTTP handler
     http_handler_ = std::make_shared<HTTPHandler>(*context_);
@@ -45,6 +52,7 @@ void Server::stop() {
     running_ = false;
 
     nodes::MembershipService::instance().stop();
+    replica_groups::ReplicaFailoverService::instance().stop();
 
     if (http_server_) {
         http_server_->stop();

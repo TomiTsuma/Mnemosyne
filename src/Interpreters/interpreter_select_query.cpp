@@ -8,6 +8,8 @@
 #include "Common/exceptions.h"
 #include "DataTypes/data_type_factory.h"
 #include "Storages/i_storage.h"
+#include "Connectors/connector_factory.h"
+#include "Connectors/connector_manager.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -645,7 +647,18 @@ auto eval_select_with_expanding(Context& context, const QueryAST& query,
     }
 
     core::Block data;
-    if (!sel.table.empty()) {
+    if (sel.from_connector) {
+        auto& mgr = connectors::ConnectorManager::instance();
+        const auto* entry = mgr.get_connector(sel.connector_name);
+        if (!entry) {
+            throw common::Exception{
+                "Unknown connector: " + sel.connector_name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        auto driver = connectors::ConnectorFactory::create_driver(entry->type);
+        const size_t limit = sel.limit.first > 0 ? sel.limit.first : 0;
+        data = driver->read(*entry, sel.connector_resource, limit);
+    } else if (!sel.table.empty()) {
         const std::string prefix = sel.table_alias.empty() ? sel.table : sel.table_alias;
         data = load_table(context, sel.table, prefix, expanding);
     }

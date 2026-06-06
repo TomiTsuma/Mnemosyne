@@ -4,6 +4,7 @@
 
 #include "Nodes/cluster_catalog.h"
 #include "Nodes/node_catalog.h"
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -38,7 +39,9 @@ public:
 
     auto record_heartbeat(std::string_view name, const NodeMetrics& metrics,
                           std::optional<NodeStatus> status) -> void;
-    auto sweep_stale_nodes(std::chrono::seconds ttl) -> void;
+    auto sweep_stale_nodes(std::chrono::seconds ttl) -> std::vector<std::string>;
+    auto add_offline_callback(std::function<void(std::string_view)> callback) -> void;
+    [[nodiscard]] auto offline_callbacks() const -> std::vector<std::function<void(std::string_view)>>;
 
     auto create_cluster(ClusterEntry entry, bool if_not_exists) -> void;
     auto get_cluster(std::string_view name) const -> const ClusterEntry*;
@@ -55,6 +58,7 @@ private:
     std::unordered_map<std::string, NodeEntry> nodes_;
     std::unordered_map<std::string, ClusterEntry> clusters_;
     std::string self_node_id_;
+    std::vector<std::function<void(std::string_view)>> offline_callbacks_;
 };
 
 } // namespace mnemo::nodes

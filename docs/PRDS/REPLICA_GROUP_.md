@@ -5,7 +5,11 @@
 **Product:** Mnemosyne Data Platform
 **Component:** Distributed Reliability Layer
 **Version:** 1.0
-**Status:** Draft
+**Status:** Phase 1 Implemented
+
+**Implementation notes:** See `docs/changelog/060626-replica_group_entity_changelog.md`.
+Phase 1 ships catalog + SQL + node placement + failover metadata + monitoring.
+Physical replication and quorum writes are deferred to Phase 2.
 
 ---
 

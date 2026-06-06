@@ -170,7 +170,9 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
         }
         case parsers::QueryAST::QueryType::REGISTER:
         case parsers::QueryAST::QueryType::DRAIN:
-        case parsers::QueryAST::QueryType::REMOVE: {
+        case parsers::QueryAST::QueryType::REMOVE:
+        case parsers::QueryAST::QueryType::TEST:
+        case parsers::QueryAST::QueryType::DISCOVER: {
             result.analyzed_ast = ast;
             result.valid = true;
             break;
@@ -482,12 +484,38 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::CLUSTERS:
                     node->kind = DDLNode::Kind::ShowClusters;
                     break;
+                case parsers::QueryAST::Show::ShowType::REPLICA_GROUPS:
+                    node->kind = DDLNode::Kind::ShowReplicaGroups;
+                    break;
+                case parsers::QueryAST::Show::ShowType::REPLICATION_STATUS:
+                    node->kind = DDLNode::Kind::ShowReplicationStatus;
+                    break;
+                case parsers::QueryAST::Show::ShowType::SHARD_GROUPS:
+                    node->kind = DDLNode::Kind::ShowShardGroups;
+                    break;
+                case parsers::QueryAST::Show::ShowType::SHARDS:
+                    node->kind = DDLNode::Kind::ShowShards;
+                    break;
+                case parsers::QueryAST::Show::ShowType::SHARD_STATUS:
+                    node->kind = DDLNode::Kind::ShowShardStatus;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CONNECTORS:
+                    node->kind = DDLNode::Kind::ShowConnectors;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CONNECTOR_CAPABILITIES:
+                    node->kind = DDLNode::Kind::ShowConnectorCapabilities;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CONNECTOR_STATUS:
+                    node->kind = DDLNode::Kind::ShowConnectorStatus;
+                    break;
                 case parsers::QueryAST::Show::ShowType::TABLES:
                 default:
                     node->kind = DDLNode::Kind::ShowTables;
                     break;
             }
-            node->show_node_name = query_ast.show.node_name;
+            node->show_node_name = !query_ast.show.connector_name.empty()
+                ? query_ast.show.connector_name
+                : query_ast.show.node_name;
             node->database = context_.current_database();
             break;
         case parsers::QueryAST::QueryType::DESCRIBE:

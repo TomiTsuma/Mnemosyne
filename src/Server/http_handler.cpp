@@ -12,6 +12,11 @@
 #include "Interpreters/interpreter_refresh_query.h"
 #include "Interpreters/interpreter_node_query.h"
 #include "Interpreters/interpreter_alter_node.h"
+#include "Interpreters/interpreter_alter_replica_group.h"
+#include "Interpreters/interpreter_alter_shard_group.h"
+#include "Interpreters/interpreter_alter_connector.h"
+#include "Interpreters/interpreter_test_connector.h"
+#include "Interpreters/interpreter_discover_query.h"
 #include "Interpreters/context.h"
 #include "Nodes/node_catalog.h"
 #include "Nodes/node_manager.h"
@@ -377,9 +382,34 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     query_result.block = std::make_shared<core::Block>(std::move(block));
                     break;
                 }
+                case parsers::QueryAST::QueryType::TEST: {
+                    auto block = interpreters::InterpreterTestConnector::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DISCOVER: {
+                    auto block = interpreters::InterpreterDiscoverQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
                 case parsers::QueryAST::QueryType::ALTER: {
                     if (query_ast->alter.target == parsers::QueryAST::Alter::Target::Node) {
                         auto block = interpreters::InterpreterAlterNode::execute(context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::ReplicaGroup) {
+                        auto block = interpreters::InterpreterAlterReplicaGroup::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::ShardGroup) {
+                        auto block = interpreters::InterpreterAlterShardGroup::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::Connector) {
+                        auto block = interpreters::InterpreterAlterConnector::execute(
+                            context_, *query_ast);
                         query_result.block = std::make_shared<core::Block>(std::move(block));
                     }
                     break;

@@ -7,6 +7,9 @@
 #include "Storages/memory_storage.h"
 #include "Storages/file_storage.h"
 #include "StorageUnits/storage_unit_manager.h"
+#include "ReplicaGroups/replica_group_manager.h"
+#include "ShardGroups/shard_group_manager.h"
+#include "Connectors/connector_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -34,6 +37,12 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
                 do_drop_materialized_view(context, query.drop);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::StorageUnit) {
                 do_drop_storage_unit(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::ReplicaGroup) {
+                do_drop_replica_group(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::ShardGroup) {
+                do_drop_shard_group(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Connector) {
+                do_drop_connector(context, query.drop);
             } else {
                 do_drop(context, query.drop);
             }
@@ -70,6 +79,16 @@ auto InterpreterDropQuery::do_drop(Context& context, const parsers::QueryAST::Dr
         const auto unit_name = file->storage_unit_name();
         if (!unit_name.empty()) {
             storage_units::StorageUnitManager::instance().release_disk(unit_name);
+        }
+    }
+    if (storage) {
+        const auto sg_name = storage->shard_group_name();
+        if (!sg_name.empty()) {
+            shard_groups::ShardGroupManager::instance().release_group(sg_name);
+        }
+        const auto rg_name = storage->replica_group_name();
+        if (!rg_name.empty()) {
+            replica_groups::ReplicaGroupManager::instance().release_group(rg_name);
         }
     }
 
@@ -119,6 +138,24 @@ auto InterpreterDropQuery::do_drop_storage_unit(
     Context& context, const parsers::QueryAST::Drop& drop) -> void {
     (void)context;
     storage_units::StorageUnitManager::instance().drop_unit(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_replica_group(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    replica_groups::ReplicaGroupManager::instance().drop_group(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_shard_group(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    shard_groups::ShardGroupManager::instance().drop_group(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_connector(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    connectors::ConnectorManager::instance().drop_connector(drop.table, drop.if_exists);
 }
 
 auto InterpreterDropQuery::do_truncate(Context& context, const parsers::QueryAST::Drop& drop)

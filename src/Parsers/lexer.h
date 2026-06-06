@@ -37,7 +37,12 @@ enum class TokenType {
     KeywordHost, KeywordPort, KeywordRole, KeywordSet, KeywordMetrics,
     KeywordCapabilities, KeywordWorker, KeywordCoordinator, KeywordObserver,
     KeywordCompute, KeywordHybrid, KeywordGpu, KeywordCluster, KeywordClusters,
-    KeywordReplicas,
+    KeywordReplicas, KeywordReplica, KeywordReplicaGroup, KeywordReplicaGroups,
+    KeywordReplication, KeywordStatus, KeywordConsistency, KeywordQuorum,
+    KeywordSynchronous, KeywordAsynchronous, KeywordPlacement, KeywordNodeAware,
+    KeywordShard, KeywordShards, KeywordShardGroup, KeywordShardGroups, KeywordKey,
+    KeywordConnector, KeywordConnectors, KeywordTest, KeywordDiscover, KeywordAuth,
+    KeywordSchema,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,

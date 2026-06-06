@@ -19,7 +19,12 @@ void MembershipService::start(std::chrono::seconds sweep_interval,
     heartbeat_ttl_ = heartbeat_ttl;
     sweep_thread_ = std::thread([this]() {
         while (running_) {
-            NodeManager::instance().sweep_stale_nodes(heartbeat_ttl_);
+            const auto offline = NodeManager::instance().sweep_stale_nodes(heartbeat_ttl_);
+            for (const auto& callback : NodeManager::instance().offline_callbacks()) {
+                for (const auto& node_id : offline) {
+                    callback(node_id);
+                }
+            }
             std::this_thread::sleep_for(sweep_interval_);
         }
     });

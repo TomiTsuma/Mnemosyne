@@ -224,8 +224,9 @@ auto NodeManager::record_heartbeat(std::string_view name, const NodeMetrics& met
     }
 }
 
-auto NodeManager::sweep_stale_nodes(std::chrono::seconds ttl) -> void {
+auto NodeManager::sweep_stale_nodes(std::chrono::seconds ttl) -> std::vector<std::string> {
     std::lock_guard lock{mutex_};
+    std::vector<std::string> went_offline;
     const auto now = std::chrono::system_clock::now();
     for (auto& [_, entry] : nodes_) {
         if (entry.is_self) continue;
@@ -234,9 +235,23 @@ auto NodeManager::sweep_stale_nodes(std::chrono::seconds ttl) -> void {
         }
         if (entry.last_heartbeat_at.time_since_epoch().count() == 0) continue;
         if (now - entry.last_heartbeat_at > ttl) {
+            if (entry.status != NodeStatus::Offline) {
+                went_offline.push_back(entry.node_id);
+            }
             entry.status = NodeStatus::Offline;
         }
     }
+    return went_offline;
+}
+
+auto NodeManager::add_offline_callback(std::function<void(std::string_view)> callback) -> void {
+    std::lock_guard lock{mutex_};
+    offline_callbacks_.push_back(std::move(callback));
+}
+
+auto NodeManager::offline_callbacks() const -> std::vector<std::function<void(std::string_view)>> {
+    std::lock_guard lock{mutex_};
+    return offline_callbacks_;
 }
 
 auto NodeManager::create_cluster(ClusterEntry entry, bool if_not_exists) -> void {

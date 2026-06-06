@@ -19,6 +19,12 @@
 #include "Nodes/node_catalog.h"
 #include "Nodes/node_manager.h"
 #include "Nodes/remote_executor.h"
+#include "ReplicaGroups/replica_group_catalog.h"
+#include "ReplicaGroups/replica_group_manager.h"
+#include "ShardGroups/shard_group_catalog.h"
+#include "ShardGroups/shard_group_manager.h"
+#include "Connectors/connector_catalog.h"
+#include "Connectors/connector_manager.h"
 #include "Common/exceptions.h"
 #include "Analyzer/query_tree.h"
 #include "DataTypes/data_type_factory.h"
@@ -410,6 +416,65 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 block->add_column("type", type_col);
                 block->add_column("status", status_col);
                 result_.block = block;
+            } else if (node->show_type == "CONNECTORS") {
+                auto& mgr = connectors::ConnectorManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    name_col->insert_at(i, core::Field(entries[i].name));
+                    type_col->insert_at(i, core::Field(connectors::connector_type_name(entries[i].type)));
+                    status_col->insert_at(i, core::Field(connectors::connector_status_name(entries[i].status)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("type", type_col);
+                block->add_column("status", status_col);
+                result_.block = block;
+            } else if (node->show_type == "CONNECTOR_CAPABILITIES") {
+                auto& mgr = connectors::ConnectorManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto cap_col = std::make_shared<columns::ColumnString>();
+                for (const auto& entry : entries) {
+                    if (!node->table_name.empty() && entry.name != node->table_name) {
+                        continue;
+                    }
+                    for (const auto& cap : entry.capabilities) {
+                        name_col->insert(core::Field(entry.name));
+                        cap_col->insert(core::Field(cap));
+                    }
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("capability", cap_col);
+                result_.block = block;
+            } else if (node->show_type == "CONNECTOR_STATUS") {
+                auto& mgr = connectors::ConnectorManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                auto ok_col = std::make_shared<columns::ColumnString>();
+                auto latency_col = std::make_shared<columns::ColumnString>();
+                auto message_col = std::make_shared<columns::ColumnString>();
+                for (const auto& entry : entries) {
+                    if (!node->table_name.empty() && entry.name != node->table_name) {
+                        continue;
+                    }
+                    name_col->insert(core::Field(entry.name));
+                    status_col->insert(core::Field(connectors::connector_status_name(entry.status)));
+                    ok_col->insert(core::Field(std::string{entry.last_test.ok ? "true" : "false"}));
+                    latency_col->insert(core::Field(std::to_string(entry.last_test.latency_ms)));
+                    message_col->insert(core::Field(entry.last_test.message));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("status", status_col);
+                block->add_column("last_test_ok", ok_col);
+                block->add_column("last_test_latency_ms", latency_col);
+                block->add_column("last_test_message", message_col);
+                result_.block = block;
             } else if (node->show_type == "STORAGE_USAGE") {
                 auto& mgr = storage_units::StorageUnitManager::instance();
                 const auto entries = mgr.list_entries();
@@ -550,6 +615,106 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 auto block = std::make_shared<core::Block>();
                 block->add_column("name", name_col);
                 result_.block = block;
+            } else if (node->show_type == "REPLICA_GROUPS") {
+                auto& mgr = replica_groups::ReplicaGroupManager::instance();
+                mgr.refresh_lag();
+                const auto groups = mgr.list_groups();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto factor_col = std::make_shared<columns::ColumnString>();
+                auto consistency_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < groups.size(); ++i) {
+                    name_col->insert_at(i, core::Field(groups[i].name));
+                    factor_col->insert_at(i, core::Field(std::to_string(groups[i].replication_factor)));
+                    consistency_col->insert_at(
+                        i, core::Field(replica_groups::consistency_mode_name(groups[i].consistency_mode)));
+                    status_col->insert_at(
+                        i, core::Field(replica_groups::replica_group_status_name(groups[i].status)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("replication_factor", factor_col);
+                block->add_column("consistency", consistency_col);
+                block->add_column("status", status_col);
+                result_.block = block;
+            } else if (node->show_type == "SHARD_GROUPS") {
+                auto& mgr = shard_groups::ShardGroupManager::instance();
+                const auto groups = mgr.list_groups();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                auto count_col = std::make_shared<columns::ColumnString>();
+                auto key_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < groups.size(); ++i) {
+                    name_col->insert_at(i, core::Field(groups[i].name));
+                    type_col->insert_at(
+                        i, core::Field(shard_groups::shard_strategy_name(groups[i].strategy)));
+                    count_col->insert_at(i, core::Field(std::to_string(groups[i].shard_count)));
+                    key_col->insert_at(i, core::Field(groups[i].shard_key));
+                    status_col->insert_at(
+                        i, core::Field(shard_groups::shard_group_status_name(groups[i].status)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("type", type_col);
+                block->add_column("shard_count", count_col);
+                block->add_column("shard_key", key_col);
+                block->add_column("status", status_col);
+                result_.block = block;
+            } else if (node->show_type == "SHARDS" || node->show_type == "SHARD_STATUS") {
+                auto& mgr = shard_groups::ShardGroupManager::instance();
+                const auto members = mgr.list_all_members();
+                auto group_col = std::make_shared<columns::ColumnString>();
+                auto shard_col = std::make_shared<columns::ColumnString>();
+                auto node_col = std::make_shared<columns::ColumnString>();
+                auto state_col = std::make_shared<columns::ColumnString>();
+                auto rows_col = std::make_shared<columns::ColumnString>();
+                auto size_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < members.size(); ++i) {
+                    group_col->insert_at(i, core::Field(members[i].group_name));
+                    shard_col->insert_at(i, core::Field(members[i].shard_id));
+                    node_col->insert_at(i, core::Field(members[i].node_id));
+                    state_col->insert_at(
+                        i, core::Field(shard_groups::shard_state_name(members[i].state)));
+                    rows_col->insert_at(i, core::Field(std::to_string(members[i].row_count)));
+                    size_col->insert_at(i, core::Field(std::to_string(members[i].size_bytes)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("shard_group", group_col);
+                block->add_column("shard_id", shard_col);
+                block->add_column("node_id", node_col);
+                block->add_column("state", state_col);
+                if (node->show_type == "SHARD_STATUS") {
+                    block->add_column("row_count", rows_col);
+                    block->add_column("size_bytes", size_col);
+                }
+                result_.block = block;
+            } else if (node->show_type == "REPLICATION_STATUS") {
+                auto& mgr = replica_groups::ReplicaGroupManager::instance();
+                mgr.refresh_lag();
+                const auto members = mgr.list_all_members();
+                auto group_col = std::make_shared<columns::ColumnString>();
+                auto replica_col = std::make_shared<columns::ColumnString>();
+                auto node_col = std::make_shared<columns::ColumnString>();
+                auto role_col = std::make_shared<columns::ColumnString>();
+                auto state_col = std::make_shared<columns::ColumnString>();
+                auto lag_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < members.size(); ++i) {
+                    group_col->insert_at(i, core::Field(members[i].group_name));
+                    replica_col->insert_at(i, core::Field(members[i].replica_id));
+                    node_col->insert_at(i, core::Field(members[i].node_id));
+                    role_col->insert_at(i, core::Field(replica_groups::replica_role_name(members[i].role)));
+                    state_col->insert_at(i, core::Field(replica_groups::replica_state_name(members[i].state)));
+                    lag_col->insert_at(i, core::Field(std::to_string(members[i].lag_ms)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("replica_group", group_col);
+                block->add_column("replica_id", replica_col);
+                block->add_column("node_id", node_col);
+                block->add_column("role", role_col);
+                block->add_column("state", state_col);
+                block->add_column("lag_ms", lag_col);
+                result_.block = block;
             }
             break;
         }
@@ -606,6 +771,97 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 auto value_col = std::make_shared<columns::ColumnString>();
                 field_col->insert(core::Field("name"));
                 value_col->insert(core::Field(cluster->name));
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::ReplicaGroup) {
+                auto& mgr = replica_groups::ReplicaGroupManager::instance();
+                mgr.refresh_lag();
+                const auto* entry = mgr.get_group(node->table_name);
+                if (!entry) {
+                    throw common::Exception{
+                        "Unknown replica group: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                add_row("name", entry->name);
+                add_row("replication_factor", std::to_string(entry->replication_factor));
+                add_row("strategy", replica_groups::replica_strategy_name(entry->strategy));
+                add_row("consistency", replica_groups::consistency_mode_name(entry->consistency_mode));
+                add_row("placement", replica_groups::placement_policy_name(entry->placement_policy));
+                add_row("status", replica_groups::replica_group_status_name(entry->status));
+                add_row("reference_count", std::to_string(entry->reference_count));
+                const auto events = mgr.list_failover_events();
+                add_row("failover_events", std::to_string(events.size()));
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::ShardGroup) {
+                auto& mgr = shard_groups::ShardGroupManager::instance();
+                const auto* entry = mgr.get_group(node->table_name);
+                if (!entry) {
+                    throw common::Exception{
+                        "Unknown shard group: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                add_row("name", entry->name);
+                add_row("type", shard_groups::shard_strategy_name(entry->strategy));
+                add_row("shard_count", std::to_string(entry->shard_count));
+                add_row("shard_key", entry->shard_key);
+                add_row("status", shard_groups::shard_group_status_name(entry->status));
+                add_row("reference_count", std::to_string(entry->reference_count));
+                const auto members = mgr.list_members(entry->name);
+                add_row("active_shards", std::to_string(members.size()));
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::Connector) {
+                auto& mgr = connectors::ConnectorManager::instance();
+                const auto* entry = mgr.get_connector(node->table_name);
+                if (!entry) {
+                    throw common::Exception{
+                        "Unknown connector: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                add_row("name", entry->name);
+                add_row("type", connectors::connector_type_name(entry->type));
+                add_row("status", connectors::connector_status_name(entry->status));
+                add_row("auth", connectors::auth_method_name(entry->auth));
+                for (const auto& [key, value] : entry->properties) {
+                    add_row(key, connectors::mask_property_value(key, value));
+                }
+                std::string caps;
+                for (size_t i = 0; i < entry->capabilities.size(); ++i) {
+                    if (i > 0) caps += ",";
+                    caps += entry->capabilities[i];
+                }
+                add_row("capabilities", caps);
                 auto out = std::make_shared<core::Block>();
                 out->add_column("field", field_col);
                 out->add_column("value", value_col);

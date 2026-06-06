@@ -255,4 +255,24 @@ void MemoryStorage::load_block(const core::Block& block) {
     empty_ = data_.row_count() == 0;
 }
 
+auto MemoryStorage::set_replica_group_name(std::string name) -> void {
+    std::lock_guard lock(mutex_);
+    replica_group_name_ = std::move(name);
+}
+
+auto MemoryStorage::replica_group_name() const -> std::string {
+    std::lock_guard lock(mutex_);
+    return replica_group_name_;
+}
+
+auto MemoryStorage::set_shard_group_name(std::string name) -> void {
+    std::lock_guard lock(mutex_);
+    shard_group_name_ = std::move(name);
+}
+
+auto MemoryStorage::shard_group_name() const -> std::string {
+    std::lock_guard lock(mutex_);
+    return shard_group_name_;
+}
+
 } // namespace mnemo::storages

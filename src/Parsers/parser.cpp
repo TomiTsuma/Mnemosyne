@@ -67,6 +67,12 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordRemove) {
         ast->query_type = QueryAST::QueryType::REMOVE;
         parse_remove(ast);
+    } else if (current_.type == TokenType::KeywordTest) {
+        ast->query_type = QueryAST::QueryType::TEST;
+        parse_test(ast);
+    } else if (current_.type == TokenType::KeywordDiscover) {
+        ast->query_type = QueryAST::QueryType::DISCOVER;
+        parse_discover(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -85,9 +91,22 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
 
     if (current_.type == TokenType::KeywordFrom) {
         consume(); // consume FROM
-        auto [table, alias] = parse_table_ref();
-        select.table = std::move(table);
-        select.table_alias = std::move(alias);
+        if (current_.type == TokenType::KeywordConnector) {
+            consume(); // CONNECTOR
+            select.from_connector = true;
+            select.connector_name = parse_table_name();
+            if (current_.type != TokenType::Dot) {
+                throw common::Exception{
+                    "Parser: expected . after connector name",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // .
+            select.connector_resource = parse_table_name();
+        } else {
+            auto [table, alias] = parse_table_ref();
+            select.table = std::move(table);
+            select.table_alias = std::move(alias);
+        }
 
         while (current_.type == TokenType::KeywordJoin ||
                current_.type == TokenType::KeywordInner ||
@@ -267,6 +286,21 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.if_not_exists = parse_if_not_exists();
         create.storage_unit_name = parse_table_name();
         parse_storage_unit_properties(create);
+    } else if (consume_replica_group_keyword()) {
+        create.kind = QueryAST::Create::Kind::ReplicaGroup;
+        create.if_not_exists = parse_if_not_exists();
+        create.replica_group_name = parse_table_name();
+        parse_replica_group_properties(create);
+    } else if (consume_shard_group_keyword()) {
+        create.kind = QueryAST::Create::Kind::ShardGroup;
+        create.if_not_exists = parse_if_not_exists();
+        create.shard_group_name = parse_table_name();
+        parse_shard_group_properties(create);
+    } else if (consume_connector_keyword()) {
+        create.kind = QueryAST::Create::Kind::Connector;
+        create.if_not_exists = parse_if_not_exists();
+        create.connector_name = parse_table_name();
+        parse_connector_properties(create);
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
@@ -286,6 +320,22 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         }
         if (consume_storage_unit_keyword()) {
             create.storage_unit_name = parse_table_name();
+        }
+        if (consume_shard_group_keyword()) {
+            if (!create.shard_group_name.empty()) {
+                throw common::Exception{
+                    "Parser: duplicate SHARD_GROUP clause",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            create.shard_group_name = parse_table_name();
+        }
+        if (consume_replica_group_keyword()) {
+            if (!create.replica_group_name.empty()) {
+                throw common::Exception{
+                    "Parser: duplicate REPLICA_GROUP clause",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            create.replica_group_name = parse_table_name();
         }
     }
 }
@@ -324,6 +374,18 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
         drop.object_kind = QueryAST::ObjectKind::StorageUnit;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
+    } else if (consume_connector_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Connector;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_replica_group_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::ReplicaGroup;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_shard_group_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::ShardGroup;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         drop.object_kind = QueryAST::ObjectKind::Table;
@@ -336,6 +398,29 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
     auto& alter = ast->alter;
 
     consume(); // consume ALTER
+    if (consume_connector_keyword()) {
+        alter.target = QueryAST::Alter::Target::Connector;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER CONNECTOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            cmd.value = parse_property_value();
+            alter.connector_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
     if (consume_node_keyword()) {
         alter.target = QueryAST::Alter::Target::Node;
         alter.table = parse_table_name();
@@ -359,9 +444,55 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
         }
         return;
     }
+    if (consume_replica_group_keyword()) {
+        alter.target = QueryAST::Alter::Target::ReplicaGroup;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER REPLICA_GROUP",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            cmd.value = parse_name_or_keyword();
+            alter.replica_group_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
+    if (consume_shard_group_keyword()) {
+        alter.target = QueryAST::Alter::Target::ShardGroup;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER SHARD_GROUP",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            cmd.value = parse_name_or_keyword();
+            alter.shard_group_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
     if (current_.type != TokenType::KeywordTable) {
         throw common::Exception{
-            "Parser: expected TABLE or NODE after ALTER",
+            "Parser: expected TABLE, NODE, REPLICA_GROUP, or SHARD_GROUP after ALTER",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume TABLE
@@ -449,7 +580,36 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordNode) {
+    if (current_.type == TokenType::KeywordConnector) {
+        consume(); // CONNECTOR
+        if (current_.type == TokenType::KeywordCapabilities) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::CONNECTOR_CAPABILITIES;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.connector_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordStatus) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::CONNECTOR_STATUS;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.connector_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordConnectors ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "CONNECTORS")) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::CONNECTORS;
+        } else {
+            show.show_type = QueryAST::Show::ShowType::CONNECTORS;
+        }
+    } else if (current_.type == TokenType::KeywordConnectors ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "CONNECTORS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::CONNECTORS;
+    } else if (current_.type == TokenType::KeywordNode) {
         consume(); // NODE
         if (current_.type == TokenType::KeywordMetrics) {
             consume();
@@ -472,7 +632,9 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                 current_.type == TokenType::KeywordTable) {
                 show.node_name = parse_table_name();
             }
-        } else if (current_.type == TokenType::KeywordPartition) {
+        } else if (current_.type == TokenType::KeywordPartition ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "PARTITIONS")) {
             consume();
             show.show_type = QueryAST::Show::ShowType::NODE_PARTITIONS;
             if (current_.type == TokenType::Identifier ||
@@ -491,6 +653,53 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::KeywordClusters) {
         consume();
         show.show_type = QueryAST::Show::ShowType::CLUSTERS;
+    } else if (current_.type == TokenType::KeywordShard) {
+        consume();
+        if (current_.type == TokenType::KeywordStatus) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::SHARD_STATUS;
+        } else if (current_.type == TokenType::KeywordShardGroups ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "GROUPS")) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::SHARD_GROUPS;
+        } else {
+            throw common::Exception{
+                "Parser: expected GROUPS or STATUS after SHARD",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+    } else if (current_.type == TokenType::KeywordShardGroups ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "SHARD_GROUPS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::SHARD_GROUPS;
+    } else if (current_.type == TokenType::KeywordShards ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "SHARDS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::SHARDS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "SHARD_STATUS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::SHARD_STATUS;
+    } else if (current_.type == TokenType::KeywordReplicaGroups ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "REPLICA_GROUPS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::REPLICA_GROUPS;
+    } else if (current_.type == TokenType::KeywordReplication) {
+        consume();
+        if (current_.type != TokenType::KeywordStatus) {
+            throw common::Exception{
+                "Parser: expected STATUS after REPLICATION",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        show.show_type = QueryAST::Show::ShowType::REPLICATION_STATUS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "REPLICATION_STATUS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::REPLICATION_STATUS;
     } else if (current_.type == TokenType::Identifier &&
                current_.value == "NODES") {
         consume();
@@ -555,8 +764,14 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     auto& describe = ast->describe;
 
     consume(); // consume DESCRIBE/DESC
-    if (consume_storage_unit_keyword()) {
+    if (consume_connector_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::Connector;
+    } else if (consume_storage_unit_keyword()) {
         describe.object_kind = QueryAST::ObjectKind::StorageUnit;
+    } else if (consume_replica_group_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::ReplicaGroup;
+    } else if (consume_shard_group_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::ShardGroup;
     } else if (consume_node_keyword()) {
         describe.object_kind = QueryAST::ObjectKind::Node;
     } else if (current_.type == TokenType::KeywordCluster) {
@@ -649,6 +864,39 @@ void Parser::parse_remove(std::unique_ptr<QueryAST>& ast) {
     }
     ast->remove_node.if_exists = parse_if_exists();
     ast->remove_node.node_name = parse_table_name();
+}
+
+void Parser::parse_test(std::unique_ptr<QueryAST>& ast) {
+    consume(); // TEST
+    if (!consume_connector_keyword()) {
+        throw common::Exception{
+            "Parser: expected CONNECTOR after TEST",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->test_query.object_kind = QueryAST::ObjectKind::Connector;
+    ast->test_query.name = parse_table_name();
+}
+
+void Parser::parse_discover(std::unique_ptr<QueryAST>& ast) {
+    consume(); // DISCOVER
+    if (current_.type != TokenType::KeywordSchema) {
+        throw common::Exception{
+            "Parser: expected SCHEMA after DISCOVER",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // SCHEMA
+    if (current_.type != TokenType::KeywordFrom) {
+        throw common::Exception{
+            "Parser: expected FROM after DISCOVER SCHEMA",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // FROM
+    if (!consume_connector_keyword()) {
+        throw common::Exception{
+            "Parser: expected CONNECTOR after FROM",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->discover.connector_name = parse_table_name();
 }
 
 void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {
@@ -954,6 +1202,12 @@ auto Parser::parse_table_name() -> std::string {
 }
 
 auto Parser::parse_name_or_keyword() -> std::string {
+    if (current_.type == TokenType::IntegerLiteral ||
+        current_.type == TokenType::FloatLiteral) {
+        std::string name = current_.value;
+        consume();
+        return name;
+    }
     if (current_.type == TokenType::Identifier ||
         current_.type == TokenType::KeywordType ||
         current_.type == TokenType::KeywordRole ||
@@ -964,7 +1218,25 @@ auto Parser::parse_name_or_keyword() -> std::string {
         current_.type == TokenType::KeywordWorker ||
         current_.type == TokenType::KeywordCoordinator ||
         current_.type == TokenType::KeywordObserver ||
-        current_.type == TokenType::KeywordCluster) {
+        current_.type == TokenType::KeywordCluster ||
+        current_.type == TokenType::KeywordReplicas ||
+        current_.type == TokenType::KeywordShards ||
+        current_.type == TokenType::KeywordReplica ||
+        current_.type == TokenType::KeywordQuorum ||
+        current_.type == TokenType::KeywordSynchronous ||
+        current_.type == TokenType::KeywordAsynchronous ||
+        current_.type == TokenType::KeywordConsistency ||
+        current_.type == TokenType::KeywordPlacement ||
+        current_.type == TokenType::KeywordNodeAware ||
+        current_.type == TokenType::KeywordSchema ||
+        current_.type == TokenType::KeywordAuth ||
+        current_.type == TokenType::KeywordHost ||
+        current_.type == TokenType::KeywordPort ||
+        current_.type == TokenType::KeywordDatabase ||
+        current_.type == TokenType::KeywordBucket ||
+        current_.type == TokenType::KeywordEndpoint ||
+        current_.type == TokenType::KeywordRegion ||
+        current_.type == TokenType::KeywordPath) {
         std::string name = current_.value;
         consume();
         return name;
@@ -1184,7 +1456,156 @@ auto Parser::parse_property_value() -> std::string {
         consume();
         return value;
     }
+    if (current_.type == TokenType::IntegerLiteral ||
+        current_.type == TokenType::FloatLiteral) {
+        auto value = current_.value;
+        consume();
+        return value;
+    }
     return parse_table_name();
+}
+
+auto Parser::consume_replica_group_keyword() -> bool {
+    if (current_.type == TokenType::Identifier && current_.value == "REPLICA_GROUP") {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::KeywordReplicaGroup) {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_replica_group_properties(QueryAST::Create& create) {
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        if (current_.type == TokenType::KeywordReplicas) {
+            consume();
+            if (current_.type == TokenType::IntegerLiteral) {
+                create.replica_count = static_cast<uint32_t>(std::stoul(current_.value));
+                consume();
+            } else {
+                create.replica_count = static_cast<uint32_t>(std::stoul(parse_table_name()));
+            }
+        } else if (current_.type == TokenType::KeywordConsistency) {
+            consume();
+            create.consistency_mode = parse_name_or_keyword();
+        } else if (current_.type == TokenType::KeywordType ||
+                   (current_.type == TokenType::Identifier && current_.value == "STRATEGY")) {
+            if (current_.type == TokenType::KeywordType) {
+                consume();
+            } else {
+                consume();
+            }
+            create.replica_strategy = parse_name_or_keyword();
+        } else if (current_.type == TokenType::KeywordPlacement) {
+            consume();
+            create.placement_policy = parse_name_or_keyword();
+        } else {
+            break;
+        }
+    }
+}
+
+auto Parser::consume_shard_group_keyword() -> bool {
+    if (current_.type == TokenType::Identifier && current_.value == "SHARD_GROUP") {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::KeywordShardGroup) {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_shard_group_properties(QueryAST::Create& create) {
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        if (current_.type == TokenType::KeywordType) {
+            consume();
+            create.shard_type = parse_name_or_keyword();
+        } else if (current_.type == TokenType::KeywordKey ||
+                   (current_.type == TokenType::Identifier && current_.value == "KEY")) {
+            consume();
+            create.shard_key = parse_table_name();
+        } else if (current_.type == TokenType::KeywordShards ||
+                   (current_.type == TokenType::Identifier && current_.value == "SHARDS")) {
+            consume();
+            if (current_.type == TokenType::IntegerLiteral) {
+                create.shard_count = static_cast<uint32_t>(std::stoul(current_.value));
+                consume();
+            } else {
+                create.shard_count = static_cast<uint32_t>(std::stoul(parse_table_name()));
+            }
+        } else {
+            break;
+        }
+    }
+}
+
+auto Parser::consume_connector_keyword() -> bool {
+    if (current_.type == TokenType::KeywordConnector) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "CONNECTOR") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_connector_properties(QueryAST::Create& create) {
+    if (current_.type != TokenType::KeywordType) {
+        throw common::Exception{
+            "Parser: expected TYPE after connector name",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // TYPE
+    create.connector_type = parse_table_name();
+
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        if (current_.type == TokenType::KeywordAuth) {
+            consume();
+            create.auth_method = parse_name_or_keyword();
+            continue;
+        }
+        std::string key;
+        if (current_.type == TokenType::KeywordPath) {
+            key = "PATH";
+            consume();
+        } else if (current_.type == TokenType::KeywordBucket) {
+            key = "BUCKET";
+            consume();
+        } else if (current_.type == TokenType::KeywordEndpoint) {
+            key = "ENDPOINT";
+            consume();
+        } else if (current_.type == TokenType::KeywordRegion) {
+            key = "REGION";
+            consume();
+        } else if (current_.type == TokenType::KeywordHost) {
+            key = "HOST";
+            consume();
+        } else if (current_.type == TokenType::KeywordPort) {
+            key = "PORT";
+            consume();
+        } else if (current_.type == TokenType::KeywordDatabase) {
+            key = "DATABASE";
+            consume();
+        } else if (current_.type == TokenType::KeywordSchema) {
+            key = "SCHEMA";
+            consume();
+        } else if (current_.type == TokenType::Identifier) {
+            key = current_.value;
+            consume();
+        } else {
+            break;
+        }
+        create.connector_properties[key] = parse_property_value();
+    }
 }
 
 void Parser::parse_storage_unit_properties(QueryAST::Create& create) {

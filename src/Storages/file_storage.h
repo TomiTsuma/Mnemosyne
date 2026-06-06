@@ -49,6 +49,10 @@ public:
     auto set_data_path(std::string path) -> void;
     auto set_storage_unit_name(std::string name) -> void;
     [[nodiscard]] auto storage_unit_name() const -> std::string;
+    auto set_replica_group_name(std::string name) -> void override;
+    [[nodiscard]] auto replica_group_name() const -> std::string override;
+    auto set_shard_group_name(std::string name) -> void override;
+    [[nodiscard]] auto shard_group_name() const -> std::string override;
     auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
 
@@ -63,6 +67,8 @@ private:
     bool empty_ = true;
     std::shared_ptr<disks::IDisk> disk_;
     std::string storage_unit_name_;
+    std::string replica_group_name_;
+    std::string shard_group_name_;
     bool    locked_ = false;
     mutable std::mutex mutex_;
 };

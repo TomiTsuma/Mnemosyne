@@ -50,6 +50,10 @@ public:
     auto truncate() -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
     void load_block(const core::Block& block);
+    auto set_replica_group_name(std::string name) -> void override;
+    [[nodiscard]] auto replica_group_name() const -> std::string override;
+    auto set_shard_group_name(std::string name) -> void override;
+    [[nodiscard]] auto shard_group_name() const -> std::string override;
 
 private:
     MemoryStorage();
@@ -65,6 +69,8 @@ private:
     std::vector<std::string> column_names_;
     core::Block              data_;
     bool                     empty_ = true;
+    std::string              replica_group_name_;
+    std::string              shard_group_name_;
     mutable std::mutex       mutex_;
 };
 

@@ -5,7 +5,18 @@
 **Product:** Mnemosyne Data Platform
 **Component:** Distributed Data Distribution Layer
 **Version:** 1.0
-**Status:** Draft
+**Status:** Phase 1 implemented
+
+---
+
+## Implementation status (Phase 1)
+
+**Implemented:** HASH strategy, static round-robin shard placement on cluster nodes,
+catalog CRUD, SQL surface, table attachment with reference counting, `SHOW SHARD_GROUPS` /
+`SHOW SHARDS` / `SHOW SHARD_STATUS`, node `partition_ids` integration, Python E2E tests.
+
+**Deferred:** `REBALANCE`, RANGE/LIST/COMPOSITE routing, hash-based INSERT/SELECT fan-out,
+planner `EXCHANGE` wiring, stream/index attachment, physical data movement.
 
 ---
 

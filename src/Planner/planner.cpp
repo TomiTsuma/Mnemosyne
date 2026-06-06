@@ -386,6 +386,40 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "CLUSTERS";
             break;
+        case analyzer::DDLNode::Kind::ShowReplicaGroups:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "REPLICA_GROUPS";
+            break;
+        case analyzer::DDLNode::Kind::ShowReplicationStatus:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "REPLICATION_STATUS";
+            break;
+        case analyzer::DDLNode::Kind::ShowShardGroups:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "SHARD_GROUPS";
+            break;
+        case analyzer::DDLNode::Kind::ShowShards:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "SHARDS";
+            break;
+        case analyzer::DDLNode::Kind::ShowShardStatus:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "SHARD_STATUS";
+            break;
+        case analyzer::DDLNode::Kind::ShowConnectors:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CONNECTORS";
+            break;
+        case analyzer::DDLNode::Kind::ShowConnectorCapabilities:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CONNECTOR_CAPABILITIES";
+            plan_node->table_name = node.show_node_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowConnectorStatus:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CONNECTOR_STATUS";
+            plan_node->table_name = node.show_node_name;
+            break;
         case analyzer::DDLNode::Kind::Describe:
             plan_node->node_type = PlanNode::Type::DESCRIBE;
             plan_node->table_name = node.table;

@@ -15,6 +15,8 @@ target_link_libraries(mnemosyne_server_lib PUBLIC
     mnemosyne_analyzer
     mnemosyne_parsers
     mnemosyne_nodes
+    mnemosyne_replica_groups
+    mnemosyne_shard_groups
     mnemosyne_loggers
     mnemosyne_common
 )

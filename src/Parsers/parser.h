@@ -59,11 +59,19 @@ protected:
     auto parse_register(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_drain(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_remove(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_test(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_discover(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_storage_unit_properties(QueryAST::Create& create) -> void;
+    auto parse_connector_properties(QueryAST::Create& create) -> void;
+    auto consume_connector_keyword() -> bool;
     auto parse_node_properties(QueryAST::Create& create) -> void;
     auto parse_property_value() -> std::string;
     auto consume_storage_unit_keyword() -> bool;
     auto consume_node_keyword() -> bool;
+    auto consume_replica_group_keyword() -> bool;
+    auto parse_replica_group_properties(QueryAST::Create& create) -> void;
+    auto consume_shard_group_keyword() -> bool;
+    auto parse_shard_group_properties(QueryAST::Create& create) -> void;
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;

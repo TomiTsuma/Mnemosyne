@@ -229,6 +229,31 @@ std::string format_query(const QueryAST& query) {
                 case QueryAST::Create::Kind::Cluster:
                     out << "CREATE CLUSTER " << c.cluster_name;
                     break;
+                case QueryAST::Create::Kind::ReplicaGroup:
+                    out << "CREATE REPLICA_GROUP " << c.replica_group_name;
+                    if (c.replica_count > 0) {
+                        out << " REPLICAS " << c.replica_count;
+                    }
+                    if (!c.consistency_mode.empty()) {
+                        out << " CONSISTENCY " << c.consistency_mode;
+                    }
+                    break;
+                case QueryAST::Create::Kind::Connector:
+                    out << "CREATE CONNECTOR " << c.connector_name
+                        << " TYPE " << c.connector_type;
+                    break;
+                case QueryAST::Create::Kind::ShardGroup:
+                    out << "CREATE SHARD_GROUP " << c.shard_group_name;
+                    if (!c.shard_type.empty()) {
+                        out << " TYPE " << c.shard_type;
+                    }
+                    if (!c.shard_key.empty()) {
+                        out << " KEY " << c.shard_key;
+                    }
+                    if (c.shard_count > 0) {
+                        out << " SHARDS " << c.shard_count;
+                    }
+                    break;
                 case QueryAST::Create::Kind::Table:
                 default:
                     out << "CREATE TABLE " << c.table_name << " (\n";
@@ -252,6 +277,15 @@ std::string format_query(const QueryAST& query) {
                     break;
                 case QueryAST::ObjectKind::StorageUnit:
                     out << "DROP STORAGE_UNIT " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::ReplicaGroup:
+                    out << "DROP REPLICA_GROUP " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::ShardGroup:
+                    out << "DROP SHARD_GROUP " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::Connector:
+                    out << "DROP CONNECTOR " << query.drop.table;
                     break;
                 case QueryAST::ObjectKind::Table:
                 default:
@@ -278,10 +312,39 @@ std::string format_query(const QueryAST& query) {
             out << "REMOVE NODE " << query.remove_node.node_name;
             break;
         }
+        case QueryAST::QueryType::TEST: {
+            out << "TEST CONNECTOR " << query.test_query.name;
+            break;
+        }
+        case QueryAST::QueryType::DISCOVER: {
+            out << "DISCOVER SCHEMA FROM CONNECTOR " << query.discover.connector_name;
+            break;
+        }
         case QueryAST::QueryType::ALTER: {
             if (query.alter.target == QueryAST::Alter::Target::Node) {
                 out << "ALTER NODE " << query.alter.table;
                 for (const auto& cmd : query.alter.node_sets) {
+                    out << " SET " << cmd.property << " " << cmd.value;
+                }
+                break;
+            }
+            if (query.alter.target == QueryAST::Alter::Target::ReplicaGroup) {
+                out << "ALTER REPLICA_GROUP " << query.alter.table;
+                for (const auto& cmd : query.alter.replica_group_sets) {
+                    out << " SET " << cmd.property << " " << cmd.value;
+                }
+                break;
+            }
+            if (query.alter.target == QueryAST::Alter::Target::ShardGroup) {
+                out << "ALTER SHARD_GROUP " << query.alter.table;
+                for (const auto& cmd : query.alter.shard_group_sets) {
+                    out << " SET " << cmd.property << " " << cmd.value;
+                }
+                break;
+            }
+            if (query.alter.target == QueryAST::Alter::Target::Connector) {
+                out << "ALTER CONNECTOR " << query.alter.table;
+                for (const auto& cmd : query.alter.connector_sets) {
                     out << " SET " << cmd.property << " " << cmd.value;
                 }
                 break;
@@ -326,6 +389,22 @@ std::string format_query(const QueryAST& query) {
                     out << "SHOW NODE REPLICAS"; break;
                 case QueryAST::Show::ShowType::CLUSTERS:
                     out << "SHOW CLUSTERS"; break;
+                case QueryAST::Show::ShowType::REPLICA_GROUPS:
+                    out << "SHOW REPLICA_GROUPS"; break;
+                case QueryAST::Show::ShowType::REPLICATION_STATUS:
+                    out << "SHOW REPLICATION_STATUS"; break;
+                case QueryAST::Show::ShowType::SHARD_GROUPS:
+                    out << "SHOW SHARD_GROUPS"; break;
+                case QueryAST::Show::ShowType::SHARDS:
+                    out << "SHOW SHARDS"; break;
+                case QueryAST::Show::ShowType::SHARD_STATUS:
+                    out << "SHOW SHARD_STATUS"; break;
+                case QueryAST::Show::ShowType::CONNECTORS:
+                    out << "SHOW CONNECTORS"; break;
+                case QueryAST::Show::ShowType::CONNECTOR_CAPABILITIES:
+                    out << "SHOW CONNECTOR CAPABILITIES " << query.show.connector_name; break;
+                case QueryAST::Show::ShowType::CONNECTOR_STATUS:
+                    out << "SHOW CONNECTOR STATUS " << query.show.connector_name; break;
             }
             break;
         }
@@ -345,6 +424,15 @@ std::string format_query(const QueryAST& query) {
                     break;
                 case QueryAST::ObjectKind::Cluster:
                     out << "DESCRIBE CLUSTER " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::ReplicaGroup:
+                    out << "DESCRIBE REPLICA_GROUP " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::ShardGroup:
+                    out << "DESCRIBE SHARD_GROUP " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::Connector:
+                    out << "DESCRIBE CONNECTOR " << query.describe.table_name;
                     break;
                 case QueryAST::ObjectKind::Table:
                 default:
