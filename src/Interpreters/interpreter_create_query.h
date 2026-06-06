@@ -18,6 +18,10 @@ private:
         -> void;
     static auto do_create_database(Context& context, const parsers::QueryAST::Create& create)
         -> void;
+    static auto do_create_view(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_materialized_view(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
 };
 
 } // namespace mnemo::interpreters

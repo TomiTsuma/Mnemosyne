@@ -4,8 +4,11 @@
 #include "Interpreters/ddl_guard.h"
 #include "Interpreters/ddl_transaction.h"
 #include "Interpreters/interpreter_ddl_utils.h"
+#include "Interpreters/interpreter_select_query.h"
 #include "Databases/database_manager.h"
 #include "Databases/database_memory.h"
+#include "Databases/view_catalog.h"
+#include "Storages/memory_storage.h"
 #include "Storages/storage_factory.h"
 #include "Common/exceptions.h"
 
@@ -15,16 +18,29 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
     -> core::Block {
     DDLTransaction txn{context};
 
-    if (!query.create.table_name.empty()) {
-        const auto db_name = ddl_utils::resolve_current_database(context);
-        txn.snapshot_table(db_name, query.create.table_name);
-        do_create_table(context, query.create);
-    } else if (!query.create.database_name.empty()) {
-        do_create_database(context, query.create);
-    } else {
-        throw common::Exception{
-            "CREATE: expected DATABASE or TABLE",
-            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    switch (query.create.kind) {
+        case parsers::QueryAST::Create::Kind::View:
+            do_create_view(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::MaterializedView: {
+            const auto db_name = ddl_utils::resolve_current_database(context);
+            txn.snapshot_table(db_name, query.create.view_name);
+            do_create_materialized_view(context, query.create);
+            break;
+        }
+        case parsers::QueryAST::Create::Kind::Table: {
+            const auto db_name = ddl_utils::resolve_current_database(context);
+            txn.snapshot_table(db_name, query.create.table_name);
+            do_create_table(context, query.create);
+            break;
+        }
+        case parsers::QueryAST::Create::Kind::Database:
+            do_create_database(context, query.create);
+            break;
+        default:
+            throw common::Exception{
+                "CREATE: expected DATABASE, TABLE, VIEW, or MATERIALIZED VIEW",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 
     txn.commit();
@@ -56,7 +72,13 @@ auto InterpreterCreateQuery::do_create_table(
     DDLGuard guard{db_name, create.table_name};
 
     auto db = ddl_utils::require_database(context, db_name);
-    if (db->table_exists(create.table_name)) {
+    const bool exists = [&] {
+        if (auto catalog = std::dynamic_pointer_cast<databases::Database>(db)) {
+            return catalog->relation_exists(create.table_name);
+        }
+        return db->table_exists(create.table_name);
+    }();
+    if (exists) {
         if (create.if_not_exists) {
             if (auto existing = db->table(create.table_name)) {
                 context.register_storage(create.table_name, existing);
@@ -80,6 +102,95 @@ auto InterpreterCreateQuery::do_create_table(
     if (storage) {
         context.register_storage(create.table_name, storage);
     }
+}
+
+auto InterpreterCreateQuery::do_create_view(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    const auto db_name = ddl_utils::resolve_current_database(context);
+    DDLGuard guard{db_name, create.view_name};
+
+    auto db = ddl_utils::require_catalog(context);
+    if (db->relation_exists(create.view_name)) {
+        if (create.if_not_exists) {
+            return;
+        }
+        throw common::Exception{
+            "View already exists: " + create.view_name,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    auto deps = databases::extract_dependencies(create.select_definition);
+    for (const auto& dep : deps) {
+        if (!db->table_exists(dep) && !db->has_view(dep) && !db->has_materialized_view(dep)) {
+            throw common::Exception{
+                "Unknown table or view in view definition: " + dep,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+    }
+
+    databases::ViewEntry entry;
+    entry.name = create.view_name;
+    entry.definition = create.select_definition;
+    entry.dependencies = std::move(deps);
+    db->create_view(std::move(entry));
+}
+
+auto InterpreterCreateQuery::do_create_materialized_view(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    const auto db_name = ddl_utils::resolve_current_database(context);
+    DDLGuard guard{db_name, create.view_name};
+
+    auto db = ddl_utils::require_catalog(context);
+    if (db->relation_exists(create.view_name)) {
+        if (create.if_not_exists) {
+            if (auto storage = db->table(create.view_name)) {
+                context.register_storage(create.view_name, storage);
+            }
+            return;
+        }
+        throw common::Exception{
+            "Materialized view already exists: " + create.view_name,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    auto deps = databases::extract_dependencies(create.select_definition);
+    for (const auto& dep : deps) {
+        if (!db->table_exists(dep) && !db->has_view(dep) && !db->has_materialized_view(dep)) {
+            throw common::Exception{
+                "Unknown table or view in materialized view definition: " + dep,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+    }
+
+    parsers::QueryAST select_query;
+    select_query.query_type = parsers::QueryAST::QueryType::SELECT;
+    select_query.select = create.select_definition;
+    auto result = InterpreterSelectQuery::execute(context, select_query);
+
+    auto columns = ddl_utils::block_column_map(result);
+    if (columns.empty()) {
+        throw common::Exception{
+            "Materialized view definition produced no columns",
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    auto storage = db->create_table(create.view_name, columns, "Memory");
+    if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
+        mem->load_block(result);
+    } else if (!storage->write(result)) {
+        db->drop_table(create.view_name);
+        throw common::Exception{
+            "Failed to populate materialized view: " + create.view_name,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    databases::MaterializedViewEntry entry;
+    entry.name = create.view_name;
+    entry.definition = create.select_definition;
+    entry.backing_table = create.view_name;
+    entry.dependencies = std::move(deps);
+    db->create_materialized_view(std::move(entry));
+    context.register_storage(create.view_name, storage);
 }
 
 } // namespace mnemo::interpreters

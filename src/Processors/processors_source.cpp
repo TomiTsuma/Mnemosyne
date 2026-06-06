@@ -7,6 +7,7 @@
 #include "Common/exceptions.h"
 #include "Columns/column_vector.h"
 #include "Interpreters/context.h"
+#include "Databases/database.h"
 #include "Storages/storage_factory.h"
 #include "Databases/database_memory.h"
 #include "DataTypes/data_type_factory.h"
@@ -625,6 +626,29 @@ void ShowProcessor::start() {
             // Build result block
             result_data_.add_column("name", col);
         }
+    } else if (show_type_ == "VIEWS" || show_type_ == "MATERIALIZED_VIEWS") {
+        const auto db_name = context_.current_database().empty()
+            ? std::string{"default"}
+            : context_.current_database();
+        auto catalog = std::dynamic_pointer_cast<databases::Database>(
+            context_.get_database(db_name));
+        std::vector<std::string> names;
+        if (catalog) {
+            names = show_type_ == "VIEWS"
+                ? catalog->view_names()
+                : catalog->materialized_view_names();
+        }
+
+        auto string_type = datatypes::get_data_type("String");
+        auto* raw_col = string_type->create_column();
+        auto col = std::shared_ptr<core::IColumn>(
+            static_cast<core::IColumn*>(raw_col),
+            [](void* p) { delete static_cast<core::IColumn*>(p); });
+
+        for (const auto& view_name : names) {
+            col->insert(core::Field(std::string(view_name)));
+        }
+        result_data_.add_column("name", col);
     }
 
     finished_ = true;

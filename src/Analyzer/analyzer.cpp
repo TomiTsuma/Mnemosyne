@@ -2,6 +2,7 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Analyzer/analyzer.h"
+#include "Databases/database.h"
 #include "Interpreters/interpreter_ddl_utils.h"
 #include "Common/exceptions.h"
 #include "Functions/function_factory.h"
@@ -25,6 +26,33 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
             auto register_table = [&](const std::string& table, const std::string& alias) {
                 auto storage = interpreters::ddl_utils::resolve_storage(context_, table);
                 if (!storage) {
+                    const auto db_name = interpreters::ddl_utils::resolve_current_database(context_);
+                    if (auto idb = context_.get_database(db_name)) {
+                        if (auto catalog = std::dynamic_pointer_cast<databases::Database>(idb)) {
+                            if (catalog->has_view(table)) {
+                                auto view = catalog->get_view(table).value();
+                                parsers::QueryAST nested;
+                                nested.query_type = parsers::QueryAST::QueryType::SELECT;
+                                nested.select = view.definition;
+                                auto nested_result = analyze(std::make_shared<parsers::QueryAST>(nested));
+                                if (!nested_result.valid) {
+                                    for (const auto& err : nested_result.errors) {
+                                        result.errors.push_back(err);
+                                    }
+                                    return;
+                                }
+                                const std::string key = alias.empty() ? table : alias;
+                                result.tables[key] = Context::TableInfo{table, db_name};
+                                for (const auto& [col_key, col_info] : nested_result.columns) {
+                                    result.columns[col_key] = col_info;
+                                }
+                                for (const auto& [col_key, col_type] : nested_result.column_types) {
+                                    result.column_types[col_key] = col_type;
+                                }
+                                return;
+                            }
+                        }
+                    }
                     result.errors.push_back("Unknown table: " + table);
                     return;
                 }
@@ -131,6 +159,11 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
         case parsers::QueryAST::QueryType::USE: {
             // USE is a simple session-context statement: no column/table
             // resolution is required beyond parsing (mirrors CREATE DATABASE).
+            result.analyzed_ast = ast;
+            result.valid = true;
+            break;
+        }
+        case parsers::QueryAST::QueryType::REFRESH: {
             result.analyzed_ast = ast;
             result.valid = true;
             break;
@@ -351,6 +384,7 @@ auto Analyzer::buildQueryTree(AnalyzeResult& result)
             case parsers::QueryAST::QueryType::DESCRIBE:
             case parsers::QueryAST::QueryType::EXPLAIN:
             case parsers::QueryAST::QueryType::USE:
+            case parsers::QueryAST::QueryType::REFRESH:
                 return buildDDLNode(*query_ast);
         }
     }
@@ -371,7 +405,7 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
             node->insert_values = query_ast.insert.values;
             break;
         case parsers::QueryAST::QueryType::CREATE:
-            if (!query_ast.create.database_name.empty()) {
+            if (query_ast.create.kind == parsers::QueryAST::Create::Kind::Database) {
                 node->kind         = DDLNode::Kind::CreateDatabase;
                 node->database     = query_ast.create.database_name;
                 node->if_not_exists = query_ast.create.if_not_exists;
@@ -407,15 +441,28 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
             node->alter_commands = query_ast.alter.commands;
             break;
         case parsers::QueryAST::QueryType::SHOW:
-            node->kind = query_ast.show.show_type == parsers::QueryAST::Show::ShowType::DATABASES
-                ? DDLNode::Kind::ShowDatabases
-                : DDLNode::Kind::ShowTables;
+            switch (query_ast.show.show_type) {
+                case parsers::QueryAST::Show::ShowType::DATABASES:
+                    node->kind = DDLNode::Kind::ShowDatabases;
+                    break;
+                case parsers::QueryAST::Show::ShowType::VIEWS:
+                    node->kind = DDLNode::Kind::ShowViews;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MATERIALIZED_VIEWS:
+                    node->kind = DDLNode::Kind::ShowMaterializedViews;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TABLES:
+                default:
+                    node->kind = DDLNode::Kind::ShowTables;
+                    break;
+            }
             node->database = context_.current_database();
             break;
         case parsers::QueryAST::QueryType::DESCRIBE:
-            node->kind     = DDLNode::Kind::Describe;
-            node->table    = query_ast.describe.table_name;
-            node->database = context_.current_database();
+            node->kind          = DDLNode::Kind::Describe;
+            node->table         = query_ast.describe.table_name;
+            node->database      = context_.current_database();
+            node->describe_kind = query_ast.describe.object_kind;
             break;
         case parsers::QueryAST::QueryType::EXPLAIN:
             node->kind = DDLNode::Kind::Explain;
@@ -423,6 +470,10 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
         case parsers::QueryAST::QueryType::USE:
             node->kind         = DDLNode::Kind::Use;
             node->use_database = query_ast.use.database_name;
+            break;
+        case parsers::QueryAST::QueryType::REFRESH:
+            node->kind         = DDLNode::Kind::Refresh;
+            node->refresh_name = query_ast.refresh.name;
             break;
         default:
             break;

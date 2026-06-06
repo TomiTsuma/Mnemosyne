@@ -26,7 +26,13 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
 
     switch (query.drop.kind) {
         case parsers::QueryAST::Drop::Kind::Drop:
-            do_drop(context, query.drop);
+            if (query.drop.object_kind == parsers::QueryAST::ObjectKind::View) {
+                do_drop_view(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::MaterializedView) {
+                do_drop_materialized_view(context, query.drop);
+            } else {
+                do_drop(context, query.drop);
+            }
             break;
         case parsers::QueryAST::Drop::Kind::Truncate:
             do_truncate(context, query.drop);
@@ -56,6 +62,44 @@ auto InterpreterDropQuery::do_drop(Context& context, const parsers::QueryAST::Dr
     }
 
     db->drop_table(drop.table);
+    context.unregister_storage(drop.table);
+}
+
+auto InterpreterDropQuery::do_drop_view(Context& context, const parsers::QueryAST::Drop& drop)
+    -> void {
+    const auto db_name = ddl_utils::resolve_current_database(context);
+    DDLGuard guard{db_name, drop.table};
+
+    auto db = ddl_utils::require_catalog(context);
+    if (!db->has_view(drop.table)) {
+        if (drop.if_exists) {
+            return;
+        }
+        throw common::Exception{
+            "Unknown view: " + drop.table,
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+
+    db->drop_view(drop.table);
+}
+
+auto InterpreterDropQuery::do_drop_materialized_view(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    const auto db_name = ddl_utils::resolve_current_database(context);
+    DDLGuard guard{db_name, drop.table};
+
+    auto db = ddl_utils::require_catalog(context);
+    if (!db->has_materialized_view(drop.table)) {
+        if (drop.if_exists) {
+            return;
+        }
+        throw common::Exception{
+            "Unknown materialized view: " + drop.table,
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+
+    db->drop_table(drop.table);
+    db->drop_materialized_view(drop.table);
     context.unregister_storage(drop.table);
 }
 

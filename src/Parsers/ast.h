@@ -267,7 +267,9 @@ public:
 // ── QueryAST — top-level parsed query (inherits ASTNode for polymorphism) ──
 class QueryAST final : public ASTNode {
 public:
-    enum class QueryType { SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE };
+    enum class QueryType { SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH };
+
+    enum class ObjectKind { Table, View, MaterializedView };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -301,15 +303,21 @@ public:
     } insert;
 
     struct Create : ASTDDLQuery {
+        enum class Kind { Database, Table, View, MaterializedView };
+        Kind kind = Kind::Table;
+
         std::string database_name;
         std::string table_name;
+        std::string view_name;
         std::vector<ColumnDef> columns;
         std::string engine = "Memory";
+        Select select_definition;
     } create;
 
     struct Drop : ASTDDLQuery {
         enum class Kind { Drop, Detach, Truncate };
         Kind kind = Kind::Drop;
+        ObjectKind object_kind = ObjectKind::Table;
     } drop;
 
     struct Alter : ASTDDLQuery {
@@ -317,13 +325,18 @@ public:
     } alter;
 
     struct Show {
-        enum class ShowType { DATABASES, TABLES };
+        enum class ShowType { DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS };
         ShowType show_type = ShowType::DATABASES;
     } show;
 
     struct Describe {
+        ObjectKind object_kind = ObjectKind::Table;
         std::string table_name;
     } describe;
+
+    struct Refresh {
+        std::string name;
+    } refresh;
 
     struct Explain {
         std::shared_ptr<QueryAST> explain_query;

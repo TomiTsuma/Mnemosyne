@@ -8,6 +8,9 @@ target_include_directories(mnemosyne_processors PUBLIC
 
 target_link_libraries(mnemosyne_processors PUBLIC
     mnemosyne_core
+    mnemosyne_databases
+    mnemosyne_datatypes
+    mnemosyne_storages
 )
 
 set_target_properties(mnemosyne_processors PROPERTIES

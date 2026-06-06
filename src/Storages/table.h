@@ -17,6 +17,7 @@ public:
 
     [[nodiscard]] auto name() const -> const std::string& { return name_; }
     [[nodiscard]] auto storage() const -> std::shared_ptr<IStorage> { return storage_; }
+    void set_storage(std::shared_ptr<IStorage> storage) { storage_ = std::move(storage); }
 
     void add_column(std::string col_name, datatypes::DataTypePtr type);
 

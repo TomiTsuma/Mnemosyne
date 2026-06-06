@@ -7,6 +7,7 @@ target_include_directories(mnemosyne_databases PUBLIC
 )
 
 target_link_libraries(mnemosyne_databases PUBLIC
+    mnemosyne_parsers
     mnemosyne_storages
     mnemosyne_datatypes
     mnemosyne_common

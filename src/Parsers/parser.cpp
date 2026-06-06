@@ -55,6 +55,9 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordUse) {
         ast->query_type = QueryAST::QueryType::USE;
         parse_use(ast);
+    } else if (current_.type == TokenType::KeywordRefresh) {
+        ast->query_type = QueryAST::QueryType::REFRESH;
+        parse_refresh(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -171,12 +174,64 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
     auto& create = ast->create;
 
     consume(); // consume CREATE
-    if (current_.type == TokenType::KeywordDatabase) {
+    if (current_.type == TokenType::KeywordMaterialized) {
+        consume(); // consume MATERIALIZED
+        if (current_.type != TokenType::KeywordView) {
+            throw common::Exception{
+                "Parser: expected VIEW after MATERIALIZED",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume VIEW
+        create.kind = QueryAST::Create::Kind::MaterializedView;
+        create.if_not_exists = parse_if_not_exists();
+        create.view_name = parse_table_name();
+        create.table_name = create.view_name;
+        create.table = create.view_name;
+        if (current_.type != TokenType::KeywordAs) {
+            throw common::Exception{
+                "Parser: expected AS after materialized view name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume AS
+        if (current_.type != TokenType::KeywordSelect) {
+            throw common::Exception{
+                "Parser: expected SELECT after AS",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        auto select_ast = std::make_unique<QueryAST>();
+        select_ast->query_type = QueryAST::QueryType::SELECT;
+        parse_select(select_ast);
+        create.select_definition = std::move(select_ast->select);
+    } else if (current_.type == TokenType::KeywordView) {
+        consume(); // consume VIEW
+        create.kind = QueryAST::Create::Kind::View;
+        create.if_not_exists = parse_if_not_exists();
+        create.view_name = parse_table_name();
+        create.table_name = create.view_name;
+        create.table = create.view_name;
+        if (current_.type != TokenType::KeywordAs) {
+            throw common::Exception{
+                "Parser: expected AS after view name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume AS
+        if (current_.type != TokenType::KeywordSelect) {
+            throw common::Exception{
+                "Parser: expected SELECT after AS",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        auto select_ast = std::make_unique<QueryAST>();
+        select_ast->query_type = QueryAST::QueryType::SELECT;
+        parse_select(select_ast);
+        create.select_definition = std::move(select_ast->select);
+    } else if (current_.type == TokenType::KeywordDatabase) {
         consume(); // consume DATABASE
+        create.kind = QueryAST::Create::Kind::Database;
         create.if_not_exists = parse_if_not_exists();
         create.database_name = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
+        create.kind = QueryAST::Create::Kind::Table;
         create.if_not_exists = parse_if_not_exists();
         create.table_name = parse_table_name();
         create.table = create.table_name;
@@ -208,8 +263,25 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
         consume(); // consume DROP
     }
 
-    if (current_.type == TokenType::KeywordTable) {
+    if (current_.type == TokenType::KeywordMaterialized) {
+        consume(); // consume MATERIALIZED
+        if (current_.type != TokenType::KeywordView) {
+            throw common::Exception{
+                "Parser: expected VIEW after MATERIALIZED",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume VIEW
+        drop.object_kind = QueryAST::ObjectKind::MaterializedView;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::KeywordView) {
+        consume(); // consume VIEW
+        drop.object_kind = QueryAST::ObjectKind::View;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
+        drop.object_kind = QueryAST::ObjectKind::Table;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     }
@@ -308,7 +380,25 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordTable) {
+    if (current_.type == TokenType::KeywordMaterialized) {
+        consume(); // consume MATERIALIZED
+        if (current_.type != TokenType::KeywordViews &&
+            current_.type != TokenType::KeywordView) {
+            throw common::Exception{
+                "Parser: expected VIEWS after MATERIALIZED",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume VIEWS
+        show.show_type = QueryAST::Show::ShowType::MATERIALIZED_VIEWS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "MATERIALIZED_VIEWS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::MATERIALIZED_VIEWS;
+    } else if (current_.type == TokenType::KeywordViews ||
+               current_.type == TokenType::KeywordView) {
+        consume(); // consume VIEWS
+        show.show_type = QueryAST::Show::ShowType::VIEWS;
+    } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLES
         show.show_type = QueryAST::Show::ShowType::TABLES;
     } else {
@@ -320,7 +410,41 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     auto& describe = ast->describe;
 
     consume(); // consume DESCRIBE/DESC
+    if (current_.type == TokenType::KeywordMaterialized) {
+        consume(); // consume MATERIALIZED
+        if (current_.type != TokenType::KeywordView) {
+            throw common::Exception{
+                "Parser: expected VIEW after MATERIALIZED",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume VIEW
+        describe.object_kind = QueryAST::ObjectKind::MaterializedView;
+    } else if (current_.type == TokenType::KeywordView) {
+        consume(); // consume VIEW
+        describe.object_kind = QueryAST::ObjectKind::View;
+    } else {
+        describe.object_kind = QueryAST::ObjectKind::Table;
+    }
     describe.table_name = parse_table_name();
+}
+
+void Parser::parse_refresh(std::unique_ptr<QueryAST>& ast) {
+    auto& refresh = ast->refresh;
+
+    consume(); // consume REFRESH
+    if (current_.type != TokenType::KeywordMaterialized) {
+        throw common::Exception{
+            "Parser: expected MATERIALIZED after REFRESH",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // consume MATERIALIZED
+    if (current_.type != TokenType::KeywordView) {
+        throw common::Exception{
+            "Parser: expected VIEW after MATERIALIZED",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // consume VIEW
+    refresh.name = parse_table_name();
 }
 
 void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {
@@ -434,6 +558,20 @@ auto Parser::parse_term() -> std::shared_ptr<ASTExpr> {
         op->left = left;
         op->right = right;
         left = op;
+    }
+
+    if (current_.type == TokenType::KeywordAs) {
+        consume();
+        if (current_.type != TokenType::Identifier) {
+            throw common::Exception{
+                "Parser: expected alias name after AS",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        auto alias = std::make_shared<ASTAlias>();
+        alias->alias = current_.value;
+        consume();
+        alias->expression = left;
+        return alias;
     }
 
     return left;

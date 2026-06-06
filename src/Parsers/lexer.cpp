@@ -303,6 +303,10 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "IN") type = TokenType::KeywordIn;
     else if (upper == "OVER") type = TokenType::KeywordOver;
     else if (upper == "PARTITION") type = TokenType::KeywordPartition;
+    else if (upper == "VIEW") type = TokenType::KeywordView;
+    else if (upper == "VIEWS") type = TokenType::KeywordViews;
+    else if (upper == "MATERIALIZED") type = TokenType::KeywordMaterialized;
+    else if (upper == "REFRESH") type = TokenType::KeywordRefresh;
 
     return make_token(type, std::move(id));
 }

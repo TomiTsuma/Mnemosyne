@@ -7,7 +7,10 @@
 #include "Interpreters/interpreter_insert_query.h"
 #include "Interpreters/interpreter_drop_query.h"
 #include "Interpreters/interpreter_alter_query.h"
+#include "Interpreters/interpreter_refresh_query.h"
+#include "Interpreters/interpreter_select_query.h"
 #include "Planner/execution_plan.h"
+#include "Databases/database.h"
 #include "Processors/processors_source.h"
 #include "Processors/processor.h"
 #include "Databases/database_manager.h"
@@ -292,6 +295,7 @@ auto BlockInterpreter::create_processor_for_node(
         case planner::PlanNode::Type::DESCRIBE:
         case planner::PlanNode::Type::EXPLAIN:
         case planner::PlanNode::Type::USE:
+        case planner::PlanNode::Type::REFRESH:
             // DDL / session commands — execute directly
             execute_ddl_command(node);
             return std::make_shared<processors::EmptyBlockSource>();
@@ -352,14 +356,59 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                         col->insert_at(i, core::Field(table_names[i]));
                     }
                     auto block = std::make_shared<core::Block>();
-                    block->add_column("tables", col);
+                    block->add_column("name", col);
                     result_.block = block;
                 }
+            } else if (node->show_type == "VIEWS" || node->show_type == "MATERIALIZED_VIEWS") {
+                auto catalog = ddl_utils::require_catalog(context_);
+                const auto names = node->show_type == "VIEWS"
+                    ? catalog->view_names()
+                    : catalog->materialized_view_names();
+                auto col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < names.size(); ++i) {
+                    col->insert_at(i, core::Field(names[i]));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", col);
+                result_.block = block;
             }
             break;
         }
         case planner::PlanNode::Type::DESCRIBE: {
-            auto storage = ddl_utils::resolve_storage(context_, node->table_name);
+            std::shared_ptr<storages::IStorage> storage;
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::View) {
+                auto catalog = ddl_utils::require_catalog(context_);
+                auto view = catalog->get_view(node->table_name);
+                if (!view) {
+                    throw common::Exception{
+                        "Unknown view: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                parsers::QueryAST nested;
+                nested.query_type = parsers::QueryAST::QueryType::SELECT;
+                nested.select = view->definition;
+                auto block = InterpreterSelectQuery::execute(context_, nested);
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                for (const auto& col_name : block.column_names()) {
+                    name_col->insert(core::Field(col_name));
+                    if (auto col = block.get_column(col_name)) {
+                        type_col->insert(core::Field(col->get_data_type()->name()));
+                    } else {
+                        type_col->insert(core::Field(std::string{"String"}));
+                    }
+                }
+                auto out = std::make_shared<core::Block>();
+                out->add_column("name", name_col);
+                out->add_column("type", type_col);
+                result_.block = out;
+                break;
+            }
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::MaterializedView) {
+                storage = ddl_utils::resolve_storage(context_, node->table_name);
+            } else {
+                storage = ddl_utils::resolve_storage(context_, node->table_name);
+            }
             if (storage) {
                 auto columns = storage->columns();
                 auto col_types = storage->column_types();
@@ -374,6 +423,14 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 block->add_column("type", type_col);
                 result_.block = block;
             }
+            break;
+        }
+        case planner::PlanNode::Type::REFRESH: {
+            parsers::QueryAST query;
+            query.query_type = parsers::QueryAST::QueryType::REFRESH;
+            query.refresh.name = node->refresh_name;
+            auto block = InterpreterRefreshQuery::execute(context_, query);
+            result_.block = std::make_shared<core::Block>(std::move(block));
             break;
         }
         case planner::PlanNode::Type::USE: {

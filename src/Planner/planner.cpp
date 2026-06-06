@@ -330,9 +330,18 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "TABLES";
             break;
+        case analyzer::DDLNode::Kind::ShowViews:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "VIEWS";
+            break;
+        case analyzer::DDLNode::Kind::ShowMaterializedViews:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MATERIALIZED_VIEWS";
+            break;
         case analyzer::DDLNode::Kind::Describe:
             plan_node->node_type = PlanNode::Type::DESCRIBE;
             plan_node->table_name = node.table;
+            plan_node->describe_object_kind = node.describe_kind;
             break;
         case analyzer::DDLNode::Kind::Explain:
             plan_node->node_type = PlanNode::Type::EXPLAIN;
@@ -340,6 +349,10 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
         case analyzer::DDLNode::Kind::Use:
             plan_node->node_type = PlanNode::Type::USE;
             plan_node->name = node.use_database;
+            break;
+        case analyzer::DDLNode::Kind::Refresh:
+            plan_node->node_type = PlanNode::Type::REFRESH;
+            plan_node->refresh_name = node.refresh_name;
             break;
     }
 

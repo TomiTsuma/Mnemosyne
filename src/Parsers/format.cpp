@@ -209,17 +209,46 @@ std::string format_query(const QueryAST& query) {
         }
         case QueryAST::QueryType::CREATE: {
             const auto& c = query.create;
-            out << "CREATE TABLE " << c.table_name << " (\n";
-            for (size_t i = 0; i < c.columns.size(); ++i) {
-                out << "  " << c.columns[i].name << " " << c.columns[i].data_type;
-                if (i + 1 < c.columns.size()) out << ",";
-                out << "\n";
+            switch (c.kind) {
+                case QueryAST::Create::Kind::Database:
+                    out << "CREATE DATABASE " << c.database_name;
+                    break;
+                case QueryAST::Create::Kind::View:
+                    out << "CREATE VIEW " << c.view_name << " AS SELECT ...";
+                    break;
+                case QueryAST::Create::Kind::MaterializedView:
+                    out << "CREATE MATERIALIZED VIEW " << c.view_name << " AS SELECT ...";
+                    break;
+                case QueryAST::Create::Kind::Table:
+                default:
+                    out << "CREATE TABLE " << c.table_name << " (\n";
+                    for (size_t i = 0; i < c.columns.size(); ++i) {
+                        out << "  " << c.columns[i].name << " " << c.columns[i].data_type;
+                        if (i + 1 < c.columns.size()) out << ",";
+                        out << "\n";
+                    }
+                    out << ")";
+                    break;
             }
-            out << ")";
             break;
         }
         case QueryAST::QueryType::DROP: {
-            out << "DROP TABLE " << query.drop.table;
+            switch (query.drop.object_kind) {
+                case QueryAST::ObjectKind::View:
+                    out << "DROP VIEW " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::MaterializedView:
+                    out << "DROP MATERIALIZED VIEW " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::Table:
+                default:
+                    out << "DROP TABLE " << query.drop.table;
+                    break;
+            }
+            break;
+        }
+        case QueryAST::QueryType::REFRESH: {
+            out << "REFRESH MATERIALIZED VIEW " << query.refresh.name;
             break;
         }
         case QueryAST::QueryType::ALTER: {
@@ -244,11 +273,25 @@ std::string format_query(const QueryAST& query) {
             switch (query.show.show_type) {
                 case QueryAST::Show::ShowType::DATABASES: out << "SHOW DATABASES"; break;
                 case QueryAST::Show::ShowType::TABLES: out << "SHOW TABLES"; break;
+                case QueryAST::Show::ShowType::VIEWS: out << "SHOW VIEWS"; break;
+                case QueryAST::Show::ShowType::MATERIALIZED_VIEWS:
+                    out << "SHOW MATERIALIZED_VIEWS"; break;
             }
             break;
         }
         case QueryAST::QueryType::DESCRIBE: {
-            out << "DESCRIBE " << query.describe.table_name;
+            switch (query.describe.object_kind) {
+                case QueryAST::ObjectKind::View:
+                    out << "DESCRIBE VIEW " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::MaterializedView:
+                    out << "DESCRIBE MATERIALIZED VIEW " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::Table:
+                default:
+                    out << "DESCRIBE " << query.describe.table_name;
+                    break;
+            }
             break;
         }
         case QueryAST::QueryType::EXPLAIN: {

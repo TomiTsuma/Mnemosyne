@@ -61,9 +61,12 @@ public:
         Alter,
         ShowDatabases,
         ShowTables,
+        ShowViews,
+        ShowMaterializedViews,
         Describe,
         Explain,
         Use,
+        Refresh,
     };
 
     Kind kind = Kind::CreateTable;
@@ -77,6 +80,8 @@ public:
     std::vector<std::vector<std::string>> insert_values;
     std::vector<parsers::ASTAlterQuery::AlterCommand> alter_commands;
     std::string use_database;
+    parsers::QueryAST::ObjectKind describe_kind = parsers::QueryAST::ObjectKind::Table;
+    std::string refresh_name;
 
     [[nodiscard]] auto node_type() const -> std::string override { return "DDL"; }
 };

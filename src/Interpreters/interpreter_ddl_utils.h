@@ -9,6 +9,7 @@
 #include "Interpreters/context.h"
 #include "Planner/execution_plan.h"
 #include "Parsers/ast.h"
+#include "Databases/database.h"
 #include "Storages/i_storage.h"
 #include "Common/exceptions.h"
 #include <memory>
@@ -48,16 +49,44 @@ inline auto resolve_current_database(Context& context) -> std::string {
 }
 
 /// Resolve table storage from the current database (source of truth), refreshing context cache.
+inline auto require_catalog(Context& context) -> std::shared_ptr<databases::Database> {
+    const auto db_name = resolve_current_database(context);
+    auto idb = require_database(context, db_name);
+    auto catalog = std::dynamic_pointer_cast<databases::Database>(idb);
+    if (!catalog) {
+        throw common::Exception{
+            "Views require the Database catalog engine",
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+    return catalog;
+}
+
 inline auto resolve_storage(Context& context, const std::string& table)
     -> std::shared_ptr<storages::IStorage> {
     const auto db_name = resolve_current_database(context);
-    if (auto db = context.get_database(db_name)) {
-        if (auto storage = db->table(table)) {
+    if (auto idb = context.get_database(db_name)) {
+        if (auto catalog = std::dynamic_pointer_cast<databases::Database>(idb)) {
+            if (catalog->has_view(table)) {
+                return nullptr;
+            }
+        }
+        if (auto storage = idb->table(table)) {
             context.register_storage(table, storage);
             return storage;
         }
     }
     return context.get_storage(table);
+}
+
+inline auto block_column_map(const core::Block& block)
+    -> std::unordered_map<std::string, datatypes::DataTypePtr> {
+    std::unordered_map<std::string, datatypes::DataTypePtr> result;
+    for (const auto& name : block.column_names()) {
+        if (auto col = block.get_column(name)) {
+            result[name] = col->get_data_type();
+        }
+    }
+    return result;
 }
 
 inline auto build_column_map(

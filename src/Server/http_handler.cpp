@@ -9,6 +9,7 @@
 #include "Interpreters/interpreter_create_query.h"
 #include "Interpreters/interpreter_insert_query.h"
 #include "Interpreters/interpreter_drop_query.h"
+#include "Interpreters/interpreter_refresh_query.h"
 #include "Interpreters/context.h"
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
@@ -242,6 +243,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                 }
                 case parsers::QueryAST::QueryType::DROP: {
                     auto block = interpreters::InterpreterDropQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::REFRESH: {
+                    auto block = interpreters::InterpreterRefreshQuery::execute(context_, *query_ast);
                     query_result.block = std::make_shared<core::Block>(std::move(block));
                     break;
                 }

@@ -77,13 +77,13 @@ auto Database::drop_table(std::string name) -> bool {
 auto Database::create_table(std::string                                             name,
                             std::unordered_map<std::string, datatypes::DataTypePtr> columns,
                             std::string engine) -> std::shared_ptr<storages::IStorage> {
-    auto tbl = std::make_shared<storages::Table>(std::move(name));
-    for (const auto& [col_name, type] : columns) {
-        tbl->add_column(col_name, std::move(type));
+    const std::string table_name = name;
+    auto tbl = std::make_shared<storages::Table>(table_name);
+    auto storage = mnemo::storages::StorageFactory::instance().create(table_name, engine);
+    if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
+        mem->set_columns(columns);
     }
-    // auto storage = storages::MemoryStorage::create(engine); This is for only memory storage
-    auto storage   = mnemo::storages::StorageFactory::instance().create(std::move(name), engine);
-    tbl->storage() = storage;
+    tbl->set_storage(storage);
     tables_[tbl->name()] = tbl;
     return storage;
 }
@@ -128,6 +128,70 @@ size_t Database::table_count() const {
 
 bool Database::has_table(std::string_view name) const {
     return tables_.find(std::string{name}) != tables_.end();
+}
+
+auto Database::has_view(std::string_view name) const -> bool {
+    return views_.contains(std::string{name});
+}
+
+auto Database::has_materialized_view(std::string_view name) const -> bool {
+    return materialized_views_.contains(std::string{name});
+}
+
+auto Database::get_view(std::string_view name) const -> std::optional<ViewEntry> {
+    auto it = views_.find(std::string{name});
+    if (it == views_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+auto Database::get_materialized_view(std::string_view name) const
+    -> std::optional<MaterializedViewEntry> {
+    auto it = materialized_views_.find(std::string{name});
+    if (it == materialized_views_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+auto Database::view_names() const -> std::vector<std::string> {
+    std::vector<std::string> names;
+    names.reserve(views_.size());
+    for (const auto& [name, _] : views_) {
+        names.push_back(name);
+    }
+    return names;
+}
+
+auto Database::materialized_view_names() const -> std::vector<std::string> {
+    std::vector<std::string> names;
+    names.reserve(materialized_views_.size());
+    for (const auto& [name, _] : materialized_views_) {
+        names.push_back(name);
+    }
+    return names;
+}
+
+auto Database::create_view(ViewEntry entry) -> void {
+    views_[entry.name] = std::move(entry);
+}
+
+auto Database::drop_view(std::string name) -> bool {
+    return views_.erase(name) > 0;
+}
+
+auto Database::create_materialized_view(MaterializedViewEntry entry) -> void {
+    materialized_views_[entry.name] = std::move(entry);
+}
+
+auto Database::drop_materialized_view(std::string name) -> bool {
+    return materialized_views_.erase(name) > 0;
+}
+
+auto Database::relation_exists(std::string_view name) const -> bool {
+    const auto key = std::string{name};
+    return tables_.contains(key) || views_.contains(key) || materialized_views_.contains(key);
 }
 
 } // namespace mnemo::databases

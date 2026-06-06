@@ -5,6 +5,7 @@
 
 #include "Storages/table.h"
 #include "Storages/memory_storage.h"
+#include "view_catalog.h"
 #include "i_database.h"
 #include <memory>
 #include <string>
@@ -49,11 +50,27 @@ public:
     [[nodiscard]] auto table_count() const -> size_t;
     [[nodiscard]] auto has_table(std::string_view name) const -> bool;
 
+    // View catalog
+    [[nodiscard]] auto has_view(std::string_view name) const -> bool;
+    [[nodiscard]] auto has_materialized_view(std::string_view name) const -> bool;
+    [[nodiscard]] auto get_view(std::string_view name) const -> std::optional<ViewEntry>;
+    [[nodiscard]] auto get_materialized_view(std::string_view name) const
+        -> std::optional<MaterializedViewEntry>;
+    [[nodiscard]] auto view_names() const -> std::vector<std::string>;
+    [[nodiscard]] auto materialized_view_names() const -> std::vector<std::string>;
+    auto create_view(ViewEntry entry) -> void;
+    auto drop_view(std::string name) -> bool;
+    auto create_materialized_view(MaterializedViewEntry entry) -> void;
+    auto drop_materialized_view(std::string name) -> bool;
+    [[nodiscard]] auto relation_exists(std::string_view name) const -> bool;
+
 private:
     std::string name_;
     std::string path_ = "";
     std::string engine_ = "Memory";
     std::unordered_map<std::string, std::shared_ptr<storages::Table>> tables_;
+    std::unordered_map<std::string, ViewEntry> views_;
+    std::unordered_map<std::string, MaterializedViewEntry> materialized_views_;
 };
 
 } // namespace mnemo::databases

@@ -2,6 +2,7 @@
 
 #include "Interpreters/interpreter_select_query.h"
 #include "Interpreters/interpreter_ddl_utils.h"
+#include "Databases/database.h"
 #include "Columns/column_string.h"
 #include "Columns/column_vector.h"
 #include "Common/exceptions.h"
@@ -18,6 +19,7 @@ namespace mnemo::interpreters {
 
 namespace {
 
+using parsers::ASTAlias;
 using parsers::ASTBinaryOp;
 using parsers::ASTColumnRef;
 using parsers::ASTExpr;
@@ -31,7 +33,11 @@ struct EvalCtx {
     const core::Block* block = nullptr;
     size_t row = 0;
     std::unordered_map<std::string, std::string> alias_to_table;
+    std::unordered_set<std::string>* expanding = nullptr;
 };
+
+auto eval_select_with_expanding(Context& context, const QueryAST& query,
+                                std::unordered_set<std::string>& expanding) -> core::Block;
 
 auto require_table_storage(Context& ctx, const std::string& table)
     -> std::shared_ptr<storages::IStorage> {
@@ -44,8 +50,44 @@ auto require_table_storage(Context& ctx, const std::string& table)
     return storage;
 }
 
-auto load_table(Context& ctx, const std::string& table, const std::string& prefix)
-    -> core::Block {
+constexpr size_t kMaxViewDepth = 32;
+
+auto load_table(Context& ctx, const std::string& table, const std::string& prefix,
+                std::unordered_set<std::string>& expanding) -> core::Block {
+    if (auto idb = ctx.get_database(ddl_utils::resolve_current_database(ctx))) {
+        if (auto db = std::dynamic_pointer_cast<databases::Database>(idb)) {
+            if (db->has_view(table)) {
+                if (expanding.contains(table)) {
+                    throw common::Exception{
+                        "Circular view reference: " + table,
+                        static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+                }
+                if (expanding.size() >= kMaxViewDepth) {
+                    throw common::Exception{
+                        "View expansion depth exceeded",
+                        static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+                }
+                expanding.insert(table);
+                auto entry = db->get_view(table).value();
+                QueryAST view_query;
+                view_query.query_type = QueryAST::QueryType::SELECT;
+                view_query.select = entry.definition;
+                auto block = eval_select_with_expanding(ctx, view_query, expanding);
+                expanding.erase(table);
+                if (prefix.empty() || prefix == table) {
+                    return block;
+                }
+                core::Block out;
+                for (const auto& name : block.column_names()) {
+                    if (auto col = block.get_column(name)) {
+                        out.add_column(prefix + "." + name, col->clone());
+                    }
+                }
+                return out;
+            }
+        }
+    }
+
     auto storage = require_table_storage(ctx, table);
     auto block = storage->read(storage->columns());
     if (prefix.empty() || prefix == table) {
@@ -101,6 +143,12 @@ auto find_column(const core::Block& block, const std::string& table,
         }
     }
     candidates.push_back(column);
+    if (table.empty()) {
+        for (const auto& [alias, base] : alias_to_table) {
+            candidates.push_back(alias + "." + column);
+            candidates.push_back(base + "." + column);
+        }
+    }
     const auto names = block.column_names();
     for (const auto& cand : candidates) {
         for (size_t i = 0; i < names.size(); ++i) {
@@ -111,8 +159,10 @@ auto find_column(const core::Block& block, const std::string& table,
 }
 
 auto eval_expr(const ASTExpr& expr, EvalCtx& ctx) -> core::Field;
-auto eval_select(Context& context, const QueryAST& query) -> core::Block;
 auto aggregate_name(const ASTFunction& func) -> std::string;
+
+auto eval_select_with_expanding(Context& context, const QueryAST& query,
+                                std::unordered_set<std::string>& expanding) -> core::Block;
 
 auto eval_expr(const ASTExpr& expr, EvalCtx& ctx) -> core::Field {
     if (auto* lit = dynamic_cast<const ASTLiteral*>(&expr)) {
@@ -159,7 +209,9 @@ auto eval_expr(const ASTExpr& expr, EvalCtx& ctx) -> core::Field {
     }
     if (auto* sub = dynamic_cast<const ASTSubQueryExpr*>(&expr)) {
         if (!sub->query) return core::Field{};
-        auto block = eval_select(ctx.context, *sub->query);
+        std::unordered_set<std::string> local_expanding;
+        auto& expanding = ctx.expanding ? *ctx.expanding : local_expanding;
+        auto block = eval_select_with_expanding(ctx.context, *sub->query, expanding);
         if (block.row_count() == 0 || block.column_count() == 0) return core::Field{int64_t{0}};
         return block.get_row_value(0, 0);
     }
@@ -183,7 +235,9 @@ auto eval_predicate(const ASTExpr& expr, EvalCtx& ctx) -> bool {
             auto left_val = eval_expr(*bin->left, ctx);
             if (auto* sub = dynamic_cast<const ASTSubQueryExpr*>(bin->right.get())) {
                 if (!sub->query) return false;
-                auto sub_block = eval_select(ctx.context, *sub->query);
+                std::unordered_set<std::string> local_expanding;
+                auto& expanding = ctx.expanding ? *ctx.expanding : local_expanding;
+                auto sub_block = eval_select_with_expanding(ctx.context, *sub->query, expanding);
                 if (sub_block.column_count() == 0) return false;
                 for (size_t r = 0; r < sub_block.row_count(); ++r) {
                     auto v = sub_block.get_row_value(0, r);
@@ -295,7 +349,9 @@ auto aggregate_name(const ASTFunction& func) -> std::string {
 }
 
 auto compute_aggregate(const ASTFunction& func, const core::Block& block,
-                       const std::vector<size_t>& rows) -> core::Field {
+                       const std::vector<size_t>& rows,
+                       const std::unordered_map<std::string, std::string>& alias_to_table)
+    -> core::Field {
     std::string upper = func.name;
     std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
     if (upper == "COUNT") {
@@ -311,7 +367,7 @@ auto compute_aggregate(const ASTFunction& func, const core::Block& block,
     if (func.args.empty()) return core::Field{int64_t{0}};
     auto* col_ref = dynamic_cast<const ASTColumnRef*>(func.args[0].get());
     if (!col_ref) return core::Field{int64_t{0}};
-    auto idx = find_column(block, col_ref->table, col_ref->column, {});
+    auto idx = find_column(block, col_ref->table, col_ref->column, alias_to_table);
     if (!idx) return core::Field{int64_t{0}};
     std::vector<double> vals;
     auto row_list = rows.empty() ? std::vector<size_t>{} : rows;
@@ -335,16 +391,38 @@ auto compute_aggregate(const ASTFunction& func, const core::Block& block,
     return core::Field{int64_t{0}};
 }
 
+auto unwrap_expr(const ASTExpr* expr) -> const ASTExpr* {
+    if (auto* alias = dynamic_cast<const ASTAlias*>(expr)) {
+        return alias->expression.get();
+    }
+    return expr;
+}
+
+auto select_output_name(const ASTExpr& expr) -> std::string {
+    if (auto* alias = dynamic_cast<const ASTAlias*>(&expr)) {
+        return alias->alias;
+    }
+    if (auto* func = dynamic_cast<const ASTFunction*>(&expr)) {
+        return aggregate_name(*func);
+    }
+    if (auto* col = dynamic_cast<const ASTColumnRef*>(&expr)) {
+        return col->column;
+    }
+    return "col";
+}
+
 auto project_block(const core::Block& in, const std::vector<std::shared_ptr<ASTExpr>>& cols,
                    EvalCtx ctx, bool has_group_by) -> core::Block {
     core::Block out;
     const bool global_agg = !has_group_by &&
-        std::all_of(cols.begin(), cols.end(), [](const auto& e) { return is_aggregate_expr(*e); });
+        std::all_of(cols.begin(), cols.end(), [](const auto& e) {
+            return is_aggregate_expr(*unwrap_expr(e.get()));
+        });
 
     if (global_agg) {
         for (const auto& expr : cols) {
-            if (auto* func = dynamic_cast<const ASTFunction*>(expr.get())) {
-                auto val = compute_aggregate(*func, in, {});
+            if (auto* func = dynamic_cast<const ASTFunction*>(unwrap_expr(expr.get()))) {
+                auto val = compute_aggregate(*func, in, {}, ctx.alias_to_table);
                 auto int_type = datatypes::get_data_type("Int64");
                 auto* raw = int_type->create_column();
                 auto col = std::shared_ptr<core::IColumn>(
@@ -358,7 +436,8 @@ auto project_block(const core::Block& in, const std::vector<std::shared_ptr<ASTE
     }
 
     for (const auto& expr : cols) {
-        if (auto* col_ref = dynamic_cast<const ASTColumnRef*>(expr.get())) {
+        const auto* base = unwrap_expr(expr.get());
+        if (auto* col_ref = dynamic_cast<const ASTColumnRef*>(base)) {
             if (col_ref->column == "*") {
                 for (const auto& name : in.column_names()) {
                     if (auto col = in.get_column(name)) {
@@ -369,7 +448,7 @@ auto project_block(const core::Block& in, const std::vector<std::shared_ptr<ASTE
             }
             auto idx = find_column(in, col_ref->table, col_ref->column, ctx.alias_to_table);
             if (idx) {
-                auto name = in.column_names()[*idx];
+                const std::string name = select_output_name(*expr);
                 out.add_column(name, in.get_column_by_index(*idx)->clone());
             }
         }
@@ -403,19 +482,21 @@ auto group_and_aggregate(const core::Block& in,
             }
         }
     }
+    std::vector<std::pair<std::string, const ASTFunction*>> agg_outputs;
     for (const auto& expr : select_cols) {
-        if (auto* func = dynamic_cast<const ASTFunction*>(expr.get())) {
+        if (auto* func = dynamic_cast<const ASTFunction*>(unwrap_expr(expr.get()))) {
             auto int_type = datatypes::get_data_type("Int64");
             auto* raw = int_type->create_column();
             auto col = std::shared_ptr<core::IColumn>(
                 static_cast<core::IColumn*>(raw),
                 [](void* p) { delete static_cast<core::IColumn*>(p); });
-            out.add_column(aggregate_name(*func), col);
+            const std::string out_name = select_output_name(*expr);
+            out.add_column(out_name, col);
+            agg_outputs.emplace_back(out_name, func);
         }
     }
 
     for (auto& [key, rows] : groups) {
-        size_t out_row = out.row_count();
         for (size_t i = 0; i < group_exprs.size(); ++i) {
             if (auto* col = dynamic_cast<const ASTColumnRef*>(group_exprs[i].get())) {
                 auto idx = find_column(in, col->table, col->column, ctx.alias_to_table);
@@ -424,14 +505,10 @@ auto group_and_aggregate(const core::Block& in,
                 }
             }
         }
-        size_t agg_col = group_exprs.size();
-        for (const auto& expr : select_cols) {
-            if (auto* func = dynamic_cast<const ASTFunction*>(expr.get())) {
-                auto val = compute_aggregate(*func, in, rows);
-                out.get_column_by_index(agg_col++)->insert(val);
-            }
+        for (const auto& [out_name, func] : agg_outputs) {
+            auto val = compute_aggregate(*func, in, rows, ctx.alias_to_table);
+            out.get_column(out_name)->insert(val);
         }
-        (void)out_row;
     }
 
     if (having) {
@@ -541,7 +618,7 @@ auto apply_window(const core::Block& in, const std::vector<std::shared_ptr<ASTEx
                 }
                 if (same) partition_rows.push_back(pr);
             }
-            auto val = compute_aggregate(*func, in, partition_rows);
+            auto val = compute_aggregate(*func, in, partition_rows, ctx.alias_to_table);
             result_col->insert(val);
         }
         out.add_column(out_name, result_col);
@@ -549,9 +626,11 @@ auto apply_window(const core::Block& in, const std::vector<std::shared_ptr<ASTEx
     return out;
 }
 
-auto eval_select(Context& context, const QueryAST& query) -> core::Block {
+auto eval_select_with_expanding(Context& context, const QueryAST& query,
+                                std::unordered_set<std::string>& expanding) -> core::Block {
     const auto& sel = query.select;
     EvalCtx ctx{context};
+    ctx.expanding = &expanding;
 
     if (!sel.table.empty()) {
         const std::string alias = sel.table_alias.empty() ? sel.table : sel.table_alias;
@@ -568,11 +647,11 @@ auto eval_select(Context& context, const QueryAST& query) -> core::Block {
     core::Block data;
     if (!sel.table.empty()) {
         const std::string prefix = sel.table_alias.empty() ? sel.table : sel.table_alias;
-        data = load_table(context, sel.table, prefix);
+        data = load_table(context, sel.table, prefix, expanding);
     }
     for (const auto& join : sel.joins) {
         const std::string prefix = join.alias.empty() ? join.table : join.alias;
-        auto right = load_table(context, join.table, prefix);
+        auto right = load_table(context, join.table, prefix, expanding);
         if (join.on) {
             data = join_blocks(data, right, *join.on, ctx);
         }
@@ -610,7 +689,8 @@ auto InterpreterSelectQuery::execute(Context& context, const QueryAST& query) ->
             "InterpreterSelectQuery: expected SELECT",
             static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
     }
-    return eval_select(context, query);
+    std::unordered_set<std::string> expanding;
+    return eval_select_with_expanding(context, query, expanding);
 }
 
 } // namespace mnemo::interpreters

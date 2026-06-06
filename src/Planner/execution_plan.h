@@ -55,6 +55,7 @@ struct PlanNode {
         DESCRIBE,   // DESCRIBE TABLE
         EXPLAIN,    // EXPLAIN PLAN
         USE,        // USE DATABASE (sets the session's current database)
+        REFRESH,    // REFRESH MATERIALIZED VIEW
     };
 
     PlanNodeType  type;
@@ -82,6 +83,8 @@ struct PlanNode {
     parsers::QueryAST::Drop::Kind drop_kind = parsers::QueryAST::Drop::Kind::Drop;
     std::vector<parsers::ColumnDef> column_defs;
     std::vector<parsers::ASTAlterQuery::AlterCommand> alter_commands;
+    parsers::QueryAST::ObjectKind describe_object_kind = parsers::QueryAST::ObjectKind::Table;
+    std::string refresh_name;
 
     // Per-operator metadata
     struct FilterSpec {
