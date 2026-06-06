@@ -56,6 +56,7 @@ struct PlanNode {
         EXPLAIN,    // EXPLAIN PLAN
         USE,        // USE DATABASE (sets the session's current database)
         REFRESH,    // REFRESH MATERIALIZED VIEW
+        EXCHANGE,   // Distributed data exchange / remote execution
     };
 
     PlanNodeType  type;

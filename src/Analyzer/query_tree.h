@@ -65,6 +65,12 @@ public:
         ShowMaterializedViews,
         ShowStorageUnits,
         ShowStorageUsage,
+        ShowNodes,
+        ShowNodeMetrics,
+        ShowNodeCapabilities,
+        ShowNodePartitions,
+        ShowNodeReplicas,
+        ShowClusters,
         Describe,
         Explain,
         Use,
@@ -84,6 +90,7 @@ public:
     std::string use_database;
     parsers::QueryAST::ObjectKind describe_kind = parsers::QueryAST::ObjectKind::Table;
     std::string refresh_name;
+    std::string show_node_name;
 
     [[nodiscard]] auto node_type() const -> std::string override { return "DDL"; }
 };

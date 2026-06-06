@@ -12,6 +12,7 @@ target_link_libraries(mnemosyne_interpreters PUBLIC
     mnemosyne_storages
     mnemosyne_databases
     mnemosyne_storage_units
+    mnemosyne_nodes
     mnemosyne_common
     mnemosyne_loggers
 )

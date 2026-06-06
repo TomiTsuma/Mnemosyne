@@ -168,6 +168,13 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
             result.valid = true;
             break;
         }
+        case parsers::QueryAST::QueryType::REGISTER:
+        case parsers::QueryAST::QueryType::DRAIN:
+        case parsers::QueryAST::QueryType::REMOVE: {
+            result.analyzed_ast = ast;
+            result.valid = true;
+            break;
+        }
         default:
             result.errors.push_back("Unknown query type");
             result.valid = false;
@@ -457,11 +464,30 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::STORAGE_USAGE:
                     node->kind = DDLNode::Kind::ShowStorageUsage;
                     break;
+                case parsers::QueryAST::Show::ShowType::NODES:
+                    node->kind = DDLNode::Kind::ShowNodes;
+                    break;
+                case parsers::QueryAST::Show::ShowType::NODE_METRICS:
+                    node->kind = DDLNode::Kind::ShowNodeMetrics;
+                    break;
+                case parsers::QueryAST::Show::ShowType::NODE_CAPABILITIES:
+                    node->kind = DDLNode::Kind::ShowNodeCapabilities;
+                    break;
+                case parsers::QueryAST::Show::ShowType::NODE_PARTITIONS:
+                    node->kind = DDLNode::Kind::ShowNodePartitions;
+                    break;
+                case parsers::QueryAST::Show::ShowType::NODE_REPLICAS:
+                    node->kind = DDLNode::Kind::ShowNodeReplicas;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CLUSTERS:
+                    node->kind = DDLNode::Kind::ShowClusters;
+                    break;
                 case parsers::QueryAST::Show::ShowType::TABLES:
                 default:
                     node->kind = DDLNode::Kind::ShowTables;
                     break;
             }
+            node->show_node_name = query_ast.show.node_name;
             node->database = context_.current_database();
             break;
         case parsers::QueryAST::QueryType::DESCRIBE:

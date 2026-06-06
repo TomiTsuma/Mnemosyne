@@ -33,6 +33,11 @@ enum class TokenType {
     KeywordView, KeywordViews, KeywordMaterialized, KeywordRefresh,
     KeywordStorage, KeywordUnit, KeywordUnits, KeywordType,
     KeywordPath, KeywordBucket, KeywordEndpoint, KeywordRegion, KeywordUsage,
+    KeywordNode, KeywordNodes, KeywordRegister, KeywordDrain, KeywordRemove,
+    KeywordHost, KeywordPort, KeywordRole, KeywordSet, KeywordMetrics,
+    KeywordCapabilities, KeywordWorker, KeywordCoordinator, KeywordObserver,
+    KeywordCompute, KeywordHybrid, KeywordGpu, KeywordCluster, KeywordClusters,
+    KeywordReplicas,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,

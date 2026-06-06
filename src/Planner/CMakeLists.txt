@@ -11,6 +11,7 @@ target_include_directories(mnemosyne_planner PUBLIC
 target_link_libraries(mnemosyne_planner PUBLIC
     mnemosyne_analyzer
     mnemosyne_storages
+    mnemosyne_nodes
 )
 
 set_target_properties(mnemosyne_planner PROPERTIES

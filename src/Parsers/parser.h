@@ -56,9 +56,14 @@ protected:
     auto parse_describe(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_explain(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_refresh(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_register(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_drain(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_remove(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_storage_unit_properties(QueryAST::Create& create) -> void;
+    auto parse_node_properties(QueryAST::Create& create) -> void;
     auto parse_property_value() -> std::string;
     auto consume_storage_unit_keyword() -> bool;
+    auto consume_node_keyword() -> bool;
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;
@@ -69,6 +74,7 @@ protected:
 
     // ── Clause parsing helpers ──
     auto parse_table_name() -> std::string;
+    auto parse_name_or_keyword() -> std::string;
     auto parse_table_ref() -> std::pair<std::string, std::string>;
     auto parse_subquery() -> std::shared_ptr<QueryAST>;
     auto parse_window_spec(ASTFunction::WindowSpec& spec) -> void;

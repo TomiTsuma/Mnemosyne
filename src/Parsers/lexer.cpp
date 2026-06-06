@@ -316,6 +316,26 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "ENDPOINT") type = TokenType::KeywordEndpoint;
     else if (upper == "REGION") type = TokenType::KeywordRegion;
     else if (upper == "USAGE") type = TokenType::KeywordUsage;
+    else if (upper == "NODE") type = TokenType::KeywordNode;
+    else if (upper == "NODES") type = TokenType::KeywordNodes;
+    else if (upper == "REGISTER") type = TokenType::KeywordRegister;
+    else if (upper == "DRAIN") type = TokenType::KeywordDrain;
+    else if (upper == "REMOVE") type = TokenType::KeywordRemove;
+    else if (upper == "HOST") type = TokenType::KeywordHost;
+    else if (upper == "PORT") type = TokenType::KeywordPort;
+    else if (upper == "ROLE") type = TokenType::KeywordRole;
+    else if (upper == "SET") type = TokenType::KeywordSet;
+    else if (upper == "METRICS") type = TokenType::KeywordMetrics;
+    else if (upper == "CAPABILITIES") type = TokenType::KeywordCapabilities;
+    else if (upper == "WORKER") type = TokenType::KeywordWorker;
+    else if (upper == "COORDINATOR") type = TokenType::KeywordCoordinator;
+    else if (upper == "OBSERVER") type = TokenType::KeywordObserver;
+    else if (upper == "COMPUTE") type = TokenType::KeywordCompute;
+    else if (upper == "HYBRID") type = TokenType::KeywordHybrid;
+    else if (upper == "GPU") type = TokenType::KeywordGpu;
+    else if (upper == "CLUSTER") type = TokenType::KeywordCluster;
+    else if (upper == "CLUSTERS") type = TokenType::KeywordClusters;
+    else if (upper == "REPLICAS") type = TokenType::KeywordReplicas;
 
     return make_token(type, std::move(id));
 }

@@ -267,9 +267,12 @@ public:
 // ── QueryAST — top-level parsed query (inherits ASTNode for polymorphism) ──
 class QueryAST final : public ASTNode {
 public:
-    enum class QueryType { SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH };
+    enum class QueryType {
+        SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH,
+        REGISTER, DRAIN, REMOVE
+    };
 
-    enum class ObjectKind { Table, View, MaterializedView, StorageUnit };
+    enum class ObjectKind { Table, View, MaterializedView, StorageUnit, Node, Cluster };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -303,7 +306,7 @@ public:
     } insert;
 
     struct Create : ASTDDLQuery {
-        enum class Kind { Database, Table, View, MaterializedView, StorageUnit };
+        enum class Kind { Database, Table, View, MaterializedView, StorageUnit, Node, Cluster };
         Kind kind = Kind::Table;
 
         std::string database_name;
@@ -315,6 +318,10 @@ public:
         std::string storage_unit_name;
         std::string storage_unit_type;
         std::unordered_map<std::string, std::string> storage_properties;
+        std::string node_name;
+        std::string node_type;
+        std::string node_role;
+        std::string cluster_name;
     } create;
 
     struct Drop : ASTDDLQuery {
@@ -324,14 +331,38 @@ public:
     } drop;
 
     struct Alter : ASTDDLQuery {
+        enum class Target { Table, Node };
+        Target target = Target::Table;
         std::vector<ASTAlterQuery::AlterCommand> commands;
+        struct NodeSet {
+            std::string property;
+            std::string value;
+        };
+        std::vector<NodeSet> node_sets;
     } alter;
+
+    struct RegisterNode {
+        std::string node_name;
+        std::string host;
+        uint16_t port = 0;
+    } register_node;
+
+    struct DrainNode {
+        std::string node_name;
+    } drain_node;
+
+    struct RemoveNode {
+        std::string node_name;
+        bool if_exists = false;
+    } remove_node;
 
     struct Show {
         enum class ShowType {
-            DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS, STORAGE_UNITS, STORAGE_USAGE
+            DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS, STORAGE_UNITS, STORAGE_USAGE,
+            NODES, NODE_METRICS, NODE_CAPABILITIES, NODE_PARTITIONS, NODE_REPLICAS, CLUSTERS
         };
         ShowType show_type = ShowType::DATABASES;
+        std::string node_name;
     } show;
 
     struct Describe {

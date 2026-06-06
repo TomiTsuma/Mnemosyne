@@ -10,7 +10,11 @@
 #include "Interpreters/interpreter_insert_query.h"
 #include "Interpreters/interpreter_drop_query.h"
 #include "Interpreters/interpreter_refresh_query.h"
+#include "Interpreters/interpreter_node_query.h"
+#include "Interpreters/interpreter_alter_node.h"
 #include "Interpreters/context.h"
+#include "Nodes/node_catalog.h"
+#include "Nodes/node_manager.h"
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
 #include <iostream>
@@ -56,6 +60,12 @@ auto HTTPHandler::handle(const Request& req) -> Response {
         return handle_metrics();
     } else if (req.path == "/settings") {
         return handle_settings();
+    } else if (req.path == "/nodes" && req.method == "GET") {
+        return handle_nodes_list();
+    } else if (req.path == "/nodes/register" && req.method == "POST") {
+        return handle_nodes_register(req.body);
+    } else if (req.path == "/nodes/heartbeat" && req.method == "POST") {
+        return handle_nodes_heartbeat(req.body);
     } else if (req.path == "/query") {
         // Execute query from query params or body
         if (req.query_params.find("query") == req.query_params.end() && req.body.empty()) {
@@ -79,10 +89,19 @@ auto HTTPHandler::handle_status() -> Response {
     std::ostringstream oss;
     auto now = std::chrono::system_clock::now();
     auto t = std::chrono::system_clock::to_time_t(now);
+    auto& mgr = nodes::NodeManager::instance();
+    const auto self_id = mgr.self_node_id();
+    const auto* self = self_id.empty() ? nullptr : mgr.get_node(self_id);
     oss << "Uptime: running\n"
         << "Version: 0.1.0\n"
         << "Time: " << std::ctime(&t)
         << "Threads: " << context_.pool().active_count() << "\n";
+    if (self) {
+        oss << "node_id: " << self->node_id << "\n"
+            << "role: " << nodes::node_role_name(self->node_role) << "\n"
+            << "status: " << nodes::node_status_name(self->status) << "\n"
+            << "cluster_id: " << self->cluster_id << "\n";
+    }
     return Response::ok(oss.str());
 }
 
@@ -189,6 +208,98 @@ auto HTTPHandler::handle_settings() -> Response {
     return Response::json(oss.str());
 }
 
+namespace {
+
+auto json_get_string(std::string_view body, std::string_view key) -> std::string {
+    const std::string needle = "\"" + std::string{key} + "\"";
+    auto pos = body.find(needle);
+    if (pos == std::string::npos) return {};
+    pos = body.find(':', pos);
+    if (pos == std::string::npos) return {};
+    pos = body.find('"', pos);
+    if (pos == std::string::npos) return {};
+    ++pos;
+    auto end = body.find('"', pos);
+    if (end == std::string::npos) return {};
+    return std::string{body.substr(pos, end - pos)};
+}
+
+auto json_get_number(std::string_view body, std::string_view key) -> double {
+    const std::string needle = "\"" + std::string{key} + "\"";
+    auto pos = body.find(needle);
+    if (pos == std::string::npos) return 0.0;
+    pos = body.find(':', pos);
+    if (pos == std::string::npos) return 0.0;
+    ++pos;
+    while (pos < body.size() && (body[pos] == ' ' || body[pos] == '\t')) ++pos;
+    return std::stod(std::string{body.substr(pos)});
+}
+
+} // namespace
+
+auto HTTPHandler::handle_nodes_list() -> Response {
+    const auto entries = nodes::NodeManager::instance().list_entries();
+    std::ostringstream oss;
+    oss << "{\n  \"nodes\": [\n";
+    for (size_t i = 0; i < entries.size(); ++i) {
+        if (i > 0) oss << ",\n";
+        oss << "    {\"name\": \"" << entries[i].node_name << "\", "
+            << "\"type\": \"" << nodes::node_type_name(entries[i].node_type) << "\", "
+            << "\"role\": \"" << nodes::node_role_name(entries[i].node_role) << "\", "
+            << "\"status\": \"" << nodes::node_status_name(entries[i].status) << "\", "
+            << "\"host\": \"" << entries[i].host << "\", "
+            << "\"port\": " << entries[i].port << "}";
+    }
+    oss << "\n  ]\n}\n";
+    return Response::json(oss.str());
+}
+
+auto HTTPHandler::handle_nodes_register(std::string_view body) -> Response {
+    try {
+        const auto id = json_get_string(body, "id");
+        const auto host = json_get_string(body, "host");
+        const auto port = static_cast<uint16_t>(json_get_number(body, "port"));
+        if (id.empty() || host.empty() || port == 0) {
+            return Response::error_json(400, "Missing id, host, or port");
+        }
+        nodes::NodeManager::instance().register_node(id, host, port);
+        const auto type = json_get_string(body, "type");
+        const auto role = json_get_string(body, "role");
+        std::optional<nodes::NodeType> nt;
+        std::optional<nodes::NodeRole> nr;
+        if (!type.empty()) nt = nodes::parse_node_type(type);
+        if (!role.empty()) nr = nodes::parse_node_role(role);
+        if (nt || nr) {
+            nodes::NodeManager::instance().alter_node(id, nr, nt, std::nullopt, std::nullopt);
+        }
+        return Response::json("{\"ok\": true}\n");
+    } catch (const common::Exception& e) {
+        return Response::error_json(400, e.what());
+    }
+}
+
+auto HTTPHandler::handle_nodes_heartbeat(std::string_view body) -> Response {
+    try {
+        const auto id = json_get_string(body, "id");
+        if (id.empty()) {
+            return Response::error_json(400, "Missing id");
+        }
+        nodes::NodeMetrics metrics;
+        metrics.cpu_utilization_pct = json_get_number(body, "cpu_pct");
+        metrics.memory_used_bytes = static_cast<uint64_t>(json_get_number(body, "memory_bytes"));
+        metrics.error_count = static_cast<uint32_t>(json_get_number(body, "error_count"));
+        std::optional<nodes::NodeStatus> status;
+        const auto status_str = json_get_string(body, "status");
+        if (!status_str.empty()) {
+            status = nodes::parse_node_status(status_str);
+        }
+        nodes::NodeManager::instance().record_heartbeat(id, metrics, status);
+        return Response::json("{\"ok\": true}\n");
+    } catch (const common::Exception& e) {
+        return Response::error_json(400, e.what());
+    }
+}
+
 auto HTTPHandler::handle_query(std::string_view query, std::string_view fmt) -> Response {
     // Debug: print query bytes
     std::cerr << "[DEBUG] Query length: " << query.size() << std::endl;
@@ -251,6 +362,28 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     query_result.block = std::make_shared<core::Block>(std::move(block));
                     break;
                 }
+                case parsers::QueryAST::QueryType::REGISTER: {
+                    auto block = interpreters::InterpreterNodeQuery::execute_register(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DRAIN: {
+                    auto block = interpreters::InterpreterNodeQuery::execute_drain(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::REMOVE: {
+                    auto block = interpreters::InterpreterNodeQuery::execute_remove(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::ALTER: {
+                    if (query_ast->alter.target == parsers::QueryAST::Alter::Target::Node) {
+                        auto block = interpreters::InterpreterAlterNode::execute(context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
                 default:
                     break;
             }
@@ -268,6 +401,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
 
         if (!query_result.error.empty()) {
             return Response::error_json(500, "Execution error: " + query_result.error);
+        }
+
+        const auto self_id = nodes::NodeManager::instance().self_node_id();
+        if (!self_id.empty()) {
+            nodes::NodeManager::instance().increment_query_throughput(self_id);
         }
 
         // Format output

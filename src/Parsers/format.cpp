@@ -223,6 +223,12 @@ std::string format_query(const QueryAST& query) {
                     out << "CREATE STORAGE_UNIT " << c.storage_unit_name
                         << " TYPE " << c.storage_unit_type;
                     break;
+                case QueryAST::Create::Kind::Node:
+                    out << "CREATE NODE " << c.node_name;
+                    break;
+                case QueryAST::Create::Kind::Cluster:
+                    out << "CREATE CLUSTER " << c.cluster_name;
+                    break;
                 case QueryAST::Create::Kind::Table:
                 default:
                     out << "CREATE TABLE " << c.table_name << " (\n";
@@ -258,7 +264,28 @@ std::string format_query(const QueryAST& query) {
             out << "REFRESH MATERIALIZED VIEW " << query.refresh.name;
             break;
         }
+        case QueryAST::QueryType::REGISTER: {
+            out << "REGISTER NODE " << query.register_node.node_name
+                << " HOST '" << query.register_node.host
+                << "' PORT " << query.register_node.port;
+            break;
+        }
+        case QueryAST::QueryType::DRAIN: {
+            out << "DRAIN NODE " << query.drain_node.node_name;
+            break;
+        }
+        case QueryAST::QueryType::REMOVE: {
+            out << "REMOVE NODE " << query.remove_node.node_name;
+            break;
+        }
         case QueryAST::QueryType::ALTER: {
+            if (query.alter.target == QueryAST::Alter::Target::Node) {
+                out << "ALTER NODE " << query.alter.table;
+                for (const auto& cmd : query.alter.node_sets) {
+                    out << " SET " << cmd.property << " " << cmd.value;
+                }
+                break;
+            }
             out << "ALTER TABLE " << query.alter.table;
             for (const auto& cmd : query.alter.commands) {
                 out << " ";
@@ -287,6 +314,18 @@ std::string format_query(const QueryAST& query) {
                     out << "SHOW STORAGE_UNITS"; break;
                 case QueryAST::Show::ShowType::STORAGE_USAGE:
                     out << "SHOW STORAGE_USAGE"; break;
+                case QueryAST::Show::ShowType::NODES:
+                    out << "SHOW NODES"; break;
+                case QueryAST::Show::ShowType::NODE_METRICS:
+                    out << "SHOW NODE METRICS"; break;
+                case QueryAST::Show::ShowType::NODE_CAPABILITIES:
+                    out << "SHOW NODE CAPABILITIES"; break;
+                case QueryAST::Show::ShowType::NODE_PARTITIONS:
+                    out << "SHOW NODE PARTITIONS"; break;
+                case QueryAST::Show::ShowType::NODE_REPLICAS:
+                    out << "SHOW NODE REPLICAS"; break;
+                case QueryAST::Show::ShowType::CLUSTERS:
+                    out << "SHOW CLUSTERS"; break;
             }
             break;
         }
@@ -300,6 +339,12 @@ std::string format_query(const QueryAST& query) {
                     break;
                 case QueryAST::ObjectKind::StorageUnit:
                     out << "DESCRIBE STORAGE_UNIT " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::Node:
+                    out << "DESCRIBE NODE " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::Cluster:
+                    out << "DESCRIBE CLUSTER " << query.describe.table_name;
                     break;
                 case QueryAST::ObjectKind::Table:
                 default:

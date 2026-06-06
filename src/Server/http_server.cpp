@@ -5,6 +5,7 @@
 #include "Server/http_handler.h"
 #include "Common/exceptions.h"
 #include <iostream>
+#include <sstream>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -249,10 +250,38 @@ void HTTPServer::accept_loop() {
             buffer[bytes_read] = '\0';
             raw_request += std::string(buffer, bytes_read);
 
-            // Check if we have the full request (look for end of headers)
-            if (raw_request.find("\r\n\r\n") != std::string::npos ||
-                raw_request.find("\n\n") != std::string::npos) {
-                body_complete = true;
+            const auto header_end = raw_request.find("\r\n\r\n");
+            const auto header_end_lf = raw_request.find("\n\n");
+            const bool headers_done = header_end != std::string::npos ||
+                                      header_end_lf != std::string::npos;
+            if (headers_done) {
+                size_t content_length = 0;
+                std::istringstream hdr{raw_request.substr(
+                    0, header_end != std::string::npos
+                        ? header_end
+                        : header_end_lf)};
+                std::string hline;
+                while (std::getline(hdr, hline)) {
+                    if (hline.empty()) break;
+                    if (hline.back() == '\r') hline.pop_back();
+                    const auto colon = hline.find(':');
+                    if (colon == std::string::npos) continue;
+                    auto key = hline.substr(0, colon);
+                    auto val = hline.substr(colon + 1);
+                    while (!val.empty() && (val.front() == ' ' || val.front() == '\t')) {
+                        val.erase(val.begin());
+                    }
+                    if (key.size() == 14 &&
+                        (key == "Content-Length" || key == "content-length")) {
+                        content_length = static_cast<size_t>(std::stoul(val));
+                    }
+                }
+                const size_t body_offset = header_end != std::string::npos
+                    ? header_end + 4
+                    : header_end_lf + 2;
+                if (raw_request.size() >= body_offset + content_length) {
+                    body_complete = true;
+                }
             }
 
             // Safety limit

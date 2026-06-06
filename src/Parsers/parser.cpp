@@ -58,6 +58,15 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordRefresh) {
         ast->query_type = QueryAST::QueryType::REFRESH;
         parse_refresh(ast);
+    } else if (current_.type == TokenType::KeywordRegister) {
+        ast->query_type = QueryAST::QueryType::REGISTER;
+        parse_register(ast);
+    } else if (current_.type == TokenType::KeywordDrain) {
+        ast->query_type = QueryAST::QueryType::DRAIN;
+        parse_drain(ast);
+    } else if (current_.type == TokenType::KeywordRemove) {
+        ast->query_type = QueryAST::QueryType::REMOVE;
+        parse_remove(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -229,6 +238,16 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.kind = QueryAST::Create::Kind::Database;
         create.if_not_exists = parse_if_not_exists();
         create.database_name = parse_table_name();
+    } else if (current_.type == TokenType::KeywordCluster) {
+        consume(); // consume CLUSTER
+        create.kind = QueryAST::Create::Kind::Cluster;
+        create.if_not_exists = parse_if_not_exists();
+        create.cluster_name = parse_table_name();
+    } else if (consume_node_keyword()) {
+        create.kind = QueryAST::Create::Kind::Node;
+        create.if_not_exists = parse_if_not_exists();
+        create.node_name = parse_table_name();
+        parse_node_properties(create);
     } else if (current_.type == TokenType::Identifier &&
                current_.value == "STORAGE_UNIT") {
         consume(); // consume STORAGE_UNIT
@@ -317,12 +336,36 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
     auto& alter = ast->alter;
 
     consume(); // consume ALTER
+    if (consume_node_keyword()) {
+        alter.target = QueryAST::Alter::Target::Node;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER NODE",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            cmd.value = parse_name_or_keyword();
+            alter.node_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
     if (current_.type != TokenType::KeywordTable) {
         throw common::Exception{
-            "Parser: expected TABLE after ALTER",
+            "Parser: expected TABLE or NODE after ALTER",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume TABLE
+    alter.target = QueryAST::Alter::Target::Table;
     alter.table = parse_table_name();
 
     while (current_.type != TokenType::EndOfQuery &&
@@ -406,7 +449,61 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::Identifier &&
+    if (current_.type == TokenType::KeywordNode) {
+        consume(); // NODE
+        if (current_.type == TokenType::KeywordMetrics) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::NODE_METRICS;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.node_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordCapabilities) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::NODE_CAPABILITIES;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.node_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordReplicas) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::NODE_REPLICAS;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.node_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordPartition) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::NODE_PARTITIONS;
+            if (current_.type == TokenType::Identifier ||
+                current_.type == TokenType::KeywordTable) {
+                show.node_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordNodes) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::NODES;
+        } else {
+            show.show_type = QueryAST::Show::ShowType::NODES;
+        }
+    } else if (current_.type == TokenType::KeywordNodes) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::NODES;
+    } else if (current_.type == TokenType::KeywordClusters) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::CLUSTERS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "NODES") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::NODES;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "NODE_METRICS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::NODE_METRICS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "NODE_CAPABILITIES") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::NODE_CAPABILITIES;
+    } else if (current_.type == TokenType::Identifier &&
         current_.value == "STORAGE_UNITS") {
         consume();
         show.show_type = QueryAST::Show::ShowType::STORAGE_UNITS;
@@ -460,6 +557,11 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     consume(); // consume DESCRIBE/DESC
     if (consume_storage_unit_keyword()) {
         describe.object_kind = QueryAST::ObjectKind::StorageUnit;
+    } else if (consume_node_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::Node;
+    } else if (current_.type == TokenType::KeywordCluster) {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::Cluster;
     } else if (current_.type == TokenType::KeywordMaterialized) {
         consume(); // consume MATERIALIZED
         if (current_.type != TokenType::KeywordView) {
@@ -495,6 +597,58 @@ void Parser::parse_refresh(std::unique_ptr<QueryAST>& ast) {
     }
     consume(); // consume VIEW
     refresh.name = parse_table_name();
+}
+
+void Parser::parse_register(std::unique_ptr<QueryAST>& ast) {
+    auto& reg = ast->register_node;
+    consume(); // REGISTER
+    if (!consume_node_keyword()) {
+        throw common::Exception{
+            "Parser: expected NODE after REGISTER",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    reg.node_name = parse_table_name();
+    if (current_.type != TokenType::KeywordHost) {
+        throw common::Exception{
+            "Parser: expected HOST after node name",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // HOST
+    reg.host = parse_property_value();
+    if (current_.type != TokenType::KeywordPort) {
+        throw common::Exception{
+            "Parser: expected PORT after HOST",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // PORT
+    if (current_.type != TokenType::IntegerLiteral) {
+        throw common::Exception{
+            "Parser: expected port number",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    reg.port = static_cast<uint16_t>(std::stoi(current_.value));
+    consume();
+}
+
+void Parser::parse_drain(std::unique_ptr<QueryAST>& ast) {
+    consume(); // DRAIN
+    if (!consume_node_keyword()) {
+        throw common::Exception{
+            "Parser: expected NODE after DRAIN",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->drain_node.node_name = parse_table_name();
+}
+
+void Parser::parse_remove(std::unique_ptr<QueryAST>& ast) {
+    consume(); // REMOVE
+    if (!consume_node_keyword()) {
+        throw common::Exception{
+            "Parser: expected NODE after REMOVE",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->remove_node.if_exists = parse_if_exists();
+    ast->remove_node.node_name = parse_table_name();
 }
 
 void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {
@@ -799,6 +953,27 @@ auto Parser::parse_table_name() -> std::string {
     return name;
 }
 
+auto Parser::parse_name_or_keyword() -> std::string {
+    if (current_.type == TokenType::Identifier ||
+        current_.type == TokenType::KeywordType ||
+        current_.type == TokenType::KeywordRole ||
+        current_.type == TokenType::KeywordCompute ||
+        current_.type == TokenType::KeywordStorage ||
+        current_.type == TokenType::KeywordHybrid ||
+        current_.type == TokenType::KeywordGpu ||
+        current_.type == TokenType::KeywordWorker ||
+        current_.type == TokenType::KeywordCoordinator ||
+        current_.type == TokenType::KeywordObserver ||
+        current_.type == TokenType::KeywordCluster) {
+        std::string name = current_.value;
+        consume();
+        return name;
+    }
+    throw common::Exception{
+        "Parser: expected name",
+        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+}
+
 auto Parser::parse_table_ref() -> std::pair<std::string, std::string> {
     std::string table = parse_table_name();
     std::string alias;
@@ -960,6 +1135,29 @@ auto Parser::parse_limit() -> std::pair<size_t, size_t> {
         consume();
     }
     return {offset, count};
+}
+
+auto Parser::consume_node_keyword() -> bool {
+    if (current_.type == TokenType::KeywordNode) {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_node_properties(QueryAST::Create& create) {
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        if (current_.type == TokenType::KeywordType) {
+            consume();
+            create.node_type = parse_name_or_keyword();
+        } else if (current_.type == TokenType::KeywordRole) {
+            consume();
+            create.node_role = parse_name_or_keyword();
+        } else {
+            break;
+        }
+    }
 }
 
 auto Parser::consume_storage_unit_keyword() -> bool {

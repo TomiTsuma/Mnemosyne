@@ -15,6 +15,7 @@ target_link_libraries(mnemosyne_server PRIVATE
     mnemosyne_interpreters
     mnemosyne_server_lib
     mnemosyne_coordination
+    mnemosyne_nodes
     mnemosyne_backups
     mnemosyne_aggregate_functions
 )

@@ -5,6 +5,8 @@
 #include "Server/http_server.h"
 #include "Server/http_handler.h"
 #include "Server/tcp_server.h"
+#include "Nodes/membership_service.h"
+#include "Nodes/node_manager.h"
 #include <iostream>
 
 namespace mnemo::server {
@@ -19,6 +21,10 @@ Server::~Server() {
 void Server::start(uint16_t http_port, uint16_t tcp_port) {
     if (running_) return;
     running_ = true;
+
+    nodes::NodeManager::instance().bootstrap_self(
+        "local", "127.0.0.1", http_port, "default");
+    nodes::MembershipService::instance().start();
 
     // Create HTTP handler
     http_handler_ = std::make_shared<HTTPHandler>(*context_);
@@ -37,6 +43,8 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
 void Server::stop() {
     if (!running_) return;
     running_ = false;
+
+    nodes::MembershipService::instance().stop();
 
     if (http_server_) {
         http_server_->stop();

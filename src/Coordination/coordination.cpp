@@ -2,6 +2,7 @@
 // Mnemosyne: A column-oriented analytical DBMS
 
 #include "Coordination/coordination.h"
+#include "Nodes/node_manager.h"
 #include "Common/exceptions.h"
 #include <algorithm>
 #include <chrono>
@@ -61,11 +62,30 @@ bool Coordination::is_leader() const {
 }
 
 auto Coordination::get_nodes() const -> std::vector<Node> {
+    std::vector<Node> result;
+    for (const auto& entry : nodes::NodeManager::instance().list_entries()) {
+        std::string address = entry.host;
+        if (!address.empty() && entry.port != 0) {
+            address += ":" + std::to_string(entry.port);
+        }
+        result.push_back(Node{entry.node_id, address});
+    }
+    if (!result.empty()) {
+        return result;
+    }
     return nodes_;
 }
 
 void Coordination::add_node(const std::string& node_id, const std::string& address) {
     nodes_.push_back(Node{node_id, address});
+    auto sep = address.find(':');
+    const std::string host = (sep != std::string::npos) ? address.substr(0, sep) : address;
+    const uint16_t port = (sep != std::string::npos)
+        ? static_cast<uint16_t>(std::stoi(address.substr(sep + 1)))
+        : uint16_t{0};
+    if (!nodes::NodeManager::instance().has_node(node_id)) {
+        nodes::NodeManager::instance().register_node(node_id, host, port);
+    }
 }
 
 void Coordination::remove_node(const std::string& node_id) {
@@ -73,21 +93,43 @@ void Coordination::remove_node(const std::string& node_id) {
         std::remove_if(nodes_.begin(), nodes_.end(),
                        [&node_id](const Node& n) { return n.id == node_id; }),
         nodes_.end());
+    nodes::NodeManager::instance().remove_node(node_id, true);
 }
 
 void Coordination::try_elect_leader() {
-    if (nodes_.empty()) {
+    const auto entries = nodes::NodeManager::instance().list_entries();
+    if (entries.empty() && nodes_.empty()) {
         leader_ = false;
         return;
     }
 
-    // Simple leader election: pick the first node
-    current_leader_ = nodes_[0].id;
-    // Compare the leader's node ID against our self node ID (first part of self_address_)
+    std::string leader_id;
+    for (const auto& entry : entries) {
+        if (entry.node_role == nodes::NodeRole::Coordinator &&
+            (entry.status == nodes::NodeStatus::Online ||
+             entry.status == nodes::NodeStatus::Busy)) {
+            if (leader_id.empty() || entry.node_id < leader_id) {
+                leader_id = entry.node_id;
+            }
+        }
+    }
+    if (leader_id.empty() && !entries.empty()) {
+        leader_id = entries.front().node_id;
+    }
+    if (leader_id.empty() && !nodes_.empty()) {
+        leader_id = nodes_.front().id;
+    }
+
+    current_leader_ = leader_id;
+    const auto self_id = nodes::NodeManager::instance().self_node_id();
+    if (!self_id.empty()) {
+        leader_ = (current_leader_ == self_id);
+        return;
+    }
     auto self_sep = self_address_.find(':');
-    std::string self_id = (self_sep != std::string::npos)
+    std::string legacy_self = (self_sep != std::string::npos)
         ? self_address_.substr(0, self_sep) : self_address_;
-    leader_ = (current_leader_ == self_id);
+    leader_ = (current_leader_ == legacy_self);
 }
 
 auto Coordination::get_lock(std::string_view lock_name) -> std::shared_ptr<Lock> {

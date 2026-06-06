@@ -13,6 +13,8 @@
 #include "Storages/storage_factory.h"
 #include "StorageUnits/storage_unit_catalog.h"
 #include "StorageUnits/storage_unit_manager.h"
+#include "Nodes/node_catalog.h"
+#include "Nodes/node_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -43,9 +45,15 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
         case parsers::QueryAST::Create::Kind::StorageUnit:
             do_create_storage_unit(context, query.create);
             break;
+        case parsers::QueryAST::Create::Kind::Node:
+            do_create_node(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Cluster:
+            do_create_cluster(context, query.create);
+            break;
         default:
             throw common::Exception{
-                "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, or STORAGE_UNIT",
+                "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, STORAGE_UNIT, NODE, or CLUSTER",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 
@@ -261,6 +269,32 @@ auto InterpreterCreateQuery::do_create_storage_unit(
         }
     }
     mgr.create_unit(std::move(entry));
+}
+
+auto InterpreterCreateQuery::do_create_node(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    nodes::NodeEntry entry;
+    entry.node_name = create.node_name;
+    entry.node_id = create.node_name;
+    if (!create.node_type.empty()) {
+        entry.node_type = nodes::parse_node_type(create.node_type);
+    }
+    if (!create.node_role.empty()) {
+        entry.node_role = nodes::parse_node_role(create.node_role);
+    }
+    entry.status = nodes::NodeStatus::Registering;
+    entry.capabilities = nodes::capabilities_for_type(entry.node_type);
+    entry.resources = nodes::detect_local_resources();
+    nodes::NodeManager::instance().create_node(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_cluster(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    nodes::ClusterEntry entry;
+    entry.name = create.cluster_name;
+    nodes::NodeManager::instance().create_cluster(std::move(entry), create.if_not_exists);
 }
 
 } // namespace mnemo::interpreters

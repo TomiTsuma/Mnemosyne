@@ -24,6 +24,10 @@ private:
         -> void;
     static auto do_create_storage_unit(Context& context, const parsers::QueryAST::Create& create)
         -> void;
+    static auto do_create_node(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_cluster(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
 };
 
 } // namespace mnemo::interpreters

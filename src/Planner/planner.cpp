@@ -3,6 +3,8 @@
 
 #include "Planner/planner.h"
 #include "Analyzer/query_tree.h"
+#include "Nodes/node_manager.h"
+#include "Nodes/node_scheduler.h"
 #include "Common/exceptions.h"
 #include <algorithm>
 
@@ -185,6 +187,16 @@ std::shared_ptr<ExecutionPlan> Planner::plan_select(analyzer::SelectNode& node) 
         plan->root = limit;
     }
 
+    if (nodes::NodeManager::instance().list_entries().size() > 1) {
+        if (auto remote = nodes::NodeScheduler::instance().pick_remote_node({"QUERY_ENGINE"})) {
+            auto exchange = std::make_shared<PlanNode>(PlanNode::Type::EXCHANGE);
+            exchange->name = "EXCHANGE";
+            exchange->table_name = *remote;
+            exchange->child = plan->root;
+            plan->root = exchange;
+        }
+    }
+
     return plan;
 }
 
@@ -345,6 +357,34 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
         case analyzer::DDLNode::Kind::ShowStorageUsage:
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "STORAGE_USAGE";
+            break;
+        case analyzer::DDLNode::Kind::ShowNodes:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "NODES";
+            break;
+        case analyzer::DDLNode::Kind::ShowNodeMetrics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "NODE_METRICS";
+            plan_node->table_name = node.show_node_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowNodeCapabilities:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "NODE_CAPABILITIES";
+            plan_node->table_name = node.show_node_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowNodePartitions:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "NODE_PARTITIONS";
+            plan_node->table_name = node.show_node_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowNodeReplicas:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "NODE_REPLICAS";
+            plan_node->table_name = node.show_node_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowClusters:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CLUSTERS";
             break;
         case analyzer::DDLNode::Kind::Describe:
             plan_node->node_type = PlanNode::Type::DESCRIBE;

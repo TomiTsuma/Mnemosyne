@@ -16,6 +16,9 @@
 #include "Databases/database_manager.h"
 #include "StorageUnits/storage_unit_catalog.h"
 #include "StorageUnits/storage_unit_manager.h"
+#include "Nodes/node_catalog.h"
+#include "Nodes/node_manager.h"
+#include "Nodes/remote_executor.h"
 #include "Common/exceptions.h"
 #include "Analyzer/query_tree.h"
 #include "DataTypes/data_type_factory.h"
@@ -287,6 +290,24 @@ auto BlockInterpreter::create_processor_for_node(
             return limit;
         }
 
+        case planner::PlanNode::Type::EXCHANGE: {
+            if (!node->table_name.empty()) {
+                nodes::RemoteExecutor::execute_on_node(node->table_name, "SELECT 1");
+            }
+            if (!node->child) {
+                throw common::Exception{
+                    "BlockInterpreter: EXCHANGE node has no child",
+                    static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+            }
+            auto child_proc = proc_map[node->child];
+            if (!child_proc) {
+                throw common::Exception{
+                    "BlockInterpreter: EXCHANGE child processor not found",
+                    static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+            }
+            return child_proc;
+        }
+
         case planner::PlanNode::Type::INSERT:
         case planner::PlanNode::Type::CREATE:
         case planner::PlanNode::Type::DROP:
@@ -418,11 +439,179 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 block->add_column("available_bytes", avail_col);
                 block->add_column("used_pct", pct_col);
                 result_.block = block;
+            } else if (node->show_type == "NODES") {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                auto role_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                auto host_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    name_col->insert_at(i, core::Field(entries[i].node_name));
+                    type_col->insert_at(i, core::Field(nodes::node_type_name(entries[i].node_type)));
+                    role_col->insert_at(i, core::Field(nodes::node_role_name(entries[i].node_role)));
+                    status_col->insert_at(i, core::Field(nodes::node_status_name(entries[i].status)));
+                    host_col->insert_at(i, core::Field(entries[i].host));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("type", type_col);
+                block->add_column("role", role_col);
+                block->add_column("status", status_col);
+                block->add_column("host", host_col);
+                result_.block = block;
+            } else if (node->show_type == "NODE_METRICS") {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto cpu_col = std::make_shared<columns::ColumnString>();
+                auto mem_col = std::make_shared<columns::ColumnString>();
+                auto q_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    if (!node->table_name.empty() && entries[i].node_name != node->table_name) {
+                        continue;
+                    }
+                    name_col->insert(core::Field(entries[i].node_name));
+                    cpu_col->insert(core::Field(std::to_string(entries[i].metrics.cpu_utilization_pct)));
+                    mem_col->insert(core::Field(std::to_string(entries[i].metrics.memory_used_bytes)));
+                    q_col->insert(core::Field(std::to_string(entries[i].metrics.query_throughput)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("cpu_utilization_pct", cpu_col);
+                block->add_column("memory_used_bytes", mem_col);
+                block->add_column("query_throughput", q_col);
+                result_.block = block;
+            } else if (node->show_type == "NODE_CAPABILITIES") {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto cap_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    if (!node->table_name.empty() && entries[i].node_name != node->table_name) {
+                        continue;
+                    }
+                    name_col->insert(core::Field(entries[i].node_name));
+                    std::string caps;
+                    for (size_t j = 0; j < entries[i].capabilities.size(); ++j) {
+                        if (j > 0) caps += ",";
+                        caps += entries[i].capabilities[j];
+                    }
+                    cap_col->insert(core::Field(caps));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("capabilities", cap_col);
+                result_.block = block;
+            } else if (node->show_type == "NODE_PARTITIONS") {
+                auto& mgr = nodes::NodeManager::instance();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto part_col = std::make_shared<columns::ColumnString>();
+                const auto entries = mgr.list_entries();
+                for (const auto& entry : entries) {
+                    if (!node->table_name.empty() && entry.node_name != node->table_name) {
+                        continue;
+                    }
+                    for (const auto& pid : entry.partition_ids) {
+                        name_col->insert(core::Field(entry.node_name));
+                        part_col->insert(core::Field(pid));
+                    }
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("node", name_col);
+                block->add_column("partition_id", part_col);
+                result_.block = block;
+            } else if (node->show_type == "NODE_REPLICAS") {
+                auto& mgr = nodes::NodeManager::instance();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto rep_col = std::make_shared<columns::ColumnString>();
+                const auto entries = mgr.list_entries();
+                for (const auto& entry : entries) {
+                    if (!node->table_name.empty() && entry.node_name != node->table_name) {
+                        continue;
+                    }
+                    for (const auto& rid : entry.replica_ids) {
+                        name_col->insert(core::Field(entry.node_name));
+                        rep_col->insert(core::Field(rid));
+                    }
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("node", name_col);
+                block->add_column("replica_id", rep_col);
+                result_.block = block;
+            } else if (node->show_type == "CLUSTERS") {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto clusters = mgr.list_clusters();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < clusters.size(); ++i) {
+                    name_col->insert_at(i, core::Field(clusters[i].name));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                result_.block = block;
             }
             break;
         }
         case planner::PlanNode::Type::DESCRIBE: {
             std::shared_ptr<storages::IStorage> storage;
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::Node) {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto* entry = mgr.get_node(node->table_name);
+                if (!entry) {
+                    throw common::Exception{
+                        "Unknown node: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                add_row("node_id", entry->node_id);
+                add_row("node_name", entry->node_name);
+                add_row("cluster_id", entry->cluster_id);
+                add_row("type", nodes::node_type_name(entry->node_type));
+                add_row("role", nodes::node_role_name(entry->node_role));
+                add_row("status", nodes::node_status_name(entry->status));
+                add_row("host", entry->host);
+                add_row("port", std::to_string(entry->port));
+                add_row("version", entry->version);
+                add_row("cpu_cores", std::to_string(entry->resources.cpu_cores));
+                add_row("memory_bytes", std::to_string(entry->resources.memory_bytes));
+                add_row("gpu_count", std::to_string(entry->resources.gpu_count));
+                add_row("storage_bytes", std::to_string(entry->resources.storage_bytes));
+                std::string caps;
+                for (size_t j = 0; j < entry->capabilities.size(); ++j) {
+                    if (j > 0) caps += ",";
+                    caps += entry->capabilities[j];
+                }
+                add_row("capabilities", caps);
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::Cluster) {
+                auto& mgr = nodes::NodeManager::instance();
+                const auto* cluster = mgr.get_cluster(node->table_name);
+                if (!cluster) {
+                    throw common::Exception{
+                        "Unknown cluster: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                field_col->insert(core::Field("name"));
+                value_col->insert(core::Field(cluster->name));
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
             if (node->describe_object_kind == parsers::QueryAST::ObjectKind::StorageUnit) {
                 auto& mgr = storage_units::StorageUnitManager::instance();
                 const auto* entry = mgr.get_unit(node->table_name);
