@@ -451,6 +451,12 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::MATERIALIZED_VIEWS:
                     node->kind = DDLNode::Kind::ShowMaterializedViews;
                     break;
+                case parsers::QueryAST::Show::ShowType::STORAGE_UNITS:
+                    node->kind = DDLNode::Kind::ShowStorageUnits;
+                    break;
+                case parsers::QueryAST::Show::ShowType::STORAGE_USAGE:
+                    node->kind = DDLNode::Kind::ShowStorageUsage;
+                    break;
                 case parsers::QueryAST::Show::ShowType::TABLES:
                 default:
                     node->kind = DDLNode::Kind::ShowTables;

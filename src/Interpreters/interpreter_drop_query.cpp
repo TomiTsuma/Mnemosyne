@@ -5,6 +5,8 @@
 #include "Interpreters/ddl_transaction.h"
 #include "Interpreters/interpreter_ddl_utils.h"
 #include "Storages/memory_storage.h"
+#include "Storages/file_storage.h"
+#include "StorageUnits/storage_unit_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -30,6 +32,8 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
                 do_drop_view(context, query.drop);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::MaterializedView) {
                 do_drop_materialized_view(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::StorageUnit) {
+                do_drop_storage_unit(context, query.drop);
             } else {
                 do_drop(context, query.drop);
             }
@@ -59,6 +63,14 @@ auto InterpreterDropQuery::do_drop(Context& context, const parsers::QueryAST::Dr
         throw common::Exception{
             "Unknown table: " + drop.table,
             static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+
+    auto storage = db->table(drop.table);
+    if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
+        const auto unit_name = file->storage_unit_name();
+        if (!unit_name.empty()) {
+            storage_units::StorageUnitManager::instance().release_disk(unit_name);
+        }
     }
 
     db->drop_table(drop.table);
@@ -101,6 +113,12 @@ auto InterpreterDropQuery::do_drop_materialized_view(
     db->drop_table(drop.table);
     db->drop_materialized_view(drop.table);
     context.unregister_storage(drop.table);
+}
+
+auto InterpreterDropQuery::do_drop_storage_unit(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    storage_units::StorageUnitManager::instance().drop_unit(drop.table, drop.if_exists);
 }
 
 auto InterpreterDropQuery::do_truncate(Context& context, const parsers::QueryAST::Drop& drop)

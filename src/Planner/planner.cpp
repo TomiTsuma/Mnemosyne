@@ -338,6 +338,14 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "MATERIALIZED_VIEWS";
             break;
+        case analyzer::DDLNode::Kind::ShowStorageUnits:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "STORAGE_UNITS";
+            break;
+        case analyzer::DDLNode::Kind::ShowStorageUsage:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "STORAGE_USAGE";
+            break;
         case analyzer::DDLNode::Kind::Describe:
             plan_node->node_type = PlanNode::Type::DESCRIBE;
             plan_node->table_name = node.table;

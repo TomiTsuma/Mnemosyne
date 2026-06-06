@@ -219,6 +219,10 @@ std::string format_query(const QueryAST& query) {
                 case QueryAST::Create::Kind::MaterializedView:
                     out << "CREATE MATERIALIZED VIEW " << c.view_name << " AS SELECT ...";
                     break;
+                case QueryAST::Create::Kind::StorageUnit:
+                    out << "CREATE STORAGE_UNIT " << c.storage_unit_name
+                        << " TYPE " << c.storage_unit_type;
+                    break;
                 case QueryAST::Create::Kind::Table:
                 default:
                     out << "CREATE TABLE " << c.table_name << " (\n";
@@ -239,6 +243,9 @@ std::string format_query(const QueryAST& query) {
                     break;
                 case QueryAST::ObjectKind::MaterializedView:
                     out << "DROP MATERIALIZED VIEW " << query.drop.table;
+                    break;
+                case QueryAST::ObjectKind::StorageUnit:
+                    out << "DROP STORAGE_UNIT " << query.drop.table;
                     break;
                 case QueryAST::ObjectKind::Table:
                 default:
@@ -276,6 +283,10 @@ std::string format_query(const QueryAST& query) {
                 case QueryAST::Show::ShowType::VIEWS: out << "SHOW VIEWS"; break;
                 case QueryAST::Show::ShowType::MATERIALIZED_VIEWS:
                     out << "SHOW MATERIALIZED_VIEWS"; break;
+                case QueryAST::Show::ShowType::STORAGE_UNITS:
+                    out << "SHOW STORAGE_UNITS"; break;
+                case QueryAST::Show::ShowType::STORAGE_USAGE:
+                    out << "SHOW STORAGE_USAGE"; break;
             }
             break;
         }
@@ -286,6 +297,9 @@ std::string format_query(const QueryAST& query) {
                     break;
                 case QueryAST::ObjectKind::MaterializedView:
                     out << "DESCRIBE MATERIALIZED VIEW " << query.describe.table_name;
+                    break;
+                case QueryAST::ObjectKind::StorageUnit:
+                    out << "DESCRIBE STORAGE_UNIT " << query.describe.table_name;
                     break;
                 case QueryAST::ObjectKind::Table:
                 default:

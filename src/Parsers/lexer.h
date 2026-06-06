@@ -31,6 +31,8 @@ enum class TokenType {
     KeywordTruncate, KeywordDetach, KeywordAdd, KeywordColumn, KeywordModify,
     KeywordIn, KeywordOver, KeywordPartition,
     KeywordView, KeywordViews, KeywordMaterialized, KeywordRefresh,
+    KeywordStorage, KeywordUnit, KeywordUnits, KeywordType,
+    KeywordPath, KeywordBucket, KeywordEndpoint, KeywordRegion, KeywordUsage,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,

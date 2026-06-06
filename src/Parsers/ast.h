@@ -269,7 +269,7 @@ class QueryAST final : public ASTNode {
 public:
     enum class QueryType { SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH };
 
-    enum class ObjectKind { Table, View, MaterializedView };
+    enum class ObjectKind { Table, View, MaterializedView, StorageUnit };
     QueryType query_type = QueryType::SELECT;
 
     void accept(const IASTVisitor& visitor) override { }
@@ -303,7 +303,7 @@ public:
     } insert;
 
     struct Create : ASTDDLQuery {
-        enum class Kind { Database, Table, View, MaterializedView };
+        enum class Kind { Database, Table, View, MaterializedView, StorageUnit };
         Kind kind = Kind::Table;
 
         std::string database_name;
@@ -312,6 +312,9 @@ public:
         std::vector<ColumnDef> columns;
         std::string engine = "Memory";
         Select select_definition;
+        std::string storage_unit_name;
+        std::string storage_unit_type;
+        std::unordered_map<std::string, std::string> storage_properties;
     } create;
 
     struct Drop : ASTDDLQuery {
@@ -325,7 +328,9 @@ public:
     } alter;
 
     struct Show {
-        enum class ShowType { DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS };
+        enum class ShowType {
+            DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS, STORAGE_UNITS, STORAGE_USAGE
+        };
         ShowType show_type = ShowType::DATABASES;
     } show;
 

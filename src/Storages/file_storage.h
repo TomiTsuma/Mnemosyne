@@ -46,6 +46,9 @@ public:
     [[nodiscard]] auto file_path() const -> std::string;
     auto set_disk(std::shared_ptr<disks::IDisk> disk) -> void;
     auto get_disk() -> std::shared_ptr<disks::IDisk>;
+    auto set_data_path(std::string path) -> void;
+    auto set_storage_unit_name(std::string name) -> void;
+    [[nodiscard]] auto storage_unit_name() const -> std::string;
     auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
 
@@ -59,6 +62,7 @@ private:
     size_t byte_count_ = 0;
     bool empty_ = true;
     std::shared_ptr<disks::IDisk> disk_;
+    std::string storage_unit_name_;
     bool    locked_ = false;
     mutable std::mutex mutex_;
 };

@@ -14,6 +14,8 @@
 #include "Processors/processors_source.h"
 #include "Processors/processor.h"
 #include "Databases/database_manager.h"
+#include "StorageUnits/storage_unit_catalog.h"
+#include "StorageUnits/storage_unit_manager.h"
 #include "Common/exceptions.h"
 #include "Analyzer/query_tree.h"
 #include "DataTypes/data_type_factory.h"
@@ -371,11 +373,91 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 auto block = std::make_shared<core::Block>();
                 block->add_column("name", col);
                 result_.block = block;
+            } else if (node->show_type == "STORAGE_UNITS") {
+                auto& mgr = storage_units::StorageUnitManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto type_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    name_col->insert_at(i, core::Field(entries[i].name));
+                    type_col->insert_at(i, core::Field(storage_units::storage_unit_type_name(entries[i].type)));
+                    status_col->insert_at(i, core::Field(storage_units::storage_unit_status_name(entries[i].status)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("type", type_col);
+                block->add_column("status", status_col);
+                result_.block = block;
+            } else if (node->show_type == "STORAGE_USAGE") {
+                auto& mgr = storage_units::StorageUnitManager::instance();
+                const auto entries = mgr.list_entries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto total_col = std::make_shared<columns::ColumnString>();
+                auto used_col = std::make_shared<columns::ColumnString>();
+                auto avail_col = std::make_shared<columns::ColumnString>();
+                auto pct_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < entries.size(); ++i) {
+                    mgr.refresh_stats(entries[i].name);
+                    const auto* entry = mgr.get_unit(entries[i].name);
+                    if (!entry) continue;
+                    name_col->insert_at(i, core::Field(entry->name));
+                    total_col->insert_at(i, core::Field(std::to_string(entry->capacity_bytes)));
+                    used_col->insert_at(i, core::Field(std::to_string(entry->used_bytes)));
+                    avail_col->insert_at(i, core::Field(std::to_string(entry->available_bytes)));
+                    const double pct = entry->capacity_bytes > 0
+                        ? (100.0 * static_cast<double>(entry->used_bytes)
+                           / static_cast<double>(entry->capacity_bytes))
+                        : 0.0;
+                    pct_col->insert_at(i, core::Field(std::to_string(pct)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("total_bytes", total_col);
+                block->add_column("used_bytes", used_col);
+                block->add_column("available_bytes", avail_col);
+                block->add_column("used_pct", pct_col);
+                result_.block = block;
             }
             break;
         }
         case planner::PlanNode::Type::DESCRIBE: {
             std::shared_ptr<storages::IStorage> storage;
+            if (node->describe_object_kind == parsers::QueryAST::ObjectKind::StorageUnit) {
+                auto& mgr = storage_units::StorageUnitManager::instance();
+                const auto* entry = mgr.get_unit(node->table_name);
+                if (!entry) {
+                    throw common::Exception{
+                        "Unknown storage unit: " + node->table_name,
+                        static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+                }
+                mgr.refresh_stats(node->table_name);
+                entry = mgr.get_unit(node->table_name);
+                auto field_col = std::make_shared<columns::ColumnString>();
+                auto value_col = std::make_shared<columns::ColumnString>();
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                add_row("name", entry->name);
+                add_row("type", storage_units::storage_unit_type_name(entry->type));
+                add_row("status", storage_units::storage_unit_status_name(entry->status));
+                add_row("path", entry->path);
+                add_row("endpoint", entry->endpoint);
+                add_row("bucket", entry->bucket);
+                add_row("region", entry->region);
+                add_row("capacity_bytes", std::to_string(entry->capacity_bytes));
+                add_row("used_bytes", std::to_string(entry->used_bytes));
+                add_row("available_bytes", std::to_string(entry->available_bytes));
+                add_row("reference_count", std::to_string(entry->reference_count));
+                const auto caps = storage_units::capabilities_for_type(entry->type);
+                add_row("capabilities", caps.empty() ? "" : caps.front());
+                auto out = std::make_shared<core::Block>();
+                out->add_column("field", field_col);
+                out->add_column("value", value_col);
+                result_.block = out;
+                break;
+            }
             if (node->describe_object_kind == parsers::QueryAST::ObjectKind::View) {
                 auto catalog = ddl_utils::require_catalog(context_);
                 auto view = catalog->get_view(node->table_name);

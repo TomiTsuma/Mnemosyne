@@ -97,7 +97,6 @@ auto FileStorage::write(const core::Block& block) -> bool {
         }
 
         if (!disk_) {
-            // Create local disk
             auto dir = path_.substr(0, path_.find_last_of('/'));
             if (!dir.empty()) {
                 disk_ = disks::LocalFileDisk::create("local", dir);
@@ -105,6 +104,9 @@ auto FileStorage::write(const core::Block& block) -> bool {
         }
 
         if (disk_) {
+            if (!path_.empty()) {
+                disk_->create_dir(path_);
+            }
             disk_->write(file_path, std::span(data.data(), data.size()));
             byte_count_ += data.size();
             row_count_ = std::max(row_count_, num_rows);
@@ -151,6 +153,31 @@ auto FileStorage::set_columns(std::unordered_map<std::string, datatypes::DataTyp
     for (auto& [name, _] : column_types_) {
         column_names_.push_back(name);
     }
+}
+
+auto FileStorage::set_disk(std::shared_ptr<disks::IDisk> disk) -> void {
+    std::lock_guard lock(mutex_);
+    disk_ = std::move(disk);
+}
+
+auto FileStorage::get_disk() -> std::shared_ptr<disks::IDisk> {
+    std::lock_guard lock(mutex_);
+    return disk_;
+}
+
+auto FileStorage::set_data_path(std::string path) -> void {
+    std::lock_guard lock(mutex_);
+    path_ = std::move(path);
+}
+
+auto FileStorage::set_storage_unit_name(std::string name) -> void {
+    std::lock_guard lock(mutex_);
+    storage_unit_name_ = std::move(name);
+}
+
+auto FileStorage::storage_unit_name() const -> std::string {
+    std::lock_guard lock(mutex_);
+    return storage_unit_name_;
 }
 
 } // namespace mnemo::storages

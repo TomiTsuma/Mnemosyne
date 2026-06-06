@@ -18,6 +18,8 @@ private:
     static auto do_drop_view(Context& context, const parsers::QueryAST::Drop& drop) -> void;
     static auto do_drop_materialized_view(Context& context, const parsers::QueryAST::Drop& drop)
         -> void;
+    static auto do_drop_storage_unit(Context& context, const parsers::QueryAST::Drop& drop)
+        -> void;
     static auto do_truncate(Context& context, const parsers::QueryAST::Drop& drop) -> void;
     static auto do_detach(Context& context, const parsers::QueryAST::Drop& drop) -> void;
 };

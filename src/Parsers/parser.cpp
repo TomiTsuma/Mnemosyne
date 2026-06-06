@@ -229,6 +229,25 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.kind = QueryAST::Create::Kind::Database;
         create.if_not_exists = parse_if_not_exists();
         create.database_name = parse_table_name();
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "STORAGE_UNIT") {
+        consume(); // consume STORAGE_UNIT
+        create.kind = QueryAST::Create::Kind::StorageUnit;
+        create.if_not_exists = parse_if_not_exists();
+        create.storage_unit_name = parse_table_name();
+        parse_storage_unit_properties(create);
+    } else if (current_.type == TokenType::KeywordStorage) {
+        consume(); // consume STORAGE
+        if (current_.type != TokenType::KeywordUnit) {
+            throw common::Exception{
+                "Parser: expected UNIT after STORAGE",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // consume UNIT
+        create.kind = QueryAST::Create::Kind::StorageUnit;
+        create.if_not_exists = parse_if_not_exists();
+        create.storage_unit_name = parse_table_name();
+        parse_storage_unit_properties(create);
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
@@ -245,6 +264,9 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
             }
             consume(); // consume =
             create.engine = parse_table_name();
+        }
+        if (consume_storage_unit_keyword()) {
+            create.storage_unit_name = parse_table_name();
         }
     }
 }
@@ -277,6 +299,10 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::KeywordView) {
         consume(); // consume VIEW
         drop.object_kind = QueryAST::ObjectKind::View;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_storage_unit_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::StorageUnit;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
@@ -380,7 +406,29 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordMaterialized) {
+    if (current_.type == TokenType::Identifier &&
+        current_.value == "STORAGE_UNITS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::STORAGE_UNITS;
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "STORAGE_USAGE") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::STORAGE_USAGE;
+    } else if (current_.type == TokenType::KeywordStorage) {
+        consume(); // consume STORAGE
+        if (current_.type == TokenType::KeywordUsage) {
+            consume(); // consume USAGE
+            show.show_type = QueryAST::Show::ShowType::STORAGE_USAGE;
+        } else if (current_.type == TokenType::KeywordUnits ||
+                   current_.type == TokenType::KeywordUnit) {
+            consume(); // consume UNITS or UNIT
+            show.show_type = QueryAST::Show::ShowType::STORAGE_UNITS;
+        } else {
+            throw common::Exception{
+                "Parser: expected UNITS or USAGE after STORAGE",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+    } else if (current_.type == TokenType::KeywordMaterialized) {
         consume(); // consume MATERIALIZED
         if (current_.type != TokenType::KeywordViews &&
             current_.type != TokenType::KeywordView) {
@@ -410,7 +458,9 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     auto& describe = ast->describe;
 
     consume(); // consume DESCRIBE/DESC
-    if (current_.type == TokenType::KeywordMaterialized) {
+    if (consume_storage_unit_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::StorageUnit;
+    } else if (current_.type == TokenType::KeywordMaterialized) {
         consume(); // consume MATERIALIZED
         if (current_.type != TokenType::KeywordView) {
             throw common::Exception{
@@ -910,6 +960,67 @@ auto Parser::parse_limit() -> std::pair<size_t, size_t> {
         consume();
     }
     return {offset, count};
+}
+
+auto Parser::consume_storage_unit_keyword() -> bool {
+    if (current_.type == TokenType::Identifier && current_.value == "STORAGE_UNIT") {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::KeywordStorage) {
+        consume();
+        if (current_.type != TokenType::KeywordUnit) {
+            throw common::Exception{
+                "Parser: expected UNIT after STORAGE",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::parse_property_value() -> std::string {
+    if (current_.type == TokenType::StringLiteral) {
+        auto value = current_.value;
+        consume();
+        return value;
+    }
+    return parse_table_name();
+}
+
+void Parser::parse_storage_unit_properties(QueryAST::Create& create) {
+    if (current_.type != TokenType::KeywordType) {
+        throw common::Exception{
+            "Parser: expected TYPE after storage unit name",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // TYPE
+    create.storage_unit_type = parse_table_name();
+
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        std::string key;
+        if (current_.type == TokenType::KeywordPath) {
+            key = "PATH";
+            consume();
+        } else if (current_.type == TokenType::KeywordBucket) {
+            key = "BUCKET";
+            consume();
+        } else if (current_.type == TokenType::KeywordEndpoint) {
+            key = "ENDPOINT";
+            consume();
+        } else if (current_.type == TokenType::KeywordRegion) {
+            key = "REGION";
+            consume();
+        } else if (current_.type == TokenType::Identifier) {
+            key = current_.value;
+            consume();
+        } else {
+            break;
+        }
+        create.storage_properties[key] = parse_property_value();
+    }
 }
 
 void Parser::consume() {

@@ -63,6 +63,8 @@ public:
         ShowTables,
         ShowViews,
         ShowMaterializedViews,
+        ShowStorageUnits,
+        ShowStorageUsage,
         Describe,
         Explain,
         Use,

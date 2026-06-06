@@ -307,6 +307,15 @@ auto Lexer::read_identifier() -> Token {
     else if (upper == "VIEWS") type = TokenType::KeywordViews;
     else if (upper == "MATERIALIZED") type = TokenType::KeywordMaterialized;
     else if (upper == "REFRESH") type = TokenType::KeywordRefresh;
+    else if (upper == "STORAGE") type = TokenType::KeywordStorage;
+    else if (upper == "UNIT") type = TokenType::KeywordUnit;
+    else if (upper == "UNITS") type = TokenType::KeywordUnits;
+    else if (upper == "TYPE") type = TokenType::KeywordType;
+    else if (upper == "PATH") type = TokenType::KeywordPath;
+    else if (upper == "BUCKET") type = TokenType::KeywordBucket;
+    else if (upper == "ENDPOINT") type = TokenType::KeywordEndpoint;
+    else if (upper == "REGION") type = TokenType::KeywordRegion;
+    else if (upper == "USAGE") type = TokenType::KeywordUsage;
 
     return make_token(type, std::move(id));
 }

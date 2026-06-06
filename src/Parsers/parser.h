@@ -56,6 +56,9 @@ protected:
     auto parse_describe(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_explain(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_refresh(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_storage_unit_properties(QueryAST::Create& create) -> void;
+    auto parse_property_value() -> std::string;
+    auto consume_storage_unit_keyword() -> bool;
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;

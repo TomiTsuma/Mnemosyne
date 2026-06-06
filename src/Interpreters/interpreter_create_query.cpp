@@ -9,7 +9,10 @@
 #include "Databases/database_memory.h"
 #include "Databases/view_catalog.h"
 #include "Storages/memory_storage.h"
+#include "Storages/file_storage.h"
 #include "Storages/storage_factory.h"
+#include "StorageUnits/storage_unit_catalog.h"
+#include "StorageUnits/storage_unit_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -37,9 +40,12 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
         case parsers::QueryAST::Create::Kind::Database:
             do_create_database(context, query.create);
             break;
+        case parsers::QueryAST::Create::Kind::StorageUnit:
+            do_create_storage_unit(context, query.create);
+            break;
         default:
             throw common::Exception{
-                "CREATE: expected DATABASE, TABLE, VIEW, or MATERIALIZED VIEW",
+                "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, or STORAGE_UNIT",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 
@@ -99,6 +105,40 @@ auto InterpreterCreateQuery::do_create_table(
 
     auto columns = ddl_utils::build_column_map(create.columns);
     auto storage = db->create_table(create.table_name, columns, engine);
+    if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
+        mem->set_columns(columns);
+    } else if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
+        file->set_columns(columns);
+    }
+
+    if (!create.storage_unit_name.empty()) {
+        auto& mgr = storage_units::StorageUnitManager::instance();
+        const auto* unit = mgr.get_unit(create.storage_unit_name);
+        if (!unit) {
+            throw common::Exception{
+                "Unknown storage unit: " + create.storage_unit_name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        if (engine != "File") {
+            throw common::Exception{
+                "STORAGE_UNIT clause requires ENGINE=File",
+                static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+        }
+        if (unit->type == storage_units::StorageUnitType::S3) {
+            throw common::Exception{
+                "S3 storage units do not support File engine I/O yet",
+                static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+        }
+        auto disk = mgr.acquire_disk(create.storage_unit_name);
+        if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
+            const auto table_path = db_name + "/" + create.table_name;
+            file->set_disk(disk);
+            file->set_data_path(table_path);
+            file->set_storage_unit_name(create.storage_unit_name);
+            disk->create_dir(table_path);
+        }
+    }
+
     if (storage) {
         context.register_storage(create.table_name, storage);
     }
@@ -191,6 +231,36 @@ auto InterpreterCreateQuery::do_create_materialized_view(
     entry.dependencies = std::move(deps);
     db->create_materialized_view(std::move(entry));
     context.register_storage(create.view_name, storage);
+}
+
+auto InterpreterCreateQuery::do_create_storage_unit(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    auto& mgr = storage_units::StorageUnitManager::instance();
+    if (mgr.has_unit(create.storage_unit_name)) {
+        if (create.if_not_exists) {
+            return;
+        }
+        throw common::Exception{
+            "Storage unit already exists: " + create.storage_unit_name,
+            static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+    }
+
+    storage_units::StorageUnitEntry entry;
+    entry.name = create.storage_unit_name;
+    entry.type = storage_units::parse_storage_unit_type(create.storage_unit_type);
+    for (const auto& [key, value] : create.storage_properties) {
+        if (key == "PATH") {
+            entry.path = value;
+        } else if (key == "BUCKET") {
+            entry.bucket = value;
+        } else if (key == "ENDPOINT") {
+            entry.endpoint = value;
+        } else if (key == "REGION") {
+            entry.region = value;
+        }
+    }
+    mgr.create_unit(std::move(entry));
 }
 
 } // namespace mnemo::interpreters
