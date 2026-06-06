@@ -262,8 +262,14 @@ curl 'http://127.0.0.1:1143/?query=SELECT%201'
 ### Run with Docker
 
 ```bash
-cd docker
-docker-compose up -d
+# Build and start (HTTP :1143, TCP :4311, ML runtime included)
+docker compose up -d --build
+
+# Health check
+curl http://localhost:1143/ping
+
+# CLI client inside the container
+docker compose exec mnemo mnemosyne_client --host 127.0.0.1 --port 1143
 ```
 
 ### Run Tests

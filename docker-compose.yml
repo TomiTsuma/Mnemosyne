@@ -5,9 +5,21 @@ services:
     ports:
       - "1143:1143"
       - "4311:4311"
+    environment:
+      MNEMO_PYTHON: /opt/venv/bin/python
+      MNEMO_ML_RUNTIME: /app/ml_runtime/run.py
+      MNEMO_MODELS_DIR: /app/mnemo_models
+    volumes:
+      - mnemo_data:/tmp/mnemosyne
+      - mnemo_models:/app/mnemo_models
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:1143/ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-      start_period: 5s
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  mnemo_data:
+  mnemo_models:

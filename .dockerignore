@@ -20,6 +20,10 @@ agent-transcripts/
 # Python caches and probe output
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+ml_runtime/__pycache__/
 scripts/baseline_probe.txt
 scripts/_debug_*.py
 
