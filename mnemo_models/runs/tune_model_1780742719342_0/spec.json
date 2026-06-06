@@ -1,0 +1,31 @@
+{
+  "action": "tune",
+  "run_id": "tune_model_1780742719342_0",
+  "model": "tune_model",
+  "model_type": "CLASSIFICATION",
+  "framework": "SKLEARN",
+  "algorithm": "RandomForestClassifier",
+  "entrypoint": "",
+  "objective": "ACCURACY",
+  "entity_key": "uid",
+  "features": [
+    "f1",
+    "f2",
+    "f3"
+  ],
+  "target": "label",
+  "hyperparameters": {},
+  "strategy": "RANDOM",
+  "trials": 6,
+  "search_space": {
+    "max_depth": "2..12",
+    "n_estimators": "20..120"
+  },
+  "artifact_in": "",
+  "artifact_out": "mnemo_models\\runs\\tune_model_1780742719342_0\\model.joblib",
+  "predict_mode": "",
+  "predict_features": {},
+  "prompt": "",
+  "data_csv": "mnemo_models\\runs\\tune_model_1780742719342_0\\data.csv",
+  "result_path": "mnemo_models\\runs\\tune_model_1780742719342_0\\result.json"
+}

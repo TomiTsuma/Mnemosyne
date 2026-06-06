@@ -1,0 +1,305 @@
+{
+  "ok": true,
+  "predictions": [
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "2",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "3",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "4",
+      "prediction": "1",
+      "confidence": 0.9333333333333333
+    },
+    {
+      "entity_key": "5",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "6",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "7",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "8",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "9",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "10",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "11",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "12",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "13",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "14",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "15",
+      "prediction": "1",
+      "confidence": 0.9833333333333333
+    },
+    {
+      "entity_key": "16",
+      "prediction": "1",
+      "confidence": 0.7666666666666667
+    },
+    {
+      "entity_key": "17",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "18",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "19",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "20",
+      "prediction": "0",
+      "confidence": 0.6666666666666666
+    },
+    {
+      "entity_key": "21",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "22",
+      "prediction": "0",
+      "confidence": 0.8333333333333334
+    },
+    {
+      "entity_key": "23",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "24",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "25",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "26",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "27",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "28",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "29",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "30",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "31",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "32",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "33",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "34",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "35",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "36",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "37",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "38",
+      "prediction": "1",
+      "confidence": 0.95
+    },
+    {
+      "entity_key": "39",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "40",
+      "prediction": "1",
+      "confidence": 0.6
+    },
+    {
+      "entity_key": "41",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "42",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "43",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "44",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "45",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "46",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "47",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "48",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "49",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "50",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "51",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "52",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "53",
+      "prediction": "1",
+      "confidence": 0.9833333333333333
+    },
+    {
+      "entity_key": "54",
+      "prediction": "1",
+      "confidence": 0.8166666666666667
+    },
+    {
+      "entity_key": "55",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "56",
+      "prediction": "0",
+      "confidence": 0.8333333333333334
+    },
+    {
+      "entity_key": "57",
+      "prediction": "0",
+      "confidence": 0.8
+    },
+    {
+      "entity_key": "58",
+      "prediction": "1",
+      "confidence": 0.9833333333333333
+    },
+    {
+      "entity_key": "59",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "60",
+      "prediction": "0",
+      "confidence": 1.0
+    }
+  ]
+}

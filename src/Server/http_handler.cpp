@@ -15,8 +15,15 @@
 #include "Interpreters/interpreter_alter_replica_group.h"
 #include "Interpreters/interpreter_alter_shard_group.h"
 #include "Interpreters/interpreter_alter_connector.h"
+#include "Interpreters/interpreter_alter_pipeline.h"
+#include "Interpreters/interpreter_run_pipeline.h"
+#include "Interpreters/interpreter_stream_control.h"
+#include "Interpreters/interpreter_model_control.h"
+#include "Interpreters/interpreter_alter_stream.h"
 #include "Interpreters/interpreter_test_connector.h"
 #include "Interpreters/interpreter_discover_query.h"
+#include "Interpreters/pipeline_executor.h"
+#include "Pipelines/pipeline_scheduler.h"
 #include "Interpreters/context.h"
 #include "Nodes/node_catalog.h"
 #include "Nodes/node_manager.h"
@@ -215,6 +222,24 @@ auto HTTPHandler::handle_settings() -> Response {
 
 namespace {
 
+auto escape_json_string(std::string_view value) -> std::string {
+    std::string out;
+    out.reserve(value.size() + 8);
+    for (const char c : value) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default: out += c; break;
+        }
+    }
+    return out;
+}
+
 auto json_get_string(std::string_view body, std::string_view key) -> std::string {
     const std::string needle = "\"" + std::string{key} + "\"";
     auto pos = body.find(needle);
@@ -392,6 +417,54 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     query_result.block = std::make_shared<core::Block>(std::move(block));
                     break;
                 }
+                case parsers::QueryAST::QueryType::RUN: {
+                    using Action = parsers::QueryAST::ModelControl::Action;
+                    if (query_ast->model_control.action == Action::RunTrainingJob ||
+                        query_ast->model_control.action == Action::RunTuningJob) {
+                        auto block = interpreters::InterpreterModelControl::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else {
+                        auto block = interpreters::InterpreterRunPipeline::execute_run(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DEPLOY:
+                case parsers::QueryAST::QueryType::PREDICT:
+                case parsers::QueryAST::QueryType::EVALUATE:
+                case parsers::QueryAST::QueryType::COMPARE:
+                case parsers::QueryAST::QueryType::GENERATE: {
+                    auto block = interpreters::InterpreterModelControl::execute(
+                        context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::PAUSE: {
+                    auto block = interpreters::InterpreterRunPipeline::execute_pause(
+                        context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::RESUME: {
+                    auto block = interpreters::InterpreterRunPipeline::execute_resume(
+                        context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::PUBLISH: {
+                    auto block = interpreters::InterpreterStreamControl::execute_publish(
+                        context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::SUBSCRIBE: {
+                    auto block = interpreters::InterpreterStreamControl::execute_subscribe(
+                        context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
                 case parsers::QueryAST::QueryType::ALTER: {
                     if (query_ast->alter.target == parsers::QueryAST::Alter::Target::Node) {
                         auto block = interpreters::InterpreterAlterNode::execute(context_, *query_ast);
@@ -409,6 +482,16 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     } else if (query_ast->alter.target ==
                                  parsers::QueryAST::Alter::Target::Connector) {
                         auto block = interpreters::InterpreterAlterConnector::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::Pipeline) {
+                        auto block = interpreters::InterpreterAlterPipeline::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::Stream) {
+                        auto block = interpreters::InterpreterAlterStream::execute(
                             context_, *query_ast);
                         query_result.block = std::make_shared<core::Block>(std::move(block));
                     }
@@ -473,7 +556,7 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                             if (v) oss << "<ptr:" << v.get() << ">";
                             else   oss << "null";
                         }
-                        else oss << "\"" << std::string(std::begin(v), std::end(v)) << "\"";
+                        else oss << "\"" << escape_json_string(std::string(std::begin(v), std::end(v))) << "\"";
                     }, field.variant());
                 }
                 oss << "]";

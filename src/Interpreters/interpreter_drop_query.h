@@ -25,6 +25,14 @@ private:
     static auto do_drop_shard_group(Context& context, const parsers::QueryAST::Drop& drop)
         -> void;
     static auto do_drop_connector(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_pipeline(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_stage(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_task(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_trigger(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_stream(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_topic(Context& context, const parsers::QueryAST::Drop& drop) -> void;
+    static auto do_drop_consumer_group(Context& context, const parsers::QueryAST::Drop& drop)
+        -> void;
     static auto do_truncate(Context& context, const parsers::QueryAST::Drop& drop) -> void;
     static auto do_detach(Context& context, const parsers::QueryAST::Drop& drop) -> void;
 };

@@ -1,0 +1,28 @@
+{
+  "action": "predict",
+  "run_id": "churn_model_1780742279360_2_predict",
+  "model": "churn_model",
+  "model_type": "",
+  "framework": "",
+  "algorithm": "",
+  "entrypoint": "",
+  "objective": "",
+  "entity_key": "",
+  "features": [],
+  "target": "",
+  "hyperparameters": {},
+  "strategy": "",
+  "trials": 0,
+  "search_space": {},
+  "artifact_in": "mnemo_models\\runs\\churn_model_1780742270537_0\\model.joblib",
+  "artifact_out": "mnemo_models\\runs\\churn_model_1780742279360_2_predict\\model.joblib",
+  "predict_mode": "features",
+  "predict_features": {
+    "monthly_charges": "95.0",
+    "support_calls": "5",
+    "tenure": "2"
+  },
+  "prompt": "",
+  "data_csv": "",
+  "result_path": "mnemo_models\\runs\\churn_model_1780742279360_2_predict\\result.json"
+}

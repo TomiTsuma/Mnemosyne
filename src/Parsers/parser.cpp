@@ -5,11 +5,20 @@
 #include "Parsers/parser_query.h"
 #include "Common/exceptions.h"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <unordered_set>
 
 namespace mnemo::parsers {
+
+namespace {
+auto upper_str(std::string s) -> std::string {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return static_cast<char>(::toupper(c)); });
+    return s;
+}
+} // namespace
 
 // ── Parser ──
 
@@ -73,6 +82,36 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordDiscover) {
         ast->query_type = QueryAST::QueryType::DISCOVER;
         parse_discover(ast);
+    } else if (current_.type == TokenType::KeywordRun) {
+        ast->query_type = QueryAST::QueryType::RUN;
+        parse_run(ast);
+    } else if (current_.type == TokenType::KeywordPause) {
+        ast->query_type = QueryAST::QueryType::PAUSE;
+        parse_pause(ast);
+    } else if (current_.type == TokenType::KeywordResume) {
+        ast->query_type = QueryAST::QueryType::RESUME;
+        parse_resume(ast);
+    } else if (current_.type == TokenType::KeywordPublish) {
+        ast->query_type = QueryAST::QueryType::PUBLISH;
+        parse_publish(ast);
+    } else if (current_.type == TokenType::KeywordSubscribe) {
+        ast->query_type = QueryAST::QueryType::SUBSCRIBE;
+        parse_subscribe(ast);
+    } else if (current_.type == TokenType::KeywordDeploy) {
+        ast->query_type = QueryAST::QueryType::DEPLOY;
+        parse_deploy(ast);
+    } else if (current_.type == TokenType::KeywordPredict) {
+        ast->query_type = QueryAST::QueryType::PREDICT;
+        parse_predict(ast);
+    } else if (current_.type == TokenType::KeywordEvaluate) {
+        ast->query_type = QueryAST::QueryType::EVALUATE;
+        parse_evaluate(ast);
+    } else if (current_.type == TokenType::KeywordCompare) {
+        ast->query_type = QueryAST::QueryType::COMPARE;
+        parse_compare(ast);
+    } else if (current_.type == TokenType::KeywordGenerate) {
+        ast->query_type = QueryAST::QueryType::GENERATE;
+        parse_generate(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -301,6 +340,129 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.if_not_exists = parse_if_not_exists();
         create.connector_name = parse_table_name();
         parse_connector_properties(create);
+    } else if (consume_stream_keyword()) {
+        create.kind = QueryAST::Create::Kind::Stream;
+        create.if_not_exists = parse_if_not_exists();
+        create.stream_name = parse_table_name();
+        if (current_.type == TokenType::KeywordTopic) {
+            consume();
+            create.topic_name = parse_table_name();
+        }
+        parse_retention_clause(create);
+    } else if (consume_topic_keyword()) {
+        create.kind = QueryAST::Create::Kind::Topic;
+        create.if_not_exists = parse_if_not_exists();
+        create.topic_name = parse_table_name();
+        parse_topic_properties(create);
+        parse_retention_clause(create);
+    } else if (consume_consumer_group_keyword()) {
+        create.kind = QueryAST::Create::Kind::ConsumerGroup;
+        create.if_not_exists = parse_if_not_exists();
+        create.consumer_group_name = parse_table_name();
+    } else if (consume_pipeline_keyword()) {
+        create.kind = QueryAST::Create::Kind::Pipeline;
+        create.if_not_exists = parse_if_not_exists();
+        create.pipeline_name = parse_table_name();
+        parse_pipeline_owner(create);
+    } else if (consume_stage_keyword()) {
+        create.kind = QueryAST::Create::Kind::Stage;
+        create.if_not_exists = parse_if_not_exists();
+        create.stage_name = parse_table_name();
+        if (current_.type != TokenType::KeywordIn) {
+            throw common::Exception{
+                "Parser: expected IN PIPELINE after stage name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // IN
+        if (!consume_pipeline_keyword()) {
+            throw common::Exception{
+                "Parser: expected PIPELINE after IN",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        create.pipeline_name = parse_table_name();
+        parse_stage_order(create);
+    } else if (consume_task_keyword()) {
+        create.kind = QueryAST::Create::Kind::Task;
+        create.if_not_exists = parse_if_not_exists();
+        create.task_name = parse_table_name();
+        if (current_.type != TokenType::KeywordIn) {
+            throw common::Exception{
+                "Parser: expected IN STAGE after task name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // IN
+        if (!consume_stage_keyword()) {
+            throw common::Exception{
+                "Parser: expected STAGE after IN",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        create.stage_name = parse_table_name();
+        if (current_.type != TokenType::KeywordIn) {
+            throw common::Exception{
+                "Parser: expected IN PIPELINE after stage name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // IN
+        if (!consume_pipeline_keyword()) {
+            throw common::Exception{
+                "Parser: expected PIPELINE after IN",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        create.pipeline_name = parse_table_name();
+        parse_task_properties(create);
+    } else if (consume_trigger_keyword()) {
+        create.kind = QueryAST::Create::Kind::Trigger;
+        create.if_not_exists = parse_if_not_exists();
+        create.trigger_name = parse_table_name();
+        if (current_.type != TokenType::KeywordOn) {
+            throw common::Exception{
+                "Parser: expected ON PIPELINE after trigger name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // ON
+        if (!consume_pipeline_keyword()) {
+            throw common::Exception{
+                "Parser: expected PIPELINE after ON",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        create.pipeline_name = parse_table_name();
+        parse_trigger_properties(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL_TEMPLATE") {
+        consume();
+        create.kind = QueryAST::Create::Kind::ModelTemplate;
+        create.if_not_exists = parse_if_not_exists();
+        create.model_template_name = parse_table_name();
+        parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL") {
+        consume();
+        create.kind = QueryAST::Create::Kind::Model;
+        create.if_not_exists = parse_if_not_exists();
+        create.model_name = parse_table_name();
+        parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SET") {
+        consume();
+        create.kind = QueryAST::Create::Kind::FeatureSet;
+        create.if_not_exists = parse_if_not_exists();
+        create.feature_set_name = parse_table_name();
+        parse_feature_set_clauses(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "DATASET") {
+        consume();
+        create.kind = QueryAST::Create::Kind::Dataset;
+        create.if_not_exists = parse_if_not_exists();
+        create.dataset_name = parse_table_name();
+        parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "TRAINING_JOB") {
+        consume();
+        create.kind = QueryAST::Create::Kind::TrainingJob;
+        create.if_not_exists = parse_if_not_exists();
+        create.training_job_name = parse_table_name();
+        parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
+        consume();
+        create.kind = QueryAST::Create::Kind::TuningJob;
+        create.if_not_exists = parse_if_not_exists();
+        create.tuning_job_name = parse_table_name();
+        parse_model_clauses(create);
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
@@ -378,12 +540,115 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
         drop.object_kind = QueryAST::ObjectKind::Connector;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
+    } else if (consume_stream_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Stream;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_topic_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Topic;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_consumer_group_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::ConsumerGroup;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_pipeline_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Pipeline;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (consume_stage_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Stage;
+        drop.if_exists = parse_if_exists();
+        drop.stage_name = parse_table_name();
+        if (current_.type != TokenType::KeywordFrom) {
+            throw common::Exception{
+                "Parser: expected FROM PIPELINE after stage name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // FROM
+        if (!consume_pipeline_keyword()) {
+            throw common::Exception{
+                "Parser: expected PIPELINE after FROM",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        drop.pipeline_name = parse_table_name();
+    } else if (consume_task_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Task;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+        if (current_.type != TokenType::KeywordFrom) {
+            throw common::Exception{
+                "Parser: expected FROM STAGE after task name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // FROM
+        if (!consume_stage_keyword()) {
+            throw common::Exception{
+                "Parser: expected STAGE after FROM",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        drop.stage_name = parse_table_name();
+        if (current_.type != TokenType::KeywordIn) {
+            throw common::Exception{
+                "Parser: expected IN PIPELINE after stage name",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume(); // IN
+        if (!consume_pipeline_keyword()) {
+            throw common::Exception{
+                "Parser: expected PIPELINE after IN",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        drop.pipeline_name = parse_table_name();
+    } else if (consume_trigger_keyword()) {
+        drop.object_kind = QueryAST::ObjectKind::Trigger;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+        if (current_.type == TokenType::KeywordFrom) {
+            consume(); // FROM
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FROM",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            drop.pipeline_name = parse_table_name();
+        }
     } else if (consume_replica_group_keyword()) {
         drop.object_kind = QueryAST::ObjectKind::ReplicaGroup;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     } else if (consume_shard_group_keyword()) {
         drop.object_kind = QueryAST::ObjectKind::ShardGroup;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL_TEMPLATE") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::ModelTemplate;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::Model;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SET") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::FeatureSet;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "DATASET") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::Dataset;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "TRAINING_JOB") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::TrainingJob;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::TuningJob;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
@@ -398,6 +663,78 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
     auto& alter = ast->alter;
 
     consume(); // consume ALTER
+    if (consume_stream_keyword()) {
+        alter.target = QueryAST::Alter::Target::Stream;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER STREAM",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            if (cmd.property == "RETENTION" || cmd.property == "retention") {
+                if (current_.type == TokenType::KeywordForever ||
+                    (current_.type == TokenType::Identifier &&
+                     current_.value == "FOREVER")) {
+                    consume();
+                    cmd.value = "FOREVER";
+                } else if (current_.type == TokenType::IntegerLiteral) {
+                    cmd.value = current_.value;
+                    consume();
+                    if (current_.type == TokenType::KeywordDays ||
+                        (current_.type == TokenType::Identifier &&
+                         current_.value == "DAYS")) {
+                        consume();
+                        cmd.value += " DAYS";
+                    }
+                } else {
+                    cmd.value = parse_table_name();
+                    if (current_.type == TokenType::KeywordDays ||
+                        (current_.type == TokenType::Identifier &&
+                         current_.value == "DAYS")) {
+                        consume();
+                        cmd.value += " DAYS";
+                    }
+                }
+            } else {
+                cmd.value = parse_property_value();
+            }
+            alter.stream_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
+    if (consume_pipeline_keyword()) {
+        alter.target = QueryAST::Alter::Target::Pipeline;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            if (current_.type != TokenType::KeywordSet) {
+                throw common::Exception{
+                    "Parser: expected SET in ALTER PIPELINE",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // SET
+            QueryAST::Alter::NodeSet cmd;
+            cmd.property = parse_name_or_keyword();
+            cmd.value = parse_property_value();
+            alter.pipeline_sets.push_back(std::move(cmd));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
     if (consume_connector_keyword()) {
         alter.target = QueryAST::Alter::Target::Connector;
         alter.table = parse_table_name();
@@ -580,7 +917,32 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordConnector) {
+    if (current_.type == TokenType::KeywordPipelineRuns) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "PIPELINE_METRICS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::PIPELINE_METRICS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordConnector) {
         consume(); // CONNECTOR
         if (current_.type == TokenType::KeywordCapabilities) {
             consume();
@@ -752,6 +1114,219 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                current_.type == TokenType::KeywordView) {
         consume(); // consume VIEWS
         show.show_type = QueryAST::Show::ShowType::VIEWS;
+    } else if (current_.type == TokenType::KeywordPipeline) {
+        consume();
+        if (current_.type == TokenType::KeywordMetrics) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::PIPELINE_METRICS;
+            if (current_.type == TokenType::KeywordFor) {
+                consume();
+                if (!consume_pipeline_keyword()) {
+                    throw common::Exception{
+                        "Parser: expected PIPELINE after FOR",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                show.pipeline_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordPipelineRuns ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "PIPELINE_RUNS")) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
+            if (current_.type == TokenType::KeywordFor) {
+                consume();
+                if (!consume_pipeline_keyword()) {
+                    throw common::Exception{
+                        "Parser: expected PIPELINE after FOR",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                show.pipeline_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordPipelines ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "PIPELINES")) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::PIPELINES;
+        } else {
+            show.show_type = QueryAST::Show::ShowType::PIPELINES;
+        }
+    } else if (current_.type == TokenType::KeywordPipelines ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "PIPELINES")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::PIPELINES;
+    } else if (current_.type == TokenType::KeywordStages ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "STAGES")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::STAGES;
+        if (current_.type == TokenType::KeywordFrom) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FROM",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordTasks ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "TASKS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::TASKS;
+        if (current_.type == TokenType::KeywordFrom) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FROM",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordTriggers ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "TRIGGERS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::TRIGGERS;
+        if (current_.type == TokenType::KeywordFrom) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FROM",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "PIPELINE_RUNS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::Identifier &&
+               current_.value == "PIPELINE_METRICS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::PIPELINE_METRICS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordStreamMetrics ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "STREAM_METRICS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::STREAM_METRICS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_stream_keyword()) {
+                throw common::Exception{
+                    "Parser: expected STREAM after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.stream_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordStream) {
+        consume();
+        if (current_.type == TokenType::KeywordMetrics) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::STREAM_METRICS;
+            if (current_.type == TokenType::KeywordFor) {
+                consume();
+                if (!consume_stream_keyword()) {
+                    throw common::Exception{
+                        "Parser: expected STREAM after FOR",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                show.stream_name = parse_table_name();
+            }
+        } else if (current_.type == TokenType::KeywordStreams ||
+                   (current_.type == TokenType::Identifier &&
+                    current_.value == "STREAMS")) {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::STREAMS;
+        } else {
+            show.show_type = QueryAST::Show::ShowType::STREAMS;
+        }
+    } else if (current_.type == TokenType::KeywordStreams ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "STREAMS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::STREAMS;
+    } else if (current_.type == TokenType::KeywordTopic) {
+        consume();
+        if (current_.type == TokenType::KeywordTopics ||
+            (current_.type == TokenType::Identifier &&
+             current_.value == "TOPICS")) {
+            consume();
+        }
+        show.show_type = QueryAST::Show::ShowType::TOPICS;
+    } else if (current_.type == TokenType::KeywordTopics ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "TOPICS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::TOPICS;
+    } else if (current_.type == TokenType::KeywordConsumerGroups ||
+               (current_.type == TokenType::Identifier &&
+                current_.value == "CONSUMER_GROUPS")) {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::CONSUMER_GROUPS;
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODELS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::MODELS;
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL_TEMPLATES") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::MODEL_TEMPLATES;
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL") {
+        consume(); // MODEL
+        const std::string sub = upper_str(current_.value);
+        if (sub == "VERSIONS") {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::MODEL_VERSIONS;
+            if (current_.type == TokenType::Identifier) show.model_name = parse_table_name();
+        } else if (sub == "ENDPOINTS") {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::MODEL_ENDPOINTS;
+            if (current_.type == TokenType::Identifier) show.model_name = parse_table_name();
+        } else if (current_.type == TokenType::KeywordMetrics || sub == "METRICS") {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::MODEL_METRICS;
+            if (current_.type == TokenType::Identifier) show.model_name = parse_table_name();
+        } else if (sub == "DRIFT") {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::MODEL_DRIFT;
+            if (current_.type == TokenType::Identifier) show.model_name = parse_table_name();
+        } else if (sub == "TEMPLATES") {
+            consume();
+            show.show_type = QueryAST::Show::ShowType::MODEL_TEMPLATES;
+        } else {
+            throw common::Exception{
+                "Parser: expected VERSIONS / ENDPOINTS / METRICS / DRIFT after SHOW MODEL",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+    } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SETS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::FEATURE_SETS;
+    } else if (current_.type == TokenType::Identifier && current_.value == "DATASETS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::DATASETS;
+    } else if (current_.type == TokenType::Identifier && current_.value == "TRAINING_JOBS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::TRAINING_JOBS;
+    } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOBS") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::TUNING_JOBS;
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLES
         show.show_type = QueryAST::Show::ShowType::TABLES;
@@ -764,7 +1339,15 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     auto& describe = ast->describe;
 
     consume(); // consume DESCRIBE/DESC
-    if (consume_connector_keyword()) {
+    if (consume_stream_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::Stream;
+    } else if (consume_topic_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::Topic;
+    } else if (consume_consumer_group_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::ConsumerGroup;
+    } else if (consume_pipeline_keyword()) {
+        describe.object_kind = QueryAST::ObjectKind::Pipeline;
+    } else if (consume_connector_keyword()) {
         describe.object_kind = QueryAST::ObjectKind::Connector;
     } else if (consume_storage_unit_keyword()) {
         describe.object_kind = QueryAST::ObjectKind::StorageUnit;
@@ -789,6 +1372,31 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::KeywordView) {
         consume(); // consume VIEW
         describe.object_kind = QueryAST::ObjectKind::View;
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL_TEMPLATE") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::ModelTemplate;
+    } else if (current_.type == TokenType::Identifier && current_.value == "MODEL") {
+        consume();
+        if (upper_str(current_.value) == "VERSION") {
+            consume();
+            describe.object_kind = QueryAST::ObjectKind::ModelVersion;
+            parse_model_version_ref(describe.model_name, describe.version);
+            describe.table_name = describe.model_name;
+            return;
+        }
+        describe.object_kind = QueryAST::ObjectKind::Model;
+    } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SET") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::FeatureSet;
+    } else if (current_.type == TokenType::Identifier && current_.value == "DATASET") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::Dataset;
+    } else if (current_.type == TokenType::Identifier && current_.value == "TRAINING_JOB") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::TrainingJob;
+    } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::TuningJob;
     } else {
         describe.object_kind = QueryAST::ObjectKind::Table;
     }
@@ -1236,7 +1844,9 @@ auto Parser::parse_name_or_keyword() -> std::string {
         current_.type == TokenType::KeywordBucket ||
         current_.type == TokenType::KeywordEndpoint ||
         current_.type == TokenType::KeywordRegion ||
-        current_.type == TokenType::KeywordPath) {
+        current_.type == TokenType::KeywordPath ||
+        current_.type == TokenType::KeywordOwner ||
+        current_.type == TokenType::KeywordBuiltin) {
         std::string name = current_.value;
         consume();
         return name;
@@ -1545,6 +2155,153 @@ void Parser::parse_shard_group_properties(QueryAST::Create& create) {
     }
 }
 
+void Parser::parse_run(std::unique_ptr<QueryAST>& ast) {
+    consume(); // RUN
+    if (current_.type == TokenType::Identifier && current_.value == "TRAINING_JOB") {
+        consume();
+        ast->model_control.action = QueryAST::ModelControl::Action::RunTrainingJob;
+        ast->model_control.target_name = parse_table_name();
+        return;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
+        consume();
+        ast->model_control.action = QueryAST::ModelControl::Action::RunTuningJob;
+        ast->model_control.target_name = parse_table_name();
+        return;
+    }
+    if (!consume_pipeline_keyword()) {
+        throw common::Exception{
+            "Parser: expected PIPELINE after RUN",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->pipeline_control.pipeline_name = parse_table_name();
+}
+
+void Parser::parse_pause(std::unique_ptr<QueryAST>& ast) {
+    consume(); // PAUSE
+    if (!consume_pipeline_keyword()) {
+        throw common::Exception{
+            "Parser: expected PIPELINE after PAUSE",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->pipeline_control.pipeline_name = parse_table_name();
+}
+
+void Parser::parse_resume(std::unique_ptr<QueryAST>& ast) {
+    consume(); // RESUME
+    if (!consume_pipeline_keyword()) {
+        throw common::Exception{
+            "Parser: expected PIPELINE after RESUME",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    ast->pipeline_control.pipeline_name = parse_table_name();
+}
+
+auto Parser::consume_pipeline_keyword() -> bool {
+    if (current_.type == TokenType::KeywordPipeline) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "PIPELINE") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::consume_stage_keyword() -> bool {
+    if (current_.type == TokenType::KeywordStage) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "STAGE") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::consume_task_keyword() -> bool {
+    if (current_.type == TokenType::KeywordTask) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "TASK") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::consume_trigger_keyword() -> bool {
+    if (current_.type == TokenType::KeywordTrigger) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "TRIGGER") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_pipeline_owner(QueryAST::Create& create) {
+    if (current_.type == TokenType::KeywordOwner) {
+        consume();
+        create.pipeline_owner = parse_property_value();
+    }
+}
+
+void Parser::parse_stage_order(QueryAST::Create& create) {
+    if (current_.type == TokenType::KeywordOrder) {
+        consume();
+        if (current_.type == TokenType::IntegerLiteral) {
+            create.stage_order = static_cast<uint32_t>(std::stoul(current_.value));
+            consume();
+        } else {
+            create.stage_order = static_cast<uint32_t>(std::stoul(parse_table_name()));
+        }
+    }
+}
+
+void Parser::parse_task_properties(QueryAST::Create& create) {
+    if (current_.type != TokenType::KeywordType) {
+        throw common::Exception{
+            "Parser: expected TYPE after task pipeline clause",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    consume(); // TYPE
+    create.task_type = parse_name_or_keyword();
+    if (current_.type == TokenType::KeywordBody) {
+        consume();
+        create.task_body = parse_property_value();
+    }
+    if (current_.type == TokenType::KeywordDepends) {
+        consume();
+        if (current_.type != TokenType::KeywordOn) {
+            throw common::Exception{
+                "Parser: expected ON after DEPENDS",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        consume();
+        do {
+            create.task_depends_on.push_back(parse_table_name());
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        } while (true);
+    }
+}
+
+void Parser::parse_trigger_properties(QueryAST::Create& create) {
+    if (current_.type == TokenType::KeywordSchedule) {
+        consume();
+        create.trigger_schedule = parse_property_value();
+    }
+}
+
 auto Parser::consume_connector_keyword() -> bool {
     if (current_.type == TokenType::KeywordConnector) {
         consume();
@@ -1642,12 +2399,314 @@ void Parser::parse_storage_unit_properties(QueryAST::Create& create) {
     }
 }
 
+void Parser::parse_publish(std::unique_ptr<QueryAST>& ast) {
+    consume(); // PUBLISH
+    ast->stream_control.topic_name = parse_table_name();
+    if (current_.type == TokenType::KeywordValues) {
+        consume();
+        ast->stream_control.values = parse_value_list();
+    }
+}
+
+void Parser::parse_subscribe(std::unique_ptr<QueryAST>& ast) {
+    consume(); // SUBSCRIBE
+    ast->stream_control.stream_name = parse_table_name();
+    if (consume_consumer_group_keyword()) {
+        ast->stream_control.consumer_group_name = parse_table_name();
+    }
+    if (current_.type == TokenType::KeywordLimit) {
+        consume();
+        if (current_.type == TokenType::IntegerLiteral) {
+            ast->stream_control.limit = static_cast<uint32_t>(std::stoul(current_.value));
+            consume();
+        } else {
+            ast->stream_control.limit = static_cast<uint32_t>(std::stoul(parse_table_name()));
+        }
+    }
+}
+
+auto Parser::consume_stream_keyword() -> bool {
+    if (current_.type == TokenType::KeywordStream) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "STREAM") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::consume_topic_keyword() -> bool {
+    if (current_.type == TokenType::KeywordTopic) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "TOPIC") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+auto Parser::consume_consumer_group_keyword() -> bool {
+    if (current_.type == TokenType::KeywordConsumerGroup) {
+        consume();
+        return true;
+    }
+    if (current_.type == TokenType::Identifier && current_.value == "CONSUMER_GROUP") {
+        consume();
+        return true;
+    }
+    return false;
+}
+
+void Parser::parse_retention_clause(QueryAST::Create& create) {
+    if (current_.type != TokenType::KeywordRetain) {
+        return;
+    }
+    consume(); // RETAIN
+    if (current_.type == TokenType::KeywordForever ||
+        (current_.type == TokenType::Identifier && current_.value == "FOREVER")) {
+        consume();
+        create.retention_forever = true;
+        return;
+    }
+    if (current_.type == TokenType::IntegerLiteral) {
+        create.retention_days = static_cast<uint32_t>(std::stoul(current_.value));
+        consume();
+    } else {
+        create.retention_days = static_cast<uint32_t>(std::stoul(parse_table_name()));
+    }
+    if (current_.type == TokenType::KeywordDays ||
+        (current_.type == TokenType::Identifier && current_.value == "DAYS")) {
+        consume();
+    }
+    create.retention_forever = false;
+}
+
+void Parser::parse_topic_properties(QueryAST::Create& create) {
+    if (current_.type == TokenType::KeywordPartitions) {
+        consume();
+        if (current_.type == TokenType::IntegerLiteral) {
+            create.partition_count = static_cast<uint32_t>(std::stoul(current_.value));
+            consume();
+        } else {
+            create.partition_count = static_cast<uint32_t>(std::stoul(parse_table_name()));
+        }
+    }
+}
+
 void Parser::consume() {
     current_ = lexer_.next();
 }
 
 bool Parser::is_current(TokenType type) const {
     return current_.type == type;
+}
+
+// ── MODEL layer parsing ──
+
+void Parser::parse_kv_list(std::unordered_map<std::string, std::string>& out) {
+    if (current_.type != TokenType::LParen) return;
+    consume(); // (
+    while (current_.type != TokenType::RParen &&
+           current_.type != TokenType::EndOfQuery) {
+        std::string key = current_.value;
+        consume();
+        if (current_.type == TokenType::Eq) {
+            consume();
+        } else if (current_.type == TokenType::Colon) {
+            consume();
+        }
+        std::string value = parse_property_value();
+        out[key] = value;
+        if (current_.type == TokenType::Comma) { consume(); continue; }
+        break;
+    }
+    if (current_.type == TokenType::RParen) consume();
+}
+
+void Parser::parse_paren_kv_pairs(std::vector<std::pair<std::string, std::string>>& out) {
+    if (current_.type != TokenType::LParen) return;
+    consume(); // (
+    while (current_.type != TokenType::RParen &&
+           current_.type != TokenType::EndOfQuery) {
+        std::string key = current_.value;
+        consume();
+        if (current_.type == TokenType::Eq) consume();
+        std::string value = parse_property_value();
+        out.emplace_back(key, value);
+        if (current_.type == TokenType::Comma) { consume(); continue; }
+        break;
+    }
+    if (current_.type == TokenType::RParen) consume();
+}
+
+void Parser::parse_model_clauses(QueryAST::Create& create) {
+    auto read_word = [&]() -> std::string {
+        std::string v = current_.value;
+        consume();
+        return v;
+    };
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        const std::string kw = upper_str(current_.value);
+        if (kw == "TYPE") {
+            consume(); create.model_type = read_word();
+        } else if (kw == "FRAMEWORK") {
+            consume(); create.framework = read_word();
+        } else if (kw == "ALGORITHM") {
+            consume(); create.algorithm = read_word();
+        } else if (kw == "ENTRYPOINT") {
+            consume(); create.entrypoint = parse_property_value();
+        } else if (kw == "OBJECTIVE") {
+            consume(); create.objective = read_word();
+        } else if (kw == "STRATEGY") {
+            consume(); create.strategy = read_word();
+        } else if (kw == "TRIALS") {
+            consume();
+            if (current_.type == TokenType::IntegerLiteral) {
+                create.trials = static_cast<uint32_t>(std::stoul(current_.value));
+                consume();
+            } else {
+                create.trials = static_cast<uint32_t>(std::stoul(read_word()));
+            }
+        } else if (kw == "MODEL") {
+            consume(); create.ref_model = parse_table_name();
+        } else if (kw == "FEATURE_SET") {
+            consume(); create.ref_feature_set = parse_table_name();
+        } else if (kw == "DATASET") {
+            consume(); create.ref_dataset = parse_table_name();
+        } else if (kw == "TRAINING_JOB") {
+            consume(); create.ref_training_job = parse_table_name();
+        } else if (kw == "FROM") {
+            consume(); create.source_table = parse_table_name();
+        } else if (kw == "HYPERPARAMS") {
+            consume(); parse_kv_list(create.hyperparams);
+        } else if (kw == "SEARCH_SPACE") {
+            consume(); parse_kv_list(create.search_space);
+        } else {
+            break;
+        }
+    }
+}
+
+void Parser::parse_feature_set_clauses(QueryAST::Create& create) {
+    auto read_word = [&]() -> std::string {
+        std::string v = current_.value;
+        consume();
+        return v;
+    };
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        const std::string kw = upper_str(current_.value);
+        if (kw == "FROM") {
+            consume(); create.source_table = parse_table_name();
+        } else if (kw == "ENTITY_KEY") {
+            consume();
+            auto cols = parse_column_list();
+            if (!cols.empty()) create.entity_key = cols.front();
+        } else if (kw == "FEATURES") {
+            consume();
+            create.features = parse_column_list();
+        } else if (kw == "TARGET") {
+            consume();
+            create.target = read_word();
+        } else {
+            break;
+        }
+    }
+}
+
+void Parser::parse_model_version_ref(std::string& model, uint32_t& version) {
+    model = parse_table_name();
+    version = 0;
+    if (current_.type == TokenType::Colon) {
+        consume(); // :
+        if (current_.type == TokenType::IntegerLiteral) {
+            version = static_cast<uint32_t>(std::stoul(current_.value));
+            consume();
+        } else {
+            // token like "v3"
+            std::string v = current_.value;
+            consume();
+            std::string digits;
+            for (char c : v) if (std::isdigit(static_cast<unsigned char>(c))) digits += c;
+            if (!digits.empty()) version = static_cast<uint32_t>(std::stoul(digits));
+        }
+    }
+}
+
+void Parser::parse_deploy(std::unique_ptr<QueryAST>& ast) {
+    auto& mc = ast->model_control;
+    consume(); // DEPLOY
+    if (upper_str(current_.value) == "MODEL") consume();
+    mc.action = QueryAST::ModelControl::Action::Deploy;
+    parse_model_version_ref(mc.model_name, mc.version);
+    if (current_.type == TokenType::KeywordAs) {
+        consume();
+        mc.endpoint_name = parse_table_name();
+    }
+}
+
+void Parser::parse_predict(std::unique_ptr<QueryAST>& ast) {
+    auto& mc = ast->model_control;
+    consume(); // PREDICT
+    if (upper_str(current_.value) == "MODEL") consume();
+    mc.action = QueryAST::ModelControl::Action::Predict;
+    parse_model_version_ref(mc.model_name, mc.version);
+    if (current_.type == TokenType::KeywordFor) {
+        consume();
+        parse_paren_kv_pairs(mc.kv);
+        mc.predict_mode = "entity";
+    } else if (current_.type == TokenType::KeywordWith) {
+        consume();
+        parse_paren_kv_pairs(mc.kv);
+        mc.predict_mode = "features";
+    } else if (current_.type == TokenType::KeywordFrom) {
+        consume();
+        mc.from_table = parse_table_name();
+        mc.predict_mode = "batch";
+    }
+}
+
+void Parser::parse_evaluate(std::unique_ptr<QueryAST>& ast) {
+    auto& mc = ast->model_control;
+    consume(); // EVALUATE
+    if (upper_str(current_.value) == "MODEL") consume();
+    mc.action = QueryAST::ModelControl::Action::Evaluate;
+    parse_model_version_ref(mc.model_name, mc.version);
+}
+
+void Parser::parse_compare(std::unique_ptr<QueryAST>& ast) {
+    auto& mc = ast->model_control;
+    consume(); // COMPARE
+    const std::string kw = upper_str(current_.value);
+    if (kw == "MODELS" || kw == "MODEL") consume();
+    mc.action = QueryAST::ModelControl::Action::Compare;
+    while (current_.type != TokenType::EndOfQuery &&
+           current_.type != TokenType::Semicolon) {
+        std::string model;
+        uint32_t version = 0;
+        parse_model_version_ref(model, version);
+        mc.compare_targets.emplace_back(model, version);
+        if (current_.type == TokenType::Comma) { consume(); continue; }
+        break;
+    }
+}
+
+void Parser::parse_generate(std::unique_ptr<QueryAST>& ast) {
+    auto& mc = ast->model_control;
+    consume(); // GENERATE
+    mc.action = QueryAST::ModelControl::Action::Generate;
+    if (upper_str(current_.value) == "USING") consume();
+    if (upper_str(current_.value) == "MODEL") consume();
+    mc.model_name = parse_table_name();
+    if (upper_str(current_.value) == "PROMPT") {
+        consume();
+        mc.prompt = parse_property_value();
+    }
 }
 
 // ── QueryParser — concrete SQL query parser ──

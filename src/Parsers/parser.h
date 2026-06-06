@@ -8,6 +8,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 #include <source_location>
 
@@ -61,6 +63,25 @@ protected:
     auto parse_remove(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_test(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_discover(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_run(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_pause(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_resume(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_publish(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_subscribe(std::unique_ptr<QueryAST>& ast) -> void;
+    auto consume_pipeline_keyword() -> bool;
+    auto consume_stream_keyword() -> bool;
+    auto consume_topic_keyword() -> bool;
+    auto consume_consumer_group_keyword() -> bool;
+    auto parse_retention_clause(QueryAST::Create& create) -> void;
+    auto parse_topic_properties(QueryAST::Create& create) -> void;
+    auto consume_stage_keyword() -> bool;
+    auto consume_task_keyword() -> bool;
+    auto consume_trigger_keyword() -> bool;
+    auto parse_pipeline_owner(QueryAST::Create& create) -> void;
+    auto parse_stage_order(QueryAST::Create& create) -> void;
+    auto parse_task_properties(QueryAST::Create& create) -> void;
+    auto parse_trigger_properties(QueryAST::Create& create) -> void;
+    auto parse_in_pipeline_clause(std::string& pipeline_name) -> void;
     auto parse_storage_unit_properties(QueryAST::Create& create) -> void;
     auto parse_connector_properties(QueryAST::Create& create) -> void;
     auto consume_connector_keyword() -> bool;
@@ -72,6 +93,18 @@ protected:
     auto parse_replica_group_properties(QueryAST::Create& create) -> void;
     auto consume_shard_group_keyword() -> bool;
     auto parse_shard_group_properties(QueryAST::Create& create) -> void;
+
+    // ── MODEL layer ──
+    auto parse_model_clauses(QueryAST::Create& create) -> void;
+    auto parse_feature_set_clauses(QueryAST::Create& create) -> void;
+    auto parse_kv_list(std::unordered_map<std::string, std::string>& out) -> void;
+    auto parse_paren_kv_pairs(std::vector<std::pair<std::string, std::string>>& out) -> void;
+    auto parse_deploy(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_predict(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_evaluate(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_compare(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_generate(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_model_version_ref(std::string& model, uint32_t& version) -> void;
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;

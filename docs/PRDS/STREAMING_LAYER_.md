@@ -5,7 +5,7 @@
 **Product:** Mnemosyne Data Platform
 **Component:** Streaming Layer
 **Version:** 1.0
-**Status:** Draft
+**Status:** Phase 1 Implemented (catalog + in-memory events)
 
 ---
 

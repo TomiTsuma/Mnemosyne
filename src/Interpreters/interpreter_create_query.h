@@ -34,6 +34,34 @@ private:
         -> void;
     static auto do_create_connector(Context& context, const parsers::QueryAST::Create& create)
         -> void;
+    static auto do_create_pipeline(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_stage(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_task(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_trigger(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_stream(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_topic(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_consumer_group(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+
+    // ── MODEL layer ──
+    static auto do_create_model(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_feature_set(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_dataset(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_training_job(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_tuning_job(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
+    static auto do_create_model_template(Context& context, const parsers::QueryAST::Create& create)
+        -> void;
 };
 
 } // namespace mnemo::interpreters

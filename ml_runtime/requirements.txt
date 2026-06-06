@@ -1,0 +1,19 @@
+# Mnemosyne ML runtime dependencies
+# Core (required for train / tune / evaluate / predict):
+scikit-learn>=1.3
+pandas>=2.0
+numpy>=1.24
+joblib>=1.3
+
+# Gradient boosting (optional, enables FRAMEWORK XGBOOST):
+xgboost>=2.0
+
+# Hyperparameter optimization (optional, enables STRATEGY OPTUNA):
+optuna>=3.4
+
+# Optional extras (uncomment to enable):
+# lightgbm>=4.0
+# catboost>=1.2
+# shap>=0.44          # richer EXPLAIN PREDICTION
+# torch>=2.1          # PyTorch / LLM training entrypoints
+# transformers>=4.36  # GENERATE / LLM inference

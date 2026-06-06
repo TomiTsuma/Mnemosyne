@@ -43,6 +43,16 @@ enum class TokenType {
     KeywordShard, KeywordShards, KeywordShardGroup, KeywordShardGroups, KeywordKey,
     KeywordConnector, KeywordConnectors, KeywordTest, KeywordDiscover, KeywordAuth,
     KeywordSchema,
+    KeywordPipeline, KeywordPipelines, KeywordStage, KeywordStages, KeywordTask, KeywordTasks,
+    KeywordTrigger, KeywordTriggers, KeywordRun, KeywordPause, KeywordResume, KeywordSchedule,
+    KeywordDepends, KeywordBody, KeywordOwner, KeywordBuiltin, KeywordBuiltIn,
+    KeywordPipelineRuns, KeywordFor,
+    KeywordStream, KeywordStreams, KeywordTopic, KeywordTopics,
+    KeywordConsumerGroup, KeywordConsumerGroups, KeywordPublish, KeywordSubscribe,
+    KeywordRetain, KeywordStreamMetrics, KeywordPartitions, KeywordDays, KeywordForever,
+
+    // MODEL layer verbs
+    KeywordDeploy, KeywordPredict, KeywordEvaluate, KeywordCompare, KeywordGenerate,
 
     // Literals
     IntegerLiteral, FloatLiteral, StringLiteral,
@@ -53,7 +63,7 @@ enum class TokenType {
     Concat,
 
     // Delimiters
-    Comma, Dot, LParen, RParen, LSquare, RSquare,
+    Comma, Dot, Colon, LParen, RParen, LSquare, RSquare,
 
     // Identifiers
     Identifier,

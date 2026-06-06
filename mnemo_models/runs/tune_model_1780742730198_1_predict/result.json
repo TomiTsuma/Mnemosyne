@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "predictions": [
+    {
+      "entity_key": "",
+      "prediction": "15",
+      "confidence": 0.22423041217486636
+    }
+  ]
+}

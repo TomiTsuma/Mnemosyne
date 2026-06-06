@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added - MODEL Layer
+
+- First-class `MODEL`, `MODEL_VERSION`, `MODEL_RUN`, `TRAINING_JOB`, `TUNING_JOB`, `MODEL_TEMPLATE`, and `MODEL_ENDPOINT` entities with catalog/manager + JSON persistence in `src/Models/`
+- `FEATURE_SET` (full, resolves against real tables) and `DATASET` (minimal) entities in `src/FeatureSets/`
+- Python ML runtime (`ml_runtime/`) spawned as a subprocess for real training, hyperparameter tuning (Optuna with GRID/RANDOM fallback), evaluation, prediction, and generation via scikit-learn / XGBoost
+- Lifecycle SQL: `CREATE`/`RUN TRAINING_JOB`/`RUN TUNING_JOB`, `EVALUATE`, `DEPLOY`, `PREDICT` (FOR/WITH/FROM with `PREDICTION_TABLE` materialization), `COMPARE`, `GENERATE`
+- Model versioning + registry (auto-incrementing `vN` on successful runs), endpoint deployment, and per-endpoint monitoring counters
+- Introspection: `SHOW MODELS/MODEL VERSIONS/MODEL ENDPOINTS/MODEL METRICS/MODEL DRIFT/FEATURE_SETS/DATASETS/TRAINING_JOBS/TUNING_JOBS/MODEL_TEMPLATES`, `DESCRIBE` for each entity (incl. `MODEL VERSION m:vN`)
+- Python E2E: `scripts/test_ml_runtime.py` (12), `scripts/test_feature_sets_api.py` (28), `scripts/test_models_api.py` (54), `scripts/test_tuning_api.py` (27)
+- Details: [docs/changelog/060626-model_layer_changelog.md](docs/changelog/060626-model_layer_changelog.md)
+
+### Added - Streaming Layer Phase 1
+
+- First-class `STREAM`, `TOPIC`, and `CONSUMER_GROUP` entities with catalog/manager in `src/Streaming/`
+- In-memory event log: `INSERT INTO <stream>`, `PUBLISH <topic>`, `SUBSCRIBE` with optional consumer-group offsets
+- Introspection: `SHOW STREAMS/TOPICS/CONSUMER_GROUPS/STREAM_METRICS`, `DESCRIBE STREAM/TOPIC/CONSUMER_GROUP`
+- `ALTER STREAM SET RETENTION`; topic-to-stream binding for publish routing
+- Python E2E: `scripts/test_streams_api.py` (58 checks)
+- HTTP JSON response escaping for string payloads containing quotes
+- Details: [docs/changelog/060626-streaming_layer_phase1_changelog.md](docs/changelog/060626-streaming_layer_phase1_changelog.md)
+
+### Added - Pipeline Layer Phase 1
+
+- First-class `PIPELINE`, `STAGE`, `TASK`, and `TRIGGER` entities with catalog/manager in `src/Pipelines/`
+- In-process DAG execution (`RUN PIPELINE`) with SQL and BUILT_IN task types, dependency ordering, and cycle detection
+- Cron schedule triggers via background `PipelineScheduler` (5s tick); manual `RUN` / `PAUSE` / `RESUME` lifecycle
+- Introspection: `SHOW PIPELINES/STAGES/TASKS/TRIGGERS/PIPELINE_RUNS/PIPELINE_METRICS`, `DESCRIBE PIPELINE`
+- Python E2E: `scripts/test_pipelines_api.py` (45 checks)
+- Details: [docs/changelog/060626-pipeline_layer_phase1_changelog.md](docs/changelog/060626-pipeline_layer_phase1_changelog.md)
+
 ### Added - Database Functionality (Levels 1-7)
 
 #### Analyzer Implementation

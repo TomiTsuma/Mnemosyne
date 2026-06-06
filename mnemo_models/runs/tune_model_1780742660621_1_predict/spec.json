@@ -1,0 +1,28 @@
+{
+  "action": "predict",
+  "run_id": "tune_model_1780742660621_1_predict",
+  "model": "tune_model",
+  "model_type": "",
+  "framework": "",
+  "algorithm": "",
+  "entrypoint": "",
+  "objective": "",
+  "entity_key": "",
+  "features": [],
+  "target": "",
+  "hyperparameters": {},
+  "strategy": "",
+  "trials": 0,
+  "search_space": {},
+  "artifact_in": "mnemo_models\\runs\\tune_model_1780742650870_0\\model.joblib",
+  "artifact_out": "mnemo_models\\runs\\tune_model_1780742660621_1_predict\\model.joblib",
+  "predict_mode": "features",
+  "predict_features": {
+    "f1": "16",
+    "f2": "70",
+    "f3": "6"
+  },
+  "prompt": "",
+  "data_csv": "",
+  "result_path": "mnemo_models\\runs\\tune_model_1780742660621_1_predict\\result.json"
+}

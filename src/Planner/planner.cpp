@@ -420,10 +420,102 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->show_type = "CONNECTOR_STATUS";
             plan_node->table_name = node.show_node_name;
             break;
+        case analyzer::DDLNode::Kind::ShowPipelines:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "PIPELINES";
+            break;
+        case analyzer::DDLNode::Kind::ShowStages:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "STAGES";
+            plan_node->table_name = node.pipeline_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowTasks:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TASKS";
+            plan_node->table_name = node.pipeline_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowTriggers:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TRIGGERS";
+            plan_node->table_name = node.pipeline_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowPipelineRuns:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "PIPELINE_RUNS";
+            plan_node->table_name = node.pipeline_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowPipelineMetrics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "PIPELINE_METRICS";
+            plan_node->table_name = node.pipeline_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowStreams:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "STREAMS";
+            break;
+        case analyzer::DDLNode::Kind::ShowTopics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TOPICS";
+            break;
+        case analyzer::DDLNode::Kind::ShowConsumerGroups:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CONSUMER_GROUPS";
+            break;
+        case analyzer::DDLNode::Kind::ShowStreamMetrics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "STREAM_METRICS";
+            plan_node->table_name = node.stream_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowModels:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODELS";
+            break;
+        case analyzer::DDLNode::Kind::ShowModelVersions:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODEL_VERSIONS";
+            plan_node->table_name = node.model_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowModelEndpoints:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODEL_ENDPOINTS";
+            plan_node->table_name = node.model_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowModelMetrics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODEL_METRICS";
+            plan_node->table_name = node.model_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowModelDrift:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODEL_DRIFT";
+            plan_node->table_name = node.model_name;
+            break;
+        case analyzer::DDLNode::Kind::ShowFeatureSets:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "FEATURE_SETS";
+            break;
+        case analyzer::DDLNode::Kind::ShowDatasets:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "DATASETS";
+            break;
+        case analyzer::DDLNode::Kind::ShowTrainingJobs:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TRAINING_JOBS";
+            break;
+        case analyzer::DDLNode::Kind::ShowTuningJobs:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TUNING_JOBS";
+            break;
+        case analyzer::DDLNode::Kind::ShowModelTemplates:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "MODEL_TEMPLATES";
+            break;
         case analyzer::DDLNode::Kind::Describe:
             plan_node->node_type = PlanNode::Type::DESCRIBE;
-            plan_node->table_name = node.table;
+            plan_node->table_name = node.describe_kind == parsers::QueryAST::ObjectKind::ModelVersion
+                ? node.model_name : node.table;
             plan_node->describe_object_kind = node.describe_kind;
+            plan_node->model_version = node.model_version;
             break;
         case analyzer::DDLNode::Kind::Explain:
             plan_node->node_type = PlanNode::Type::EXPLAIN;

@@ -5,6 +5,7 @@
 #include "Common/exceptions.h"
 #include <algorithm>
 #include <cctype>
+#include <unordered_map>
 
 namespace mnemo::parsers {
 
@@ -48,6 +49,11 @@ auto Lexer::next() -> Token {
         }
         case ';': {
             auto token = make_token(TokenType::Semicolon, std::string(1, c));
+            advance_pos(1);
+            return token;
+        }
+        case ':': {
+            auto token = make_token(TokenType::Colon, std::string(1, c));
             advance_pos(1);
             return token;
         }
@@ -229,6 +235,99 @@ auto Lexer::read_string() -> Token {
     return make_token(TokenType::StringLiteral, std::move(str));
 }
 
+namespace {
+
+auto keyword_map() -> const std::unordered_map<std::string, TokenType>& {
+    static const std::unordered_map<std::string, TokenType> map = {
+        {"SELECT", TokenType::KeywordSelect}, {"FROM", TokenType::KeywordFrom},
+        {"WHERE", TokenType::KeywordWhere}, {"ORDER", TokenType::KeywordOrder},
+        {"BY", TokenType::KeywordBy}, {"GROUP", TokenType::KeywordGroup},
+        {"HAVING", TokenType::KeywordHaving}, {"LIMIT", TokenType::KeywordLimit},
+        {"OFFSET", TokenType::KeywordOffset}, {"AS", TokenType::KeywordAs},
+        {"AND", TokenType::KeywordAnd}, {"OR", TokenType::KeywordOr},
+        {"NOT", TokenType::KeywordNot}, {"NULL", TokenType::KeywordNull},
+        {"TRUE", TokenType::KeywordTrue}, {"FALSE", TokenType::KeywordFalse},
+        {"SUM", TokenType::KeywordSum}, {"COUNT", TokenType::KeywordCount},
+        {"AVG", TokenType::KeywordAvg}, {"MIN", TokenType::KeywordMin},
+        {"MAX", TokenType::KeywordMax}, {"INSERT", TokenType::KeywordInsert},
+        {"INTO", TokenType::KeywordInto}, {"VALUES", TokenType::KeywordValues},
+        {"CREATE", TokenType::KeywordCreate}, {"TABLE", TokenType::KeywordTable},
+        {"DROP", TokenType::KeywordDrop}, {"SHOW", TokenType::KeywordShow},
+        {"DATABASES", TokenType::KeywordShow}, {"DATABASE", TokenType::KeywordDatabase},
+        {"TABLES", TokenType::KeywordTable}, {"DESCRIBE", TokenType::KeywordDescribe},
+        {"DESC", TokenType::KeywordDesc}, {"EXPLAIN", TokenType::KeywordExplain},
+        {"JOIN", TokenType::KeywordJoin}, {"LEFT", TokenType::KeywordLeft},
+        {"RIGHT", TokenType::KeywordRight}, {"INNER", TokenType::KeywordInner},
+        {"ON", TokenType::KeywordOn}, {"UNION", TokenType::KeywordAll},
+        {"ALL", TokenType::KeywordAll}, {"WITH", TokenType::KeywordWith},
+        {"ROLLUP", TokenType::KeywordRollup}, {"ARRAY", TokenType::KeywordArray},
+        {"LATERAL", TokenType::KeywordLateral}, {"ANY", TokenType::KeywordAny},
+        {"DISTINCT", TokenType::KeywordDistinct}, {"ASC", TokenType::KeywordAsc},
+        {"USE", TokenType::KeywordUse}, {"ALTER", TokenType::KeywordAlter},
+        {"IF", TokenType::KeywordIf}, {"EXISTS", TokenType::KeywordExists},
+        {"ENGINE", TokenType::KeywordEngine}, {"TRUNCATE", TokenType::KeywordTruncate},
+        {"DETACH", TokenType::KeywordDetach}, {"ADD", TokenType::KeywordAdd},
+        {"COLUMN", TokenType::KeywordColumn}, {"MODIFY", TokenType::KeywordModify},
+        {"IN", TokenType::KeywordIn}, {"OVER", TokenType::KeywordOver},
+        {"PARTITION", TokenType::KeywordPartition}, {"VIEW", TokenType::KeywordView},
+        {"VIEWS", TokenType::KeywordViews}, {"MATERIALIZED", TokenType::KeywordMaterialized},
+        {"REFRESH", TokenType::KeywordRefresh}, {"STORAGE", TokenType::KeywordStorage},
+        {"UNIT", TokenType::KeywordUnit}, {"UNITS", TokenType::KeywordUnits},
+        {"TYPE", TokenType::KeywordType}, {"PATH", TokenType::KeywordPath},
+        {"BUCKET", TokenType::KeywordBucket}, {"ENDPOINT", TokenType::KeywordEndpoint},
+        {"REGION", TokenType::KeywordRegion}, {"USAGE", TokenType::KeywordUsage},
+        {"NODE", TokenType::KeywordNode}, {"NODES", TokenType::KeywordNodes},
+        {"REGISTER", TokenType::KeywordRegister}, {"DRAIN", TokenType::KeywordDrain},
+        {"REMOVE", TokenType::KeywordRemove}, {"HOST", TokenType::KeywordHost},
+        {"PORT", TokenType::KeywordPort}, {"ROLE", TokenType::KeywordRole},
+        {"SET", TokenType::KeywordSet}, {"METRICS", TokenType::KeywordMetrics},
+        {"CAPABILITIES", TokenType::KeywordCapabilities}, {"WORKER", TokenType::KeywordWorker},
+        {"COORDINATOR", TokenType::KeywordCoordinator}, {"OBSERVER", TokenType::KeywordObserver},
+        {"COMPUTE", TokenType::KeywordCompute}, {"HYBRID", TokenType::KeywordHybrid},
+        {"GPU", TokenType::KeywordGpu}, {"CLUSTER", TokenType::KeywordCluster},
+        {"CLUSTERS", TokenType::KeywordClusters}, {"REPLICAS", TokenType::KeywordReplicas},
+        {"REPLICA", TokenType::KeywordReplica}, {"REPLICA_GROUP", TokenType::KeywordReplicaGroup},
+        {"REPLICA_GROUPS", TokenType::KeywordReplicaGroups},
+        {"REPLICATION", TokenType::KeywordReplication}, {"STATUS", TokenType::KeywordStatus},
+        {"CONSISTENCY", TokenType::KeywordConsistency}, {"QUORUM", TokenType::KeywordQuorum},
+        {"SYNCHRONOUS", TokenType::KeywordSynchronous},
+        {"ASYNCHRONOUS", TokenType::KeywordAsynchronous},
+        {"PLACEMENT", TokenType::KeywordPlacement}, {"NODE_AWARE", TokenType::KeywordNodeAware},
+        {"SHARD", TokenType::KeywordShard}, {"SHARDS", TokenType::KeywordShards},
+        {"SHARD_GROUP", TokenType::KeywordShardGroup},
+        {"SHARD_GROUPS", TokenType::KeywordShardGroups}, {"KEY", TokenType::KeywordKey},
+        {"CONNECTOR", TokenType::KeywordConnector}, {"CONNECTORS", TokenType::KeywordConnectors},
+        {"TEST", TokenType::KeywordTest}, {"DISCOVER", TokenType::KeywordDiscover},
+        {"AUTH", TokenType::KeywordAuth}, {"SCHEMA", TokenType::KeywordSchema},
+        {"PIPELINE", TokenType::KeywordPipeline}, {"PIPELINES", TokenType::KeywordPipelines},
+        {"STAGE", TokenType::KeywordStage}, {"STAGES", TokenType::KeywordStages},
+        {"TASK", TokenType::KeywordTask}, {"TASKS", TokenType::KeywordTasks},
+        {"TRIGGER", TokenType::KeywordTrigger}, {"TRIGGERS", TokenType::KeywordTriggers},
+        {"RUN", TokenType::KeywordRun}, {"PAUSE", TokenType::KeywordPause},
+        {"RESUME", TokenType::KeywordResume}, {"SCHEDULE", TokenType::KeywordSchedule},
+        {"DEPENDS", TokenType::KeywordDepends}, {"BODY", TokenType::KeywordBody},
+        {"OWNER", TokenType::KeywordOwner}, {"BUILTIN", TokenType::KeywordBuiltin},
+        {"BUILT_IN", TokenType::KeywordBuiltin},         {"PIPELINE_RUNS", TokenType::KeywordPipelineRuns},
+        {"FOR", TokenType::KeywordFor},
+        {"STREAM", TokenType::KeywordStream}, {"STREAMS", TokenType::KeywordStreams},
+        {"TOPIC", TokenType::KeywordTopic}, {"TOPICS", TokenType::KeywordTopics},
+        {"CONSUMER_GROUP", TokenType::KeywordConsumerGroup},
+        {"CONSUMER_GROUPS", TokenType::KeywordConsumerGroups},
+        {"PUBLISH", TokenType::KeywordPublish}, {"SUBSCRIBE", TokenType::KeywordSubscribe},
+        {"RETAIN", TokenType::KeywordRetain},
+        {"STREAM_METRICS", TokenType::KeywordStreamMetrics},
+        {"PARTITIONS", TokenType::KeywordPartitions},
+        {"DAYS", TokenType::KeywordDays}, {"FOREVER", TokenType::KeywordForever},
+        // MODEL layer verbs
+        {"DEPLOY", TokenType::KeywordDeploy}, {"PREDICT", TokenType::KeywordPredict},
+        {"EVALUATE", TokenType::KeywordEvaluate}, {"COMPARE", TokenType::KeywordCompare},
+        {"GENERATE", TokenType::KeywordGenerate},
+    };
+    return map;
+}
+
+} // namespace
+
 auto Lexer::read_identifier() -> Token {
     size_t start = pos_;
     while (pos_ < source_.size() && (std::isalnum(source_[pos_]) || source_[pos_] == '_')) {
@@ -241,130 +340,14 @@ auto Lexer::read_identifier() -> Token {
     std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
 
     TokenType type = TokenType::Identifier;
-    if (upper == "SELECT") type = TokenType::KeywordSelect;
-    else if (upper == "FROM") type = TokenType::KeywordFrom;
-    else if (upper == "WHERE") type = TokenType::KeywordWhere;
-    else if (upper == "ORDER") type = TokenType::KeywordOrder;
-    else if (upper == "BY") type = TokenType::KeywordBy;
-    else if (upper == "GROUP") type = TokenType::KeywordGroup;
-    else if (upper == "HAVING") type = TokenType::KeywordHaving;
-    else if (upper == "LIMIT") type = TokenType::KeywordLimit;
-    else if (upper == "OFFSET") type = TokenType::KeywordOffset;
-    else if (upper == "AS") type = TokenType::KeywordAs;
-    else if (upper == "AND") type = TokenType::KeywordAnd;
-    else if (upper == "OR") type = TokenType::KeywordOr;
-    else if (upper == "NOT") type = TokenType::KeywordNot;
-    else if (upper == "NULL") type = TokenType::KeywordNull;
-    else if (upper == "TRUE") type = TokenType::KeywordTrue;
-    else if (upper == "FALSE") type = TokenType::KeywordFalse;
-    else if (upper == "SUM") type = TokenType::KeywordSum;
-    else if (upper == "COUNT") type = TokenType::KeywordCount;
-    else if (upper == "AVG") type = TokenType::KeywordAvg;
-    else if (upper == "MIN") type = TokenType::KeywordMin;
-    else if (upper == "MAX") type = TokenType::KeywordMax;
-    else if (upper == "INSERT") type = TokenType::KeywordInsert;
-    else if (upper == "INTO") type = TokenType::KeywordInto;
-    else if (upper == "VALUES") type = TokenType::KeywordValues;
-    else if (upper == "CREATE") type = TokenType::KeywordCreate;
-    else if (upper == "TABLE") type = TokenType::KeywordTable;
-    else if (upper == "DROP") type = TokenType::KeywordDrop;
-    else if (upper == "SHOW") type = TokenType::KeywordShow;
-    else if (upper == "DATABASES") type = TokenType::KeywordShow;
-    else if (upper == "DATABASE") type = TokenType::KeywordDatabase;
-    else if (upper == "TABLES") type = TokenType::KeywordTable;
-    else if (upper == "DESCRIBE") type = TokenType::KeywordDescribe;
-    else if (upper == "DESC") type = TokenType::KeywordDesc;
-    else if (upper == "EXPLAIN") type = TokenType::KeywordExplain;
-    else if (upper == "JOIN") type = TokenType::KeywordJoin;
-    else if (upper == "LEFT") type = TokenType::KeywordLeft;
-    else if (upper == "RIGHT") type = TokenType::KeywordRight;
-    else if (upper == "INNER") type = TokenType::KeywordInner;
-    else if (upper == "ON") type = TokenType::KeywordOn;
-    else if (upper == "UNION") type = TokenType::KeywordAll;
-    else if (upper == "ALL") type = TokenType::KeywordAll;
-    else if (upper == "WITH") type = TokenType::KeywordWith;
-    else if (upper == "ROLLUP") type = TokenType::KeywordRollup;
-    else if (upper == "ARRAY") type = TokenType::KeywordArray;
-    else if (upper == "LATERAL") type = TokenType::KeywordLateral;
-    else if (upper == "ANY") type = TokenType::KeywordAny;
-    else if (upper == "DISTINCT") type = TokenType::KeywordDistinct;
-    else if (upper == "ASC") type = TokenType::KeywordAsc;
-    else if (upper == "DESC") type = TokenType::KeywordDesc;
-    else if (upper == "USE") type = TokenType::KeywordUse;
-    else if (upper == "ALTER") type = TokenType::KeywordAlter;
-    else if (upper == "IF") type = TokenType::KeywordIf;
-    else if (upper == "EXISTS") type = TokenType::KeywordExists;
-    else if (upper == "ENGINE") type = TokenType::KeywordEngine;
-    else if (upper == "TRUNCATE") type = TokenType::KeywordTruncate;
-    else if (upper == "DETACH") type = TokenType::KeywordDetach;
-    else if (upper == "ADD") type = TokenType::KeywordAdd;
-    else if (upper == "COLUMN") type = TokenType::KeywordColumn;
-    else if (upper == "MODIFY") type = TokenType::KeywordModify;
-    else if (upper == "IN") type = TokenType::KeywordIn;
-    else if (upper == "OVER") type = TokenType::KeywordOver;
-    else if (upper == "PARTITION") type = TokenType::KeywordPartition;
-    else if (upper == "VIEW") type = TokenType::KeywordView;
-    else if (upper == "VIEWS") type = TokenType::KeywordViews;
-    else if (upper == "MATERIALIZED") type = TokenType::KeywordMaterialized;
-    else if (upper == "REFRESH") type = TokenType::KeywordRefresh;
-    else if (upper == "STORAGE") type = TokenType::KeywordStorage;
-    else if (upper == "UNIT") type = TokenType::KeywordUnit;
-    else if (upper == "UNITS") type = TokenType::KeywordUnits;
-    else if (upper == "TYPE") type = TokenType::KeywordType;
-    else if (upper == "PATH") type = TokenType::KeywordPath;
-    else if (upper == "BUCKET") type = TokenType::KeywordBucket;
-    else if (upper == "ENDPOINT") type = TokenType::KeywordEndpoint;
-    else if (upper == "REGION") type = TokenType::KeywordRegion;
-    else if (upper == "USAGE") type = TokenType::KeywordUsage;
-    else if (upper == "NODE") type = TokenType::KeywordNode;
-    else if (upper == "NODES") type = TokenType::KeywordNodes;
-    else if (upper == "REGISTER") type = TokenType::KeywordRegister;
-    else if (upper == "DRAIN") type = TokenType::KeywordDrain;
-    else if (upper == "REMOVE") type = TokenType::KeywordRemove;
-    else if (upper == "HOST") type = TokenType::KeywordHost;
-    else if (upper == "PORT") type = TokenType::KeywordPort;
-    else if (upper == "ROLE") type = TokenType::KeywordRole;
-    else if (upper == "SET") type = TokenType::KeywordSet;
-    else if (upper == "METRICS") type = TokenType::KeywordMetrics;
-    else if (upper == "CAPABILITIES") type = TokenType::KeywordCapabilities;
-    else if (upper == "WORKER") type = TokenType::KeywordWorker;
-    else if (upper == "COORDINATOR") type = TokenType::KeywordCoordinator;
-    else if (upper == "OBSERVER") type = TokenType::KeywordObserver;
-    else if (upper == "COMPUTE") type = TokenType::KeywordCompute;
-    else if (upper == "HYBRID") type = TokenType::KeywordHybrid;
-    else if (upper == "GPU") type = TokenType::KeywordGpu;
-    else if (upper == "CLUSTER") type = TokenType::KeywordCluster;
-    else if (upper == "CLUSTERS") type = TokenType::KeywordClusters;
-    else if (upper == "REPLICAS") type = TokenType::KeywordReplicas;
-    else if (upper == "REPLICA") type = TokenType::KeywordReplica;
-    else if (upper == "REPLICA_GROUP") type = TokenType::KeywordReplicaGroup;
-    else if (upper == "REPLICA_GROUPS") type = TokenType::KeywordReplicaGroups;
-    else if (upper == "REPLICATION") type = TokenType::KeywordReplication;
-    else if (upper == "STATUS") type = TokenType::KeywordStatus;
-    else if (upper == "CONSISTENCY") type = TokenType::KeywordConsistency;
-    else if (upper == "QUORUM") type = TokenType::KeywordQuorum;
-    else if (upper == "SYNCHRONOUS") type = TokenType::KeywordSynchronous;
-    else if (upper == "ASYNCHRONOUS") type = TokenType::KeywordAsynchronous;
-    else if (upper == "PLACEMENT") type = TokenType::KeywordPlacement;
-    else if (upper == "NODE_AWARE") type = TokenType::KeywordNodeAware;
-    else if (upper == "SHARD") type = TokenType::KeywordShard;
-    else if (upper == "SHARDS") type = TokenType::KeywordShards;
-    else if (upper == "SHARD_GROUP") type = TokenType::KeywordShardGroup;
-    else if (upper == "SHARD_GROUPS") type = TokenType::KeywordShardGroups;
-    else if (upper == "KEY") type = TokenType::KeywordKey;
-    else if (upper == "CONNECTOR") type = TokenType::KeywordConnector;
-    else if (upper == "CONNECTORS") type = TokenType::KeywordConnectors;
-    else if (upper == "TEST") type = TokenType::KeywordTest;
-    else if (upper == "DISCOVER") type = TokenType::KeywordDiscover;
-    else if (upper == "AUTH") type = TokenType::KeywordAuth;
-    else if (upper == "SCHEMA") type = TokenType::KeywordSchema;
+    if (const auto it = keyword_map().find(upper); it != keyword_map().end()) {
+        type = it->second;
+    }
 
     return make_token(type, std::move(id));
 }
 
 auto Lexer::make_token(TokenType type, std::string value) const -> Token {
-    std::fprintf(stderr, "Lexer::make_token type=%d value='%s' line=%u col=%u\n",
-                 static_cast<int>(type), value.c_str(), line_, col_);
     return Token{type, std::move(value), {file_, line_, col_}};
 }
 

@@ -1,0 +1,28 @@
+{
+  "action": "evaluate",
+  "run_id": "churn_model_1780742887865_1_eval",
+  "model": "churn_model",
+  "model_type": "",
+  "framework": "",
+  "algorithm": "",
+  "entrypoint": "",
+  "objective": "",
+  "entity_key": "customer_id",
+  "features": [
+    "tenure",
+    "monthly_charges",
+    "support_calls"
+  ],
+  "target": "churn",
+  "hyperparameters": {},
+  "strategy": "",
+  "trials": 0,
+  "search_space": {},
+  "artifact_in": "mnemo_models\\runs\\churn_model_1780742882775_0\\model.joblib",
+  "artifact_out": "mnemo_models\\runs\\churn_model_1780742887865_1_eval\\model.joblib",
+  "predict_mode": "",
+  "predict_features": {},
+  "prompt": "",
+  "data_csv": "mnemo_models\\runs\\churn_model_1780742887865_1_eval\\data.csv",
+  "result_path": "mnemo_models\\runs\\churn_model_1780742887865_1_eval\\result.json"
+}

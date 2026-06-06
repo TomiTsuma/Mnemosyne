@@ -21,6 +21,13 @@
 #include "ShardGroups/shard_group_manager.h"
 #include "Connectors/connector_catalog.h"
 #include "Connectors/connector_manager.h"
+#include "Pipelines/pipeline_catalog.h"
+#include "Pipelines/pipeline_manager.h"
+#include "Streaming/stream_manager.h"
+#include "Models/model_manager.h"
+#include "Models/model_catalog.h"
+#include "FeatureSets/feature_set_manager.h"
+#include "FeatureSets/feature_set_catalog.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -66,10 +73,51 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
         case parsers::QueryAST::Create::Kind::Connector:
             do_create_connector(context, query.create);
             break;
+        case parsers::QueryAST::Create::Kind::Pipeline:
+            do_create_pipeline(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Stage:
+            do_create_stage(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Task:
+            do_create_task(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Trigger:
+            do_create_trigger(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Stream:
+            do_create_stream(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Topic:
+            do_create_topic(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::ConsumerGroup:
+            do_create_consumer_group(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Model:
+            do_create_model(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::FeatureSet:
+            do_create_feature_set(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::Dataset:
+            do_create_dataset(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::TrainingJob:
+            do_create_training_job(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::TuningJob:
+            do_create_tuning_job(context, query.create);
+            break;
+        case parsers::QueryAST::Create::Kind::ModelTemplate:
+            do_create_model_template(context, query.create);
+            break;
         default:
             throw common::Exception{
                 "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, STORAGE_UNIT, "
-                "NODE, CLUSTER, REPLICA_GROUP, SHARD_GROUP, or CONNECTOR",
+                "NODE, CLUSTER, REPLICA_GROUP, SHARD_GROUP, CONNECTOR, STREAM, TOPIC, "
+                "CONSUMER_GROUP, PIPELINE, STAGE, TASK, TRIGGER, MODEL, FEATURE_SET, DATASET, "
+                "TRAINING_JOB, TUNING_JOB, or MODEL_TEMPLATE",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 
@@ -393,6 +441,202 @@ auto InterpreterCreateQuery::do_create_connector(
     }
     entry.properties = create.connector_properties;
     mgr.create_connector(std::move(entry));
+}
+
+auto InterpreterCreateQuery::do_create_pipeline(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    pipelines::PipelineEntry entry;
+    entry.name = create.pipeline_name;
+    entry.owner = create.pipeline_owner;
+    pipelines::PipelineManager::instance().create_pipeline(std::move(entry),
+                                                             create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_stage(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    pipelines::StageEntry stage;
+    stage.name = create.stage_name;
+    stage.order = create.stage_order;
+    pipelines::PipelineManager::instance().create_stage(
+        create.pipeline_name, std::move(stage), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_task(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    pipelines::TaskEntry task;
+    task.name = create.task_name;
+    task.type = pipelines::parse_task_type(create.task_type);
+    task.body = create.task_body;
+    task.depends_on = create.task_depends_on;
+    pipelines::PipelineManager::instance().create_task(
+        create.pipeline_name, create.stage_name, std::move(task), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_trigger(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    pipelines::TriggerEntry trigger;
+    trigger.name = create.trigger_name;
+    if (!create.trigger_schedule.empty()) {
+        trigger.type = pipelines::TriggerType::Schedule;
+        trigger.schedule = create.trigger_schedule;
+    } else {
+        trigger.type = pipelines::TriggerType::Manual;
+    }
+    pipelines::PipelineManager::instance().create_trigger(
+        create.pipeline_name, std::move(trigger), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_stream(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    streaming::StreamEntry entry;
+    entry.name = create.stream_name;
+    entry.topic_name = create.topic_name;
+    entry.retention_days = create.retention_days;
+    entry.retention = create.retention_forever
+        ? streaming::RetentionPolicy::Forever
+        : streaming::RetentionPolicy::Days;
+    streaming::StreamManager::instance().create_stream(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_topic(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    streaming::TopicEntry entry;
+    entry.name = create.topic_name;
+    entry.partition_count = create.partition_count;
+    entry.retention_days = create.retention_days;
+    entry.retention = create.retention_forever
+        ? streaming::RetentionPolicy::Forever
+        : streaming::RetentionPolicy::Days;
+    streaming::StreamManager::instance().create_topic(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_consumer_group(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    streaming::ConsumerGroupEntry entry;
+    entry.name = create.consumer_group_name;
+    streaming::StreamManager::instance().create_consumer_group(
+        std::move(entry), create.if_not_exists);
+}
+
+// ── MODEL layer ──
+
+namespace {
+auto to_ordered_map(const std::unordered_map<std::string, std::string>& in)
+    -> std::map<std::string, std::string> {
+    return {in.begin(), in.end()};
+}
+} // namespace
+
+auto InterpreterCreateQuery::do_create_model(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    models::ModelEntry entry;
+    entry.name = create.model_name;
+    if (!create.model_type.empty()) {
+        models::ModelType t;
+        if (!models::parse_model_type(create.model_type, t)) {
+            throw common::Exception{
+                "CREATE MODEL: unknown TYPE '" + create.model_type + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        entry.type = t;
+    }
+    entry.owner = create.pipeline_owner;
+    models::ModelManager::instance().create_model(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_feature_set(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    feature_sets::FeatureSetEntry entry;
+    entry.name = create.feature_set_name;
+    entry.source_table = create.source_table;
+    entry.entity_key = create.entity_key;
+    entry.features = create.features;
+    entry.target = create.target;
+    feature_sets::FeatureSetManager::instance().create_feature_set(
+        std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_dataset(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    feature_sets::DatasetEntry entry;
+    entry.name = create.dataset_name;
+    entry.source = create.source_table;
+    feature_sets::FeatureSetManager::instance().create_dataset(
+        std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_training_job(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    models::TrainingJobEntry entry;
+    entry.name = create.training_job_name;
+    entry.model = create.ref_model;
+    entry.feature_set = create.ref_feature_set;
+    entry.dataset = create.ref_dataset;
+    entry.algorithm = create.algorithm;
+    entry.entrypoint = create.entrypoint;
+    entry.objective = create.objective;
+    entry.hyperparams = to_ordered_map(create.hyperparams);
+    if (!create.framework.empty()) {
+        models::Framework f;
+        if (!models::parse_framework(create.framework, f)) {
+            throw common::Exception{
+                "CREATE TRAINING_JOB: unknown FRAMEWORK '" + create.framework + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        entry.framework = f;
+    }
+    models::ModelManager::instance().create_training_job(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_tuning_job(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    models::TuningJobEntry entry;
+    entry.name = create.tuning_job_name;
+    entry.model = create.ref_model;
+    entry.training_job = create.ref_training_job;
+    entry.objective = create.objective;
+    if (create.trials > 0) entry.trials = create.trials;
+    entry.search_space = to_ordered_map(create.search_space);
+    if (!create.strategy.empty()) {
+        models::TuningStrategy s;
+        if (!models::parse_tuning_strategy(create.strategy, s)) {
+            throw common::Exception{
+                "CREATE TUNING_JOB: unknown STRATEGY '" + create.strategy + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        entry.strategy = s;
+    }
+    models::ModelManager::instance().create_tuning_job(std::move(entry), create.if_not_exists);
+}
+
+auto InterpreterCreateQuery::do_create_model_template(
+    Context& context, const parsers::QueryAST::Create& create) -> void {
+    (void)context;
+    models::ModelTemplateEntry entry;
+    entry.name = create.model_template_name;
+    entry.algorithm = create.algorithm;
+    if (!create.framework.empty()) {
+        models::Framework f;
+        if (!models::parse_framework(create.framework, f)) {
+            throw common::Exception{
+                "CREATE MODEL_TEMPLATE: unknown FRAMEWORK '" + create.framework + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        entry.framework = f;
+    }
+    models::ModelManager::instance().create_template(std::move(entry), create.if_not_exists);
 }
 
 } // namespace mnemo::interpreters

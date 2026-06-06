@@ -1,0 +1,635 @@
+{
+  "models": [],
+  "templates": [],
+  "training_jobs": [],
+  "tuning_jobs": [],
+  "runs": [
+    {
+      "run_id": "tune_model_1780742650870_0_trial5",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "10",
+        "n_estimators": "31"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.233333333333,
+        "PRECISION": 0.25,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "churn_model_1780742270537_0",
+      "model": "churn_model",
+      "training_job": "churn_training",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "60"
+      },
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_1780742270537_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742270,
+      "end_time": 1780742275
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial2",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "51"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.233333333333,
+        "PRECISION": 0.25,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "churn_model_b_1780742292200_5",
+      "model": "churn_model_b",
+      "training_job": "churn_training_b",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {},
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_b_1780742292200_5\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742292,
+      "end_time": 1780742296
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_trial2",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "51"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.22380952381,
+        "PRECISION": 0.24,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_best",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.2625,
+        "PRECISION": 0.240476190476,
+        "RECALL": 0.35
+      },
+      "artifact_location": "mnemo_models\\runs\\tune_model_1780742650870_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "churn_model_1780742454721_0",
+      "model": "churn_model",
+      "training_job": "churn_training",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "60"
+      },
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_1780742454721_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742454,
+      "end_time": 1780742458
+    },
+    {
+      "run_id": "churn_model_b_1780742478423_5",
+      "model": "churn_model_b",
+      "training_job": "churn_training_b",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {},
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_b_1780742478423_5\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742478,
+      "end_time": 1780742482
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_trial3",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "5",
+        "n_estimators": "37"
+      },
+      "metrics": {
+        "ACCURACY": 0.3,
+        "F1": 0.27380952381,
+        "PRECISION": 0.266666666667,
+        "RECALL": 0.3
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_trial0",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "12",
+        "n_estimators": "34"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.233333333333,
+        "PRECISION": 0.25,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_trial1",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.258531746032,
+        "PRECISION": 0.227142857143,
+        "RECALL": 0.35
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "tune_model_1780742650870_0_trial4",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "3",
+        "n_estimators": "106"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.276666666667,
+        "PRECISION": 0.245833333333,
+        "RECALL": 0.35
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742660,
+      "end_time": 1780742660
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial0",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "12",
+        "n_estimators": "34"
+      },
+      "metrics": {
+        "ACCURACY": 0.15,
+        "F1": 0.125714285714,
+        "PRECISION": 0.108333333333,
+        "RECALL": 0.15
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial1",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.2625,
+        "PRECISION": 0.240476190476,
+        "RECALL": 0.35
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial3",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "5",
+        "n_estimators": "37"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.22380952381,
+        "PRECISION": 0.216666666667,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial4",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "3",
+        "n_estimators": "106"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.297619047619,
+        "PRECISION": 0.308333333333,
+        "RECALL": 0.35
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_trial5",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "10",
+        "n_estimators": "31"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.232380952381,
+        "PRECISION": 0.241666666667,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742719342_0_best",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.2625,
+        "PRECISION": 0.240476190476,
+        "RECALL": 0.35
+      },
+      "artifact_location": "mnemo_models\\runs\\tune_model_1780742719342_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742730,
+      "end_time": 1780742730
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial2",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "51"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.22380952381,
+        "PRECISION": 0.216666666667,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "churn_model_1780742882775_0",
+      "model": "churn_model",
+      "training_job": "churn_training",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "6",
+        "n_estimators": "60"
+      },
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_1780742882775_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742882,
+      "end_time": 1780742887
+    },
+    {
+      "run_id": "churn_model_b_1780742913160_5",
+      "model": "churn_model_b",
+      "training_job": "churn_training_b",
+      "tuning_job": "",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {},
+      "metrics": {
+        "ACCURACY": 1,
+        "F1": 1,
+        "PRECISION": 1,
+        "PR_AUC": 1,
+        "RECALL": 1,
+        "ROC_AUC": 1
+      },
+      "artifact_location": "mnemo_models\\runs\\churn_model_b_1780742913160_5\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742913,
+      "end_time": 1780742917
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial0",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "12",
+        "n_estimators": "34"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.233333333333,
+        "PRECISION": 0.25,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial1",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.35,
+        "F1": 0.258531746032,
+        "PRECISION": 0.227142857143,
+        "RECALL": 0.35
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial3",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "5",
+        "n_estimators": "37"
+      },
+      "metrics": {
+        "ACCURACY": 0.3,
+        "F1": 0.25,
+        "PRECISION": 0.225,
+        "RECALL": 0.3
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial4",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "3",
+        "n_estimators": "106"
+      },
+      "metrics": {
+        "ACCURACY": 0.3,
+        "F1": 0.229166666667,
+        "PRECISION": 0.207142857143,
+        "RECALL": 0.3
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_trial5",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "10",
+        "n_estimators": "31"
+      },
+      "metrics": {
+        "ACCURACY": 0.25,
+        "F1": 0.232380952381,
+        "PRECISION": 0.241666666667,
+        "RECALL": 0.25
+      },
+      "artifact_location": "",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    },
+    {
+      "run_id": "tune_model_1780742922751_0_best",
+      "model": "tune_model",
+      "training_job": "tune_training",
+      "tuning_job": "tune_sweep",
+      "feature_set_version": 0,
+      "dataset_version": 0,
+      "hyperparameters": {
+        "max_depth": "2",
+        "n_estimators": "114"
+      },
+      "metrics": {
+        "ACCURACY": 0.3,
+        "F1": 0.205357142857,
+        "PRECISION": 0.182142857143,
+        "RECALL": 0.3
+      },
+      "artifact_location": "mnemo_models\\runs\\tune_model_1780742922751_0\\model.joblib",
+      "status": "SUCCEEDED",
+      "error": "",
+      "start_time": 1780742928,
+      "end_time": 1780742928
+    }
+  ],
+  "versions": [],
+  "endpoints": [],
+  "predictions": []
+}

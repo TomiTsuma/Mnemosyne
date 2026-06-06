@@ -10,6 +10,10 @@
 #include "ReplicaGroups/replica_group_manager.h"
 #include "ShardGroups/shard_group_manager.h"
 #include "Connectors/connector_manager.h"
+#include "Pipelines/pipeline_manager.h"
+#include "Streaming/stream_manager.h"
+#include "Models/model_manager.h"
+#include "FeatureSets/feature_set_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -43,6 +47,32 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
                 do_drop_shard_group(context, query.drop);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Connector) {
                 do_drop_connector(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Stream) {
+                do_drop_stream(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Topic) {
+                do_drop_topic(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::ConsumerGroup) {
+                do_drop_consumer_group(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Pipeline) {
+                do_drop_pipeline(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Stage) {
+                do_drop_stage(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Task) {
+                do_drop_task(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Trigger) {
+                do_drop_trigger(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Model) {
+                models::ModelManager::instance().drop_model(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::ModelTemplate) {
+                models::ModelManager::instance().drop_template(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::TrainingJob) {
+                models::ModelManager::instance().drop_training_job(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::TuningJob) {
+                models::ModelManager::instance().drop_tuning_job(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::FeatureSet) {
+                feature_sets::FeatureSetManager::instance().drop_feature_set(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Dataset) {
+                feature_sets::FeatureSetManager::instance().drop_dataset(query.drop.table, query.drop.if_exists);
             } else {
                 do_drop(context, query.drop);
             }
@@ -156,6 +186,56 @@ auto InterpreterDropQuery::do_drop_connector(
     Context& context, const parsers::QueryAST::Drop& drop) -> void {
     (void)context;
     connectors::ConnectorManager::instance().drop_connector(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_pipeline(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    pipelines::PipelineManager::instance().drop_pipeline(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_stage(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    pipelines::PipelineManager::instance().drop_stage(
+        drop.pipeline_name, drop.stage_name, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_task(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    pipelines::PipelineManager::instance().drop_task(
+        drop.pipeline_name, drop.stage_name, drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_trigger(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    (void)context;
+    if (drop.pipeline_name.empty()) {
+        throw common::Exception{
+            "DROP TRIGGER requires FROM PIPELINE clause",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    pipelines::PipelineManager::instance().drop_trigger(
+        drop.pipeline_name, drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_stream(Context& context, const parsers::QueryAST::Drop& drop)
+    -> void {
+    (void)context;
+    streaming::StreamManager::instance().drop_stream(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_topic(Context& context, const parsers::QueryAST::Drop& drop)
+    -> void {
+    (void)context;
+    streaming::StreamManager::instance().drop_topic(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_consumer_group(Context& context, const parsers::QueryAST::Drop& drop)
+    -> void {
+    (void)context;
+    streaming::StreamManager::instance().drop_consumer_group(drop.table, drop.if_exists);
 }
 
 auto InterpreterDropQuery::do_truncate(Context& context, const parsers::QueryAST::Drop& drop)

@@ -1,0 +1,28 @@
+{
+  "action": "train",
+  "run_id": "churn_model_b_1780742478423_5",
+  "model": "churn_model_b",
+  "model_type": "CLASSIFICATION",
+  "framework": "SKLEARN",
+  "algorithm": "LogisticRegression",
+  "entrypoint": "",
+  "objective": "ACCURACY",
+  "entity_key": "customer_id",
+  "features": [
+    "tenure",
+    "monthly_charges",
+    "support_calls"
+  ],
+  "target": "churn",
+  "hyperparameters": {},
+  "strategy": "",
+  "trials": 0,
+  "search_space": {},
+  "artifact_in": "",
+  "artifact_out": "mnemo_models\\runs\\churn_model_b_1780742478423_5\\model.joblib",
+  "predict_mode": "",
+  "predict_features": {},
+  "prompt": "",
+  "data_csv": "mnemo_models\\runs\\churn_model_b_1780742478423_5\\data.csv",
+  "result_path": "mnemo_models\\runs\\churn_model_b_1780742478423_5\\result.json"
+}

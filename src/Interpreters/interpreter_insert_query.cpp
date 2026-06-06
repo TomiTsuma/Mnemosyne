@@ -2,6 +2,7 @@
 
 #include "Interpreters/interpreter_insert_query.h"
 #include "Interpreters/interpreter_ddl_utils.h"
+#include "Streaming/stream_manager.h"
 #include "Common/exceptions.h"
 #include <algorithm>
 
@@ -79,18 +80,30 @@ auto InterpreterInsertQuery::build_insert_block(
 auto InterpreterInsertQuery::execute(Context& context, const parsers::QueryAST& query)
     -> core::Block {
     const auto& insert = query.insert;
-    auto storage = ddl_utils::resolve_storage(context, insert.table);
-
-    if (!storage) {
-        throw common::Exception{
-            "Unknown table: " + insert.table,
-            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
-    }
-
     if (insert.values.empty()) {
         throw common::Exception{
             "INSERT requires VALUES clause",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+
+    auto& stream_mgr = streaming::StreamManager::instance();
+    if (stream_mgr.has_stream(insert.table)) {
+        for (const auto& row : insert.values) {
+            if (row.empty()) {
+                throw common::Exception{
+                    "INSERT INTO stream requires at least one value",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            stream_mgr.append_to_stream(insert.table, strip_quotes(row.front()));
+        }
+        return ddl_utils::make_ok_block();
+    }
+
+    auto storage = ddl_utils::resolve_storage(context, insert.table);
+    if (!storage) {
+        throw common::Exception{
+            "Unknown table: " + insert.table,
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
     }
 
     auto block = build_insert_block(*storage, insert.columns, insert.values);

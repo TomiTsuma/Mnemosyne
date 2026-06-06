@@ -1,0 +1,305 @@
+{
+  "ok": true,
+  "predictions": [
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 0.9833333333333333
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 0.8333333333333334
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 0.9166666666666666
+    },
+    {
+      "entity_key": "1",
+      "prediction": "1",
+      "confidence": 0.9666666666666667
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 1.0
+    },
+    {
+      "entity_key": "1",
+      "prediction": "0",
+      "confidence": 0.8333333333333334
+    }
+  ]
+}

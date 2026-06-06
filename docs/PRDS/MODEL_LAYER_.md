@@ -5,7 +5,7 @@
 **Product:** Mnemosyne
 **Component:** MODEL Layer
 **Version:** 1.0
-**Status:** Draft
+**Status:** Implemented (sklearn/XGBoost runtime; FEATURE_SET full, DATASET minimal)
 
 ---
 

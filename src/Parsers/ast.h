@@ -269,12 +269,17 @@ class QueryAST final : public ASTNode {
 public:
     enum class QueryType {
         SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH,
-        REGISTER, DRAIN, REMOVE, TEST, DISCOVER
+        REGISTER, DRAIN, REMOVE, TEST, DISCOVER, RUN, PAUSE, RESUME, PUBLISH, SUBSCRIBE,
+        // MODEL layer control verbs
+        DEPLOY, PREDICT, EVALUATE, COMPARE, GENERATE
     };
 
     enum class ObjectKind {
         Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup, ShardGroup,
-        Connector
+        Connector, Pipeline, Stage, Task, Trigger, Stream, Topic, ConsumerGroup,
+        // MODEL layer entities
+        Model, ModelVersion, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset,
+        ModelEndpoint
     };
     QueryType query_type = QueryType::SELECT;
 
@@ -314,7 +319,9 @@ public:
     struct Create : ASTDDLQuery {
         enum class Kind {
             Database, Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup,
-            ShardGroup, Connector
+            ShardGroup, Connector, Pipeline, Stage, Task, Trigger, Stream, Topic, ConsumerGroup,
+            // MODEL layer entities
+            Model, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset
         };
         Kind kind = Kind::Table;
 
@@ -344,16 +351,59 @@ public:
         std::string connector_type;
         std::string auth_method;
         std::unordered_map<std::string, std::string> connector_properties;
+        std::string pipeline_name;
+        std::string stage_name;
+        std::string task_name;
+        std::string trigger_name;
+        std::string pipeline_owner;
+        uint32_t stage_order = 0;
+        std::string task_type;
+        std::string task_body;
+        std::vector<std::string> task_depends_on;
+        std::string trigger_schedule;
+        std::string stream_name;
+        std::string topic_name;
+        std::string consumer_group_name;
+        uint32_t partition_count = 1;
+        uint32_t retention_days = 7;
+        bool retention_forever = true;
+
+        // ── MODEL layer ──
+        std::string model_name;
+        std::string model_type;          // CLASSIFICATION / REGRESSION / ...
+        std::string feature_set_name;
+        std::string dataset_name;
+        std::string training_job_name;
+        std::string tuning_job_name;
+        std::string model_template_name;
+        std::string entity_key;
+        std::vector<std::string> features;
+        std::string target;
+        std::string framework;
+        std::string algorithm;
+        std::string entrypoint;
+        std::string objective;
+        std::string strategy;
+        uint32_t trials = 0;
+        std::string ref_model;            // MODEL <name> clause
+        std::string ref_feature_set;      // FEATURE_SET <name> clause
+        std::string ref_dataset;          // DATASET <name> clause
+        std::string ref_training_job;     // TRAINING_JOB <name> clause
+        std::string source_table;         // FROM <table> (feature set / dataset)
+        std::unordered_map<std::string, std::string> hyperparams;
+        std::unordered_map<std::string, std::string> search_space;
     } create;
 
     struct Drop : ASTDDLQuery {
         enum class Kind { Drop, Detach, Truncate };
         Kind kind = Kind::Drop;
         ObjectKind object_kind = ObjectKind::Table;
+        std::string pipeline_name;
+        std::string stage_name;
     } drop;
 
     struct Alter : ASTDDLQuery {
-        enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector };
+        enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector, Pipeline, Stream };
         Target target = Target::Table;
         std::vector<ASTAlterQuery::AlterCommand> commands;
         struct NodeSet {
@@ -364,6 +414,8 @@ public:
         std::vector<NodeSet> replica_group_sets;
         std::vector<NodeSet> shard_group_sets;
         std::vector<NodeSet> connector_sets;
+        std::vector<NodeSet> pipeline_sets;
+        std::vector<NodeSet> stream_sets;
     } alter;
 
     struct RegisterNode {
@@ -387,12 +439,32 @@ public:
             NODES, NODE_METRICS, NODE_CAPABILITIES, NODE_PARTITIONS, NODE_REPLICAS, CLUSTERS,
             REPLICA_GROUPS, REPLICATION_STATUS,
             SHARD_GROUPS, SHARDS, SHARD_STATUS,
-            CONNECTORS, CONNECTOR_CAPABILITIES, CONNECTOR_STATUS
+            CONNECTORS, CONNECTOR_CAPABILITIES, CONNECTOR_STATUS,
+            PIPELINES, STAGES, TASKS, TRIGGERS, PIPELINE_RUNS, PIPELINE_METRICS,
+            STREAMS, TOPICS, CONSUMER_GROUPS, STREAM_METRICS,
+            // MODEL layer
+            MODELS, MODEL_VERSIONS, MODEL_ENDPOINTS, MODEL_METRICS, MODEL_DRIFT,
+            FEATURE_SETS, DATASETS, TRAINING_JOBS, TUNING_JOBS, MODEL_TEMPLATES
         };
         ShowType show_type = ShowType::DATABASES;
         std::string node_name;
         std::string connector_name;
+        std::string pipeline_name;
+        std::string stream_name;
+        std::string model_name;
     } show;
+
+    struct PipelineControl {
+        std::string pipeline_name;
+    } pipeline_control;
+
+    struct StreamControl {
+        std::string stream_name;
+        std::string topic_name;
+        std::string consumer_group_name;
+        uint32_t limit = 0;
+        std::vector<std::vector<std::string>> values;
+    } stream_control;
 
     struct TestQuery {
         ObjectKind object_kind = ObjectKind::Connector;
@@ -406,7 +478,27 @@ public:
     struct Describe {
         ObjectKind object_kind = ObjectKind::Table;
         std::string table_name;
+        std::string model_name;
+        uint32_t version = 0;            // for DESCRIBE MODEL VERSION m:vN
     } describe;
+
+    // ── MODEL layer control verbs (RUN job / DEPLOY / PREDICT / EVALUATE / ...) ──
+    struct ModelControl {
+        enum class Action {
+            None, RunTrainingJob, RunTuningJob, Deploy, Predict, Evaluate, Compare, Generate,
+            Explain
+        };
+        Action action = Action::None;
+        std::string target_name;         // job name being run
+        std::string model_name;
+        uint32_t version = 0;            // 0 = latest
+        std::string endpoint_name;       // DEPLOY ... AS <name>
+        std::string predict_mode;        // entity | features | batch
+        std::vector<std::pair<std::string, std::string>> kv;  // FOR(...) / WITH(...)
+        std::string from_table;          // PREDICT ... FROM <table>
+        std::string prompt;              // GENERATE ... PROMPT '...'
+        std::vector<std::pair<std::string, uint32_t>> compare_targets; // model:vN list
+    } model_control;
 
     struct Refresh {
         std::string name;

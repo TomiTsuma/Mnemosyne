@@ -86,6 +86,7 @@ struct PlanNode {
     std::vector<parsers::ASTAlterQuery::AlterCommand> alter_commands;
     parsers::QueryAST::ObjectKind describe_object_kind = parsers::QueryAST::ObjectKind::Table;
     std::string refresh_name;
+    uint32_t model_version = 0;       // DESCRIBE MODEL VERSION m:vN
 
     // Per-operator metadata
     struct FilterSpec {

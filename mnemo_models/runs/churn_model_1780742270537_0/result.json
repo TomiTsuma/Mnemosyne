@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "metrics": {
+    "ACCURACY": 1.0,
+    "PRECISION": 1.0,
+    "RECALL": 1.0,
+    "F1": 1.0,
+    "ROC_AUC": 1.0,
+    "PR_AUC": 1.0
+  },
+  "artifact_location": "mnemo_models\\runs\\churn_model_1780742270537_0\\model.joblib"
+}

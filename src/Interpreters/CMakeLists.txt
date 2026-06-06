@@ -16,6 +16,10 @@ target_link_libraries(mnemosyne_interpreters PUBLIC
     mnemosyne_nodes
     mnemosyne_replica_groups
     mnemosyne_shard_groups
+    mnemosyne_pipelines
+    mnemosyne_streaming
+    mnemosyne_feature_sets
+    mnemosyne_models
     mnemosyne_common
     mnemosyne_loggers
 )

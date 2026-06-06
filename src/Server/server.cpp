@@ -9,6 +9,9 @@
 #include "Nodes/node_manager.h"
 #include "ReplicaGroups/replica_failover_service.h"
 #include "ReplicaGroups/replica_group_manager.h"
+#include "Pipelines/pipeline_scheduler.h"
+#include "Interpreters/pipeline_executor.h"
+#include "Models/model_manager.h"
 #include <iostream>
 
 namespace mnemo::server {
@@ -32,6 +35,22 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
         });
     nodes::MembershipService::instance().start();
     replica_groups::ReplicaFailoverService::instance().start();
+    pipelines::PipelineScheduler::instance().set_run_callback(
+        [this](std::string_view pipeline_name, std::string_view trigger_name) {
+            try {
+                interpreters::PipelineExecutor::run(*context_, pipeline_name, trigger_name);
+            } catch (const std::exception& ex) {
+                std::cerr << "[PipelineScheduler] run failed: " << ex.what() << "\n";
+            }
+        });
+    pipelines::PipelineScheduler::instance().start();
+
+    // Load the persisted MODEL layer catalog (models, versions, endpoints, runs).
+    try {
+        models::ModelManager::instance().load();
+    } catch (const std::exception& ex) {
+        std::cerr << "[Server] ModelManager load failed: " << ex.what() << "\n";
+    }
 
     // Create HTTP handler
     http_handler_ = std::make_shared<HTTPHandler>(*context_);
@@ -53,6 +72,7 @@ void Server::stop() {
 
     nodes::MembershipService::instance().stop();
     replica_groups::ReplicaFailoverService::instance().stop();
+    pipelines::PipelineScheduler::instance().stop();
 
     if (http_server_) {
         http_server_->stop();

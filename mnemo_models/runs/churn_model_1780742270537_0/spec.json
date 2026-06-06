@@ -1,0 +1,31 @@
+{
+  "action": "train",
+  "run_id": "churn_model_1780742270537_0",
+  "model": "churn_model",
+  "model_type": "CLASSIFICATION",
+  "framework": "SKLEARN",
+  "algorithm": "RandomForestClassifier",
+  "entrypoint": "",
+  "objective": "ACCURACY",
+  "entity_key": "customer_id",
+  "features": [
+    "tenure",
+    "monthly_charges",
+    "support_calls"
+  ],
+  "target": "churn",
+  "hyperparameters": {
+    "max_depth": "6",
+    "n_estimators": "60"
+  },
+  "strategy": "",
+  "trials": 0,
+  "search_space": {},
+  "artifact_in": "",
+  "artifact_out": "mnemo_models\\runs\\churn_model_1780742270537_0\\model.joblib",
+  "predict_mode": "",
+  "predict_features": {},
+  "prompt": "",
+  "data_csv": "mnemo_models\\runs\\churn_model_1780742270537_0\\data.csv",
+  "result_path": "mnemo_models\\runs\\churn_model_1780742270537_0\\result.json"
+}

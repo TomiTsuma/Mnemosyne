@@ -79,10 +79,33 @@ public:
         ShowConnectors,
         ShowConnectorCapabilities,
         ShowConnectorStatus,
+        ShowPipelines,
+        ShowStages,
+        ShowTasks,
+        ShowTriggers,
+        ShowPipelineRuns,
+        ShowPipelineMetrics,
+        ShowStreams,
+        ShowTopics,
+        ShowConsumerGroups,
+        ShowStreamMetrics,
+        ShowModels,
+        ShowModelVersions,
+        ShowModelEndpoints,
+        ShowModelMetrics,
+        ShowModelDrift,
+        ShowFeatureSets,
+        ShowDatasets,
+        ShowTrainingJobs,
+        ShowTuningJobs,
+        ShowModelTemplates,
         Describe,
         Explain,
         Use,
         Refresh,
+        RunPipeline,
+        PausePipeline,
+        ResumePipeline,
     };
 
     Kind kind = Kind::CreateTable;
@@ -99,6 +122,11 @@ public:
     parsers::QueryAST::ObjectKind describe_kind = parsers::QueryAST::ObjectKind::Table;
     std::string refresh_name;
     std::string show_node_name;
+    std::string pipeline_name;
+    std::string stage_name;
+    std::string stream_name;
+    std::string model_name;          // MODEL layer SHOW/DESCRIBE filter
+    uint32_t    model_version = 0;   // DESCRIBE MODEL VERSION m:vN
 
     [[nodiscard]] auto node_type() const -> std::string override { return "DDL"; }
 };

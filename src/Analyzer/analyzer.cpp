@@ -172,7 +172,17 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
         case parsers::QueryAST::QueryType::DRAIN:
         case parsers::QueryAST::QueryType::REMOVE:
         case parsers::QueryAST::QueryType::TEST:
-        case parsers::QueryAST::QueryType::DISCOVER: {
+        case parsers::QueryAST::QueryType::DISCOVER:
+        case parsers::QueryAST::QueryType::RUN:
+        case parsers::QueryAST::QueryType::PAUSE:
+        case parsers::QueryAST::QueryType::RESUME:
+        case parsers::QueryAST::QueryType::PUBLISH:
+        case parsers::QueryAST::QueryType::SUBSCRIBE:
+        case parsers::QueryAST::QueryType::DEPLOY:
+        case parsers::QueryAST::QueryType::PREDICT:
+        case parsers::QueryAST::QueryType::EVALUATE:
+        case parsers::QueryAST::QueryType::COMPARE:
+        case parsers::QueryAST::QueryType::GENERATE: {
             result.analyzed_ast = ast;
             result.valid = true;
             break;
@@ -394,6 +404,9 @@ auto Analyzer::buildQueryTree(AnalyzeResult& result)
             case parsers::QueryAST::QueryType::EXPLAIN:
             case parsers::QueryAST::QueryType::USE:
             case parsers::QueryAST::QueryType::REFRESH:
+            case parsers::QueryAST::QueryType::RUN:
+            case parsers::QueryAST::QueryType::PAUSE:
+            case parsers::QueryAST::QueryType::RESUME:
                 return buildDDLNode(*query_ast);
         }
     }
@@ -508,11 +521,74 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::CONNECTOR_STATUS:
                     node->kind = DDLNode::Kind::ShowConnectorStatus;
                     break;
+                case parsers::QueryAST::Show::ShowType::PIPELINES:
+                    node->kind = DDLNode::Kind::ShowPipelines;
+                    break;
+                case parsers::QueryAST::Show::ShowType::STAGES:
+                    node->kind = DDLNode::Kind::ShowStages;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TASKS:
+                    node->kind = DDLNode::Kind::ShowTasks;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TRIGGERS:
+                    node->kind = DDLNode::Kind::ShowTriggers;
+                    break;
+                case parsers::QueryAST::Show::ShowType::PIPELINE_RUNS:
+                    node->kind = DDLNode::Kind::ShowPipelineRuns;
+                    break;
+                case parsers::QueryAST::Show::ShowType::PIPELINE_METRICS:
+                    node->kind = DDLNode::Kind::ShowPipelineMetrics;
+                    break;
+                case parsers::QueryAST::Show::ShowType::STREAMS:
+                    node->kind = DDLNode::Kind::ShowStreams;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TOPICS:
+                    node->kind = DDLNode::Kind::ShowTopics;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CONSUMER_GROUPS:
+                    node->kind = DDLNode::Kind::ShowConsumerGroups;
+                    break;
+                case parsers::QueryAST::Show::ShowType::STREAM_METRICS:
+                    node->kind = DDLNode::Kind::ShowStreamMetrics;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODELS:
+                    node->kind = DDLNode::Kind::ShowModels;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODEL_VERSIONS:
+                    node->kind = DDLNode::Kind::ShowModelVersions;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODEL_ENDPOINTS:
+                    node->kind = DDLNode::Kind::ShowModelEndpoints;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODEL_METRICS:
+                    node->kind = DDLNode::Kind::ShowModelMetrics;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODEL_DRIFT:
+                    node->kind = DDLNode::Kind::ShowModelDrift;
+                    break;
+                case parsers::QueryAST::Show::ShowType::FEATURE_SETS:
+                    node->kind = DDLNode::Kind::ShowFeatureSets;
+                    break;
+                case parsers::QueryAST::Show::ShowType::DATASETS:
+                    node->kind = DDLNode::Kind::ShowDatasets;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TRAINING_JOBS:
+                    node->kind = DDLNode::Kind::ShowTrainingJobs;
+                    break;
+                case parsers::QueryAST::Show::ShowType::TUNING_JOBS:
+                    node->kind = DDLNode::Kind::ShowTuningJobs;
+                    break;
+                case parsers::QueryAST::Show::ShowType::MODEL_TEMPLATES:
+                    node->kind = DDLNode::Kind::ShowModelTemplates;
+                    break;
                 case parsers::QueryAST::Show::ShowType::TABLES:
                 default:
                     node->kind = DDLNode::Kind::ShowTables;
                     break;
             }
+            node->pipeline_name = query_ast.show.pipeline_name;
+            node->stream_name = query_ast.show.stream_name;
+            node->model_name = query_ast.show.model_name;
             node->show_node_name = !query_ast.show.connector_name.empty()
                 ? query_ast.show.connector_name
                 : query_ast.show.node_name;
@@ -523,6 +599,8 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
             node->table         = query_ast.describe.table_name;
             node->database      = context_.current_database();
             node->describe_kind = query_ast.describe.object_kind;
+            node->model_name    = query_ast.describe.model_name;
+            node->model_version = query_ast.describe.version;
             break;
         case parsers::QueryAST::QueryType::EXPLAIN:
             node->kind = DDLNode::Kind::Explain;
@@ -534,6 +612,18 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
         case parsers::QueryAST::QueryType::REFRESH:
             node->kind         = DDLNode::Kind::Refresh;
             node->refresh_name = query_ast.refresh.name;
+            break;
+        case parsers::QueryAST::QueryType::RUN:
+            node->kind = DDLNode::Kind::RunPipeline;
+            node->pipeline_name = query_ast.pipeline_control.pipeline_name;
+            break;
+        case parsers::QueryAST::QueryType::PAUSE:
+            node->kind = DDLNode::Kind::PausePipeline;
+            node->pipeline_name = query_ast.pipeline_control.pipeline_name;
+            break;
+        case parsers::QueryAST::QueryType::RESUME:
+            node->kind = DDLNode::Kind::ResumePipeline;
+            node->pipeline_name = query_ast.pipeline_control.pipeline_name;
             break;
         default:
             break;
