@@ -9,6 +9,7 @@ target_include_directories(mnemosyne_analyzer PUBLIC
 target_link_libraries(mnemosyne_analyzer PUBLIC
     mnemosyne_parsers
     mnemosyne_interpreters
+    mnemosyne_aggregate_functions
 )
 
 set_target_properties(mnemosyne_analyzer PROPERTIES

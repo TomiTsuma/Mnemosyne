@@ -7,6 +7,7 @@
 #include <sstream>
 #include <ctime>
 #include <mutex>
+#include <atomic>
 
 namespace mnemo::common {
 

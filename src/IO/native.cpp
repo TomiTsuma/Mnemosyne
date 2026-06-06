@@ -3,6 +3,7 @@
 
 #include "IO/native.h"
 #include <algorithm>
+#include <cstring>
 
 namespace mnemo::io {
 

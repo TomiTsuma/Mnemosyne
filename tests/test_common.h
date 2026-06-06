@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "common/settings.h"
-#include "common/types.h"
-#include "common/thread_pool.h"
+#include "Common/settings.h"
+#include "Common/types.h"
+#include "Common/thread_pool.h"
 #include <catch2/catch_all.hpp>
 
 // ── Common tests ──

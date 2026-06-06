@@ -11,14 +11,14 @@
 #include <thread>
 #include <csignal>
 
-#include "parsers/lexer.h"
-#include "parsers/parser_query.h"
+#include "Parsers/lexer.h"
+#include "Parsers/parser_query.h"
 #include "Core/block.h"
 #include "Core/series.h"
-#include "common/settings.h"
-#include "loggers/logger.h"
-#include "interpreters/interpreter.h"
-#include "server/server.h"
+#include "Common/settings.h"
+#include "Loggers/logger.h"
+#include "Interpreters/interpreter.h"
+#include "Server/server.h"
 
 // ── REPL client ──
 class MnemosyneClient {

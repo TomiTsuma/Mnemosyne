@@ -1,0 +1,29 @@
+# Build artifacts
+build/
+bin/
+lib/
+obj/
+
+# Git and IDE
+.git/
+.github/
+.vscode/
+.idea/
+*.sln
+*.vs/
+
+# Agent / local tooling (not needed in image)
+.claude/
+.cursor/
+agent-transcripts/
+
+# Python caches and probe output
+__pycache__/
+*.pyc
+scripts/baseline_probe.txt
+scripts/_debug_*.py
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.log

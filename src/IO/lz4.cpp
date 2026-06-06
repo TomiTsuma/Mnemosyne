@@ -5,6 +5,7 @@
 
 #include "IO/lz4.h"
 #include <algorithm>
+#include <cstring>
 
 namespace mnemo::io {
 

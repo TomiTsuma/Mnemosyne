@@ -1,0 +1,13 @@
+services:
+  mnemo:
+    build: .
+    image: ttsuma/mnemo:latest
+    ports:
+      - "1143:1143"
+      - "4311:4311"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:1143/ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

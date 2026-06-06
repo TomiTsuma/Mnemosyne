@@ -5,6 +5,7 @@
 
 #include "IO/zstd.h"
 #include <algorithm>
+#include <cstring>
 
 namespace mnemo::io {
 

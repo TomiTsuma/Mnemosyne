@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <variant>
 #include <optional>
+#include <vector>
 #include <cstdint>
 
 namespace mnemo::common {
@@ -78,7 +79,7 @@ public:
 
     // Concurrency
     static constexpr int64_t DEFAULT_MAX_THREADS = 0; // auto-detect
-    static constexpr int64_t DEFAULT_MAX_MEMORY_USAGE = 10 * 1024 * 1024 * 1024; // 10 GB
+    static constexpr int64_t DEFAULT_MAX_MEMORY_USAGE = 10LL * 1024 * 1024 * 1024; // 10 GB
 
     // Query
     static constexpr int64_t DEFAULT_MAX_QUERY_DURATION_MS = 120000; // 2 min

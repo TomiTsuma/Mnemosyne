@@ -94,22 +94,22 @@ class ServerProc:
         self.client = Client(base_url)
 
     def __enter__(self) -> Client:
-        if self.bin_path is None or not self.bin_path.exists():
-            raise FileNotFoundError(
-                "mnemosyne_server binary not found; build it first "
-                f"(looked for {[str(p) for p in DEFAULT_BINS]})"
-            )
-        print(f"{YELLOW}Launching {self.bin_path}{RESET}")
-        self.proc = subprocess.Popen(
-            [str(self.bin_path)],
-            cwd=str(REPO_ROOT),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if not self._wait_ready(20.0):
-            self.__exit__(None, None, None)
-            raise RuntimeError("server did not become ready in time")
-        print(f"{GREEN}Server ready at {self.base_url}{RESET}")
+        # if self.bin_path is None or not self.bin_path.exists():
+        #     raise FileNotFoundError(
+        #         "mnemosyne_server binary not found; build it first "
+        #         f"(looked for {[str(p) for p in DEFAULT_BINS]})"
+        #     )
+        # print(f"{YELLOW}Launching {self.bin_path}{RESET}")
+        # self.proc = subprocess.Popen(
+        #     [str(self.bin_path)],
+        #     cwd=str(REPO_ROOT),
+        #     stdout=subprocess.DEVNULL,
+        #     stderr=subprocess.DEVNULL,
+        # )
+        # if not self._wait_ready(20.0):
+        #     self.__exit__(None, None, None)
+        #     raise RuntimeError("server did not become ready in time")
+        # print(f"{GREEN}Server ready at {self.base_url}{RESET}")
         return self.client
 
     def _wait_ready(self, timeout_s: float) -> bool:

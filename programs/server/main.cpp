@@ -8,17 +8,17 @@
 #include <chrono>
 #include <thread>
 
-#include "common/settings.h"
-#include "loggers/logger.h"
-#include "databases/database_factory.h"
-#include "storages/storage_factory.h"
-#include "interpreters/interpreter.h"
-#include "server/server.h"
-#include "coordination/coordination.h"
-#include "backups/backup.h"
-#include "databases/database_memory.h"
-#include "storages/file_storage.h"
-#include "loggers/target_console.h"
+#include "Common/settings.h"
+#include "Loggers/logger.h"
+#include "Databases/database_factory.h"
+#include "Storages/storage_factory.h"
+#include "Interpreters/interpreter.h"
+#include "Server/server.h"
+#include "Coordination/coordination.h"
+#include "Backups/backup.h"
+#include "Databases/database_memory.h"
+#include "Storages/file_storage.h"
+#include "Loggers/target_console.h"
 
 // ── Global state ──
 std::shared_ptr<mnemo::interpreters::Context> g_context;
