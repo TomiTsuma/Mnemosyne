@@ -1,4 +1,4 @@
-# baseline_probe run at 2026-06-06T02:36:13.068000+00:00
+# baseline_probe run at 2026-06-06T11:09:10.238498+00:00
 
 == SETUP ==
 
@@ -12,7 +12,7 @@ setup CREATE DATABASE  CREATE DATABASE IF NOT EXISTS sales_db
   "data": [
     ["OK"]
   ],
-  "duration_ms": 3.36,
+  "duration_ms": 32.57,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -27,7 +27,7 @@ setup USE  USE sales_db
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.08,
+  "duration_ms": 7.65,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -42,7 +42,7 @@ setup DROP orders  DROP TABLE IF EXISTS orders
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 3.52,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -57,7 +57,7 @@ setup DROP customers  DROP TABLE IF EXISTS customers
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.19,
+  "duration_ms": 0.03,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -72,7 +72,7 @@ setup CREATE customers  CREATE TABLE customers (customer_id Int64, name String, 
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.16,
+  "duration_ms": 5.28,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -87,7 +87,7 @@ setup CREATE orders  CREATE TABLE orders (order_id Int64, customer_id Int64, pro
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.19,
+  "duration_ms": 0.07,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -102,7 +102,7 @@ setup INSERT customers  INSERT INTO customers VALUES (1, 'Alice', 25), (2, 'Bob'
   "data": [
     ["OK"]
   ],
-  "duration_ms": 1.68,
+  "duration_ms": 3.11,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -117,7 +117,7 @@ setup INSERT orders  INSERT INTO orders VALUES (1, 1, 10, 99.5), (2, 2, 20, 150.
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.09,
+  "duration_ms": 1.25,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -149,7 +149,7 @@ L1 USE  USE sales_db
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.04,
+  "duration_ms": 0.03,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -164,7 +164,7 @@ L1 SHOW DATABASES  SHOW DATABASES
   "data": [
     ["sales_db"]
   ],
-  "duration_ms": 0.03,
+  "duration_ms": 9.18,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -179,7 +179,7 @@ L1 CREATE TABLE  CREATE TABLE IF NOT EXISTS customers (customer_id Int64, name S
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.03,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -189,13 +189,13 @@ L1 SHOW TABLES  SHOW TABLES
   {
   "rows": 2,
   "columns": [
-    "tables"
+    "name"
   ],
   "data": [
     ["orders"],
     ["customers"]
   ],
-  "duration_ms": 0.03,
+  "duration_ms": 3.37,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -213,7 +213,7 @@ L1 DESCRIBE  DESCRIBE customers
     ["name", "String"],
     ["customer_id", "Int64"]
   ],
-  "duration_ms": 0.03,
+  "duration_ms": 6.61,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -228,7 +228,7 @@ L2 INSERT  INSERT INTO customers VALUES (4, 'Diana', 28)
   "data": [
     ["OK"]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.04,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -248,7 +248,7 @@ L2 SELECT *  SELECT * FROM customers
     [3, "Charlie", 35],
     [4, "Diana", 28]
   ],
-  "duration_ms": 0.08,
+  "duration_ms": 32.43,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -266,7 +266,7 @@ L2 projection  SELECT name FROM customers
     ["Charlie"],
     ["Diana"]
   ],
-  "duration_ms": 0.12,
+  "duration_ms": 0.08,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -285,7 +285,7 @@ L2 multi-col  SELECT customer_id, age FROM customers
     [35, 3],
     [28, 4]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.06,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -302,7 +302,7 @@ L3 WHERE >  SELECT * FROM customers WHERE age > 30
   "data": [
 
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.07,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -319,7 +319,7 @@ L3 WHERE =  SELECT * FROM customers WHERE customer_id = 2
   "data": [
 
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.06,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -336,7 +336,7 @@ L3 AND  SELECT * FROM customers WHERE age > 25 AND age < 40
   "data": [
 
   ],
-  "duration_ms": 0.06,
+  "duration_ms": 0.09,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -356,7 +356,7 @@ L3 OR  SELECT * FROM customers WHERE age < 25 OR age > 30
     [3, "Charlie", 35],
     [4, "Diana", 28]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.51,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -376,7 +376,7 @@ L4 ORDER BY  SELECT * FROM customers ORDER BY age
     [3, "Charlie", 35],
     [4, "Diana", 28]
   ],
-  "duration_ms": 0.18,
+  "duration_ms": 0.74,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -396,7 +396,7 @@ L4 ORDER BY DESC  SELECT * FROM customers ORDER BY age DESC
     [2, "Bob", 30],
     [1, "Alice", 25]
   ],
-  "duration_ms": 0.06,
+  "duration_ms": 0.08,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -411,7 +411,7 @@ L5 COUNT  SELECT COUNT(*) FROM customers
   "data": [
     [4]
   ],
-  "duration_ms": 0.08,
+  "duration_ms": 0.12,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -426,7 +426,7 @@ L5 SUM  SELECT SUM(age) FROM customers
   "data": [
     [10]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.98,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -456,7 +456,7 @@ L5 MIN  SELECT MIN(age) FROM customers
   "data": [
     [1]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.08,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -471,7 +471,7 @@ L5 MAX  SELECT MAX(age) FROM customers
   "data": [
     [4]
   ],
-  "duration_ms": 0.05,
+  "duration_ms": 0.07,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -490,7 +490,7 @@ L6 GROUP BY  SELECT age, COUNT(*) FROM customers GROUP BY age
     [3, 1],
     [4, 1]
   ],
-  "duration_ms": 0.08,
+  "duration_ms": 1.44,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -509,7 +509,7 @@ L7 HAVING  SELECT age, COUNT(*) FROM customers GROUP BY age HAVING COUNT(*) > 0
     [3, 1],
     [4, 1]
   ],
-  "duration_ms": 0.19,
+  "duration_ms": 0.10,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -519,13 +519,13 @@ L8 JOIN  SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id
   {
   "rows": 1,
   "columns": [
-    "c.name",
-    "o.amount"
+    "name",
+    "amount"
   ],
   "data": [
     ["Bob", 3]
   ],
-  "duration_ms": 0.15,
+  "duration_ms": 0.69,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -543,7 +543,7 @@ L9 scalar subquery  SELECT * FROM customers WHERE age > (SELECT AVG(age) FROM cu
     [3, "Charlie", 35],
     [4, "Diana", 28]
   ],
-  "duration_ms": 0.09,
+  "duration_ms": 0.11,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -563,7 +563,7 @@ L9 IN subquery  SELECT * FROM customers WHERE customer_id IN (SELECT customer_id
     [3, "Charlie", 35],
     [4, "Diana", 28]
   ],
-  "duration_ms": 0.07,
+  "duration_ms": 0.11,
   "bytes_read": 0,
   "bytes_written": 0
 }
@@ -602,7 +602,7 @@ L11 window  SELECT customer_id, age, SUM(age) OVER (PARTITION BY age ORDER BY cu
     [35, 3, 3],
     [28, 4, 4]
   ],
-  "duration_ms": 0.12,
+  "duration_ms": 0.09,
   "bytes_read": 0,
   "bytes_written": 0
 }
