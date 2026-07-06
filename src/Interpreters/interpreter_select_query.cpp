@@ -334,7 +334,8 @@ auto is_aggregate_expr(const ASTExpr& expr) -> bool {
         std::string upper = func->name;
         std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
         return upper == "COUNT" || upper == "SUM" || upper == "AVG" ||
-               upper == "MIN" || upper == "MAX";
+               upper == "MIN" || upper == "MAX" ||
+               upper == "QUANTILE" || upper == "PERCENTILE";
     }
     return false;
 }
@@ -347,7 +348,32 @@ auto aggregate_name(const ASTFunction& func) -> std::string {
             if (col->column == "*") return "COUNT(*)";
         }
     }
-    return func.name + "(" + (func.args.empty() ? "" : func.args[0]->to_string()) + ")";
+    std::string args_str;
+    for (size_t i = 0; i < func.args.size(); ++i) {
+        if (i > 0) args_str += ", ";
+        args_str += func.args[i]->to_string();
+    }
+    return func.name + "(" + args_str + ")";
+}
+
+// Extracts a numeric literal argument (int or float) as a double.
+auto literal_arg_as_double(const ASTExpr* expr) -> std::optional<double> {
+    auto* lit = dynamic_cast<const ASTLiteral*>(expr);
+    if (!lit) return std::nullopt;
+    if (std::holds_alternative<double>(lit->value)) return std::get<double>(lit->value);
+    if (std::holds_alternative<int64_t>(lit->value)) return static_cast<double>(std::get<int64_t>(lit->value));
+    return std::nullopt;
+}
+
+// Linear-interpolation quantile (level in [0, 1]) over already-collected values.
+auto interpolated_quantile(std::vector<double> vals, double level) -> double {
+    std::sort(vals.begin(), vals.end());
+    level = std::clamp(level, 0.0, 1.0);
+    const double pos = level * static_cast<double>(vals.size() - 1);
+    const auto lo = static_cast<size_t>(std::floor(pos));
+    const auto hi = static_cast<size_t>(std::ceil(pos));
+    const double frac = pos - static_cast<double>(lo);
+    return vals[lo] + (vals[hi] - vals[lo]) * frac;
 }
 
 auto compute_aggregate(const ASTFunction& func, const core::Block& block,
@@ -390,6 +416,11 @@ auto compute_aggregate(const ASTFunction& func, const core::Block& block,
     }
     if (upper == "MIN") return core::Field{*std::min_element(vals.begin(), vals.end())};
     if (upper == "MAX") return core::Field{*std::max_element(vals.begin(), vals.end())};
+    if (upper == "QUANTILE" || upper == "PERCENTILE") {
+        auto level = func.args.size() > 1 ? literal_arg_as_double(func.args[1].get()) : std::nullopt;
+        if (!level) return core::Field{int64_t{0}};
+        return core::Field{interpolated_quantile(std::move(vals), upper == "PERCENTILE" ? *level / 100.0 : *level)};
+    }
     return core::Field{int64_t{0}};
 }
 
@@ -431,7 +462,7 @@ auto project_block(const core::Block& in, const std::vector<std::shared_ptr<ASTE
                     static_cast<core::IColumn*>(raw),
                     [](void* p) { delete static_cast<core::IColumn*>(p); });
                 col->insert(val);
-                out.add_column(aggregate_name(*func), col);
+                out.add_column(select_output_name(*expr), col);
             }
         }
         return out;
@@ -573,6 +604,62 @@ auto limit_block(core::Block block, size_t limit) -> core::Block {
     return out;
 }
 
+auto rows_in_same_partition(const core::Block& in, EvalCtx& ctx,
+                            const std::vector<std::shared_ptr<ASTExpr>>& partition_by,
+                            size_t r) -> std::vector<size_t> {
+    std::vector<size_t> partition_rows;
+    for (size_t pr = 0; pr < in.row_count(); ++pr) {
+        bool same = true;
+        ctx.block = &in;
+        for (const auto& part : partition_by) {
+            ctx.row = r;
+            auto vr = eval_expr(*part, ctx);
+            ctx.row = pr;
+            auto vp = eval_expr(*part, ctx);
+            if (field_to_int64(vr) != field_to_int64(vp)) {
+                same = false;
+                break;
+            }
+        }
+        if (same) partition_rows.push_back(pr);
+    }
+    return partition_rows;
+}
+
+// Bucket number (1-indexed) for a 0-indexed rank among partition_size rows split into n tiles.
+auto ntile_bucket(size_t rank, size_t partition_size, int64_t n) -> int64_t {
+    if (n <= 0 || partition_size == 0) return 0;
+    const auto buckets = static_cast<size_t>(n);
+    const size_t base = partition_size / buckets;
+    const size_t remainder = partition_size % buckets;
+    const size_t larger_rows = remainder * (base + 1);
+    if (rank < larger_rows) {
+        return static_cast<int64_t>(rank / (base + 1)) + 1;
+    }
+    const size_t rem_rank = rank - larger_rows;
+    return static_cast<int64_t>(remainder + rem_rank / std::max<size_t>(base, 1)) + 1;
+}
+
+auto rank_within_partition(const core::Block& in, std::vector<size_t> partition_rows,
+                           const std::vector<std::pair<std::string, bool>>& order_by,
+                           const std::unordered_map<std::string, std::string>& alias_to_table,
+                           size_t target_row) -> size_t {
+    std::stable_sort(partition_rows.begin(), partition_rows.end(), [&](size_t a, size_t b) {
+        for (const auto& [col_name, desc] : order_by) {
+            auto idx = find_column(in, "", col_name, alias_to_table);
+            if (!idx) continue;
+            double fa = field_to_double(in.get_row_value(*idx, a));
+            double fb = field_to_double(in.get_row_value(*idx, b));
+            if (fa != fb) return desc ? fa > fb : fa < fb;
+        }
+        return false;
+    });
+    for (size_t i = 0; i < partition_rows.size(); ++i) {
+        if (partition_rows[i] == target_row) return i;
+    }
+    return 0;
+}
+
 auto apply_window(const core::Block& in, const std::vector<std::shared_ptr<ASTExpr>>& cols,
                   EvalCtx ctx) -> core::Block {
     core::Block out;
@@ -597,29 +684,36 @@ auto apply_window(const core::Block& in, const std::vector<std::shared_ptr<ASTEx
     for (const auto& expr : cols) {
         auto* func = dynamic_cast<const ASTFunction*>(expr.get());
         if (!func || !func->window) continue;
+
+        std::string upper = func->name;
+        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+        const std::string out_name = aggregate_name(*func) + "_over";
+
+        if (upper == "NTILE") {
+            auto n = func->args.empty() ? std::nullopt : literal_arg_as_double(func->args[0].get());
+            const auto tiles = n ? static_cast<int64_t>(*n) : int64_t{0};
+            auto int_type = datatypes::get_data_type("Int64");
+            auto* raw = int_type->create_column();
+            auto result_col = std::shared_ptr<core::IColumn>(
+                static_cast<core::IColumn*>(raw),
+                [](void* p) { delete static_cast<core::IColumn*>(p); });
+            for (size_t r = 0; r < in.row_count(); ++r) {
+                auto partition_rows = rows_in_same_partition(in, ctx, func->window->partition_by, r);
+                auto rank = rank_within_partition(in, partition_rows, func->window->order_by,
+                                                  ctx.alias_to_table, r);
+                result_col->insert(core::Field{ntile_bucket(rank, partition_rows.size(), tiles)});
+            }
+            out.add_column(out_name, result_col);
+            continue;
+        }
+
         auto num_type = datatypes::get_data_type("Float64");
         auto* raw = num_type->create_column();
         auto result_col = std::shared_ptr<core::IColumn>(
             static_cast<core::IColumn*>(raw),
             [](void* p) { delete static_cast<core::IColumn*>(p); });
-        const std::string out_name = aggregate_name(*func) + "_over";
         for (size_t r = 0; r < in.row_count(); ++r) {
-            std::vector<size_t> partition_rows;
-            for (size_t pr = 0; pr < in.row_count(); ++pr) {
-                bool same = true;
-                ctx.block = &in;
-                for (const auto& part : func->window->partition_by) {
-                    ctx.row = r;
-                    auto vr = eval_expr(*part, ctx);
-                    ctx.row = pr;
-                    auto vp = eval_expr(*part, ctx);
-                    if (field_to_int64(vr) != field_to_int64(vp)) {
-                        same = false;
-                        break;
-                    }
-                }
-                if (same) partition_rows.push_back(pr);
-            }
+            auto partition_rows = rows_in_same_partition(in, ctx, func->window->partition_by, r);
             auto val = compute_aggregate(*func, in, partition_rows, ctx.alias_to_table);
             result_col->insert(val);
         }
@@ -656,7 +750,7 @@ auto eval_select_with_expanding(Context& context, const QueryAST& query,
                 static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
         }
         auto driver = connectors::ConnectorFactory::create_driver(entry->type);
-        const size_t limit = sel.limit.first > 0 ? sel.limit.first : 0;
+        const size_t limit = sel.limit.second;
         data = driver->read(*entry, sel.connector_resource, limit);
     } else if (!sel.table.empty()) {
         const std::string prefix = sel.table_alias.empty() ? sel.table : sel.table_alias;
@@ -688,8 +782,8 @@ auto eval_select_with_expanding(Context& context, const QueryAST& query,
     }
 
     result = sort_block(std::move(result), sel.order_by, ctx.alias_to_table);
-    if (sel.limit.first > 0) {
-        result = limit_block(std::move(result), sel.limit.first);
+    if (sel.limit.second > 0) {
+        result = limit_block(std::move(result), sel.limit.second);
     }
     return result;
 }

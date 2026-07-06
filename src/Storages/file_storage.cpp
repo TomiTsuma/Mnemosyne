@@ -68,6 +68,17 @@ auto FileStorage::read(const std::vector<std::string>& column_names,
 auto FileStorage::write(const core::Block& block) -> bool {
     std::lock_guard lock(mutex_);
 
+    if (!disk_) {
+        auto dir = path_.substr(0, path_.find_last_of('/'));
+        if (!dir.empty()) {
+            disk_ = disks::LocalFileDisk::create("local", dir);
+        }
+    }
+    if (disk_ && !path_.empty()) {
+        disk_->create_dir(path_);
+    }
+
+    size_t appended_rows = 0;
     for (size_t c = 0; c < block.column_count(); ++c) {
         auto col_name = block.column_names()[c];
         auto col = block.get_column_by_index(c);
@@ -80,11 +91,20 @@ auto FileStorage::write(const core::Block& block) -> bool {
             column_names_.push_back(col_name);
         }
 
-        // Write column data to file
         auto file_path = path_ + "/" + col_name + ".bin";
+
+        // Preserve previously written rows so INSERT appends instead of overwriting.
         std::vector<uint8_t> data;
+        if (disk_ && disk_->exists(file_path)) {
+            auto existing_size = disk_->size(file_path);
+            if (auto existing = disk_->read(file_path, 0, existing_size)) {
+                data.assign(existing.get(), existing.get() + existing_size);
+            }
+        }
+
+        const size_t base_offset = data.size();
         size_t num_rows = col->size();
-        data.resize(num_rows * sizeof(double));
+        data.resize(base_offset + num_rows * sizeof(double));
         for (size_t i = 0; i < num_rows; ++i) {
             const auto& val = col->get_at(i);
             double d = 0.0;
@@ -93,25 +113,16 @@ auto FileStorage::write(const core::Block& block) -> bool {
             } else if (auto iv = val.as_int64()) {
                 d = static_cast<double>(*iv);
             }
-            *reinterpret_cast<double*>(data.data() + i * sizeof(double)) = d;
-        }
-
-        if (!disk_) {
-            auto dir = path_.substr(0, path_.find_last_of('/'));
-            if (!dir.empty()) {
-                disk_ = disks::LocalFileDisk::create("local", dir);
-            }
+            *reinterpret_cast<double*>(data.data() + base_offset + i * sizeof(double)) = d;
         }
 
         if (disk_) {
-            if (!path_.empty()) {
-                disk_->create_dir(path_);
-            }
             disk_->write(file_path, std::span(data.data(), data.size()));
-            byte_count_ += data.size();
-            row_count_ = std::max(row_count_, num_rows);
+            byte_count_ += num_rows * sizeof(double);
         }
+        appended_rows = num_rows;
     }
+    row_count_ += appended_rows;
     empty_ = false;
     return true;
 }
