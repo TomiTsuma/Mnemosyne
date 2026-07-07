@@ -196,11 +196,6 @@ auto InterpreterCreateQuery::do_create_table(
                 "STORAGE_UNIT clause requires ENGINE=File",
                 static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
         }
-        if (unit->type == storage_units::StorageUnitType::S3) {
-            throw common::Exception{
-                "S3 storage units do not support File engine I/O yet",
-                static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
-        }
         auto disk = mgr.acquire_disk(create.storage_unit_name);
         if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
             const auto table_path = db_name + "/" + create.table_name;
@@ -356,6 +351,10 @@ auto InterpreterCreateQuery::do_create_storage_unit(
             entry.endpoint = value;
         } else if (key == "REGION") {
             entry.region = value;
+        } else if (key == "ACCESS_KEY") {
+            entry.access_key = value;
+        } else if (key == "SECRET_KEY") {
+            entry.secret_key = value;
         }
     }
     mgr.create_unit(std::move(entry));

@@ -21,7 +21,7 @@ public:
                        std::string bucket,
                        std::string access_key,
                        std::string secret_key,
-                       bool use_ssl = true)
+                       std::string region = "")
         -> std::shared_ptr<S3Disk>;
 
     // IDisk interface
@@ -57,12 +57,19 @@ public:
 
 private:
     S3Disk();
+
+    // Builds the exact request-target string (path + optional query string)
+    // used both to sign a request and to send it, so the two always match.
+    [[nodiscard]] auto object_path(std::string_view key) const -> std::string;
+    // The exact value sent (and signed) as the "Host" header.
+    [[nodiscard]] auto host_header() const -> std::string;
+
     std::string name_;
     std::string endpoint_;
     std::string bucket_;
     std::string access_key_;
     std::string secret_key_;
-    bool use_ssl_ = true;
+    std::string region_ = "us-east-1";
 };
 
 } // namespace mnemo::disks

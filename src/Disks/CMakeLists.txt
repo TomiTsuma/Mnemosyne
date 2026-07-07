@@ -2,12 +2,19 @@
 file(GLOB MNEMOSYNE_DISKS_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 add_library(mnemosyne_disks ${MNEMOSYNE_DISKS_SOURCES})
 
+find_package(OpenSSL REQUIRED)
+
 target_include_directories(mnemosyne_disks PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(mnemosyne_disks PUBLIC
     mnemosyne_common
+)
+
+target_link_libraries(mnemosyne_disks PRIVATE
+    httplib
+    OpenSSL::Crypto
 )
 
 set_target_properties(mnemosyne_disks PROPERTIES

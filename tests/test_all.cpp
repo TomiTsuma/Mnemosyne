@@ -14,6 +14,7 @@
 #include "test_processors.h"
 #include "test_storages.h"
 #include "test_disks.h"
+#include "test_disk_s3.h"
 #include "test_io.h"
 #include "test_loggers.h"
 #include "test_server.h"

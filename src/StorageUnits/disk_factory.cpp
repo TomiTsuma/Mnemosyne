@@ -21,7 +21,7 @@ auto DiskFactory::create_disk(const StorageUnitEntry& entry) -> std::shared_ptr<
                 entry.bucket,
                 entry.access_key,
                 entry.secret_key,
-                true);
+                entry.region);
     }
     throw common::Exception{
         "Unsupported storage unit type",
