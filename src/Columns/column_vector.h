@@ -70,17 +70,24 @@ public:
     auto insert(const Field& value) -> size_t override {
         if (value.type() == core::FieldType::Null) {
             data_.push_back(T{});
+        } else if constexpr (std::is_floating_point_v<T>) {
+            // Float columns: prefer the float accessor to avoid int truncation.
+            // as_int64() returns a truncated int64 for float Fields, so we must
+            // check the float path first.
+            auto fv = value.as_float64();
+            if (fv) {
+                data_.push_back(static_cast<T>(*fv));
+            } else {
+                auto v = value.as_int64();
+                data_.push_back(v ? static_cast<T>(*v) : T{});
+            }
         } else {
             auto v = value.as_int64();
             if (v) {
                 data_.push_back(static_cast<T>(*v));
             } else {
                 auto fv = value.as_float64();
-                if (fv) {
-                    data_.push_back(static_cast<T>(*fv));
-                } else {
-                    data_.push_back(T{});
-                }
+                data_.push_back(fv ? static_cast<T>(*fv) : T{});
             }
         }
         size_ = data_.size();
@@ -99,22 +106,7 @@ public:
     auto insert_range(IColumn& source, size_t start, size_t finish) -> size_t override {
         size_t inserted = 0;
         for (size_t i = start; i < finish && i < source.size(); ++i) {
-            auto val = source.get(i);
-            if (val.type() == core::FieldType::Null) {
-                data_.push_back(T{});
-            } else {
-                auto v = val.as_int64();
-                if (v) {
-                    data_.push_back(static_cast<T>(*v));
-                } else {
-                    auto fv = val.as_float64();
-                    if (fv) {
-                        data_.push_back(static_cast<T>(*fv));
-                    } else {
-                        data_.push_back(T{});
-                    }
-                }
-            }
+            insert(source.get(i));
             ++inserted;
         }
         size_ = data_.size();
@@ -122,24 +114,23 @@ public:
     }
 
     void set(size_t row_idx, const Field& value) override {
-        if (row_idx < size_) {
-            if (value.type() == core::FieldType::Null) {
-                data_[row_idx] = T{};
-            } else {
+        if (row_idx >= size_) return;
+        if (value.type() == core::FieldType::Null) {
+            data_[row_idx] = T{};
+        } else if constexpr (std::is_floating_point_v<T>) {
+            auto fv = value.as_float64();
+            if (fv) data_[row_idx] = static_cast<T>(*fv);
+            else {
                 auto v = value.as_int64();
-                if (v) {
-                    data_[row_idx] = static_cast<T>(*v);
-                } else {
-                    auto fv = value.as_float64();
-                    if (fv) {
-                        // Only allow float-to-int conversion if T is integral
-                        if constexpr (std::is_integral_v<T>) {
-                            data_[row_idx] = static_cast<T>(*fv);
-                        } else if constexpr (std::is_floating_point_v<T>) {
-                            data_[row_idx] = static_cast<T>(*fv);
-                        }
-                    }
-                }
+                if (v) data_[row_idx] = static_cast<T>(*v);
+            }
+        } else {
+            auto v = value.as_int64();
+            if (v) {
+                data_[row_idx] = static_cast<T>(*v);
+            } else {
+                auto fv = value.as_float64();
+                if (fv) data_[row_idx] = static_cast<T>(*fv);
             }
         }
     }

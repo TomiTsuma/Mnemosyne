@@ -227,7 +227,7 @@ void Parser::parse_insert(std::unique_ptr<QueryAST>& ast) {
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume INTO
-    insert.table = parse_table_name();
+    insert.table = parse_qualified_name();
     if (current_.type == TokenType::LParen) {
         insert.columns = parse_column_list();
     }
@@ -467,7 +467,7 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
         create.if_not_exists = parse_if_not_exists();
-        create.table_name = parse_table_name();
+        create.table_name = parse_qualified_name();
         create.table = create.table_name;
         create.columns = parse_column_definitions();
         if (current_.type == TokenType::KeywordEngine) {
@@ -1809,6 +1809,27 @@ auto Parser::parse_table_name() -> std::string {
     return name;
 }
 
+auto Parser::parse_qualified_name() -> std::string {
+    if (current_.type != TokenType::Identifier) {
+        throw common::Exception{
+            "Parser: expected table name",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    std::string name = current_.value;
+    consume();
+    if (current_.type == TokenType::Dot) {
+        consume(); // consume .
+        if (current_.type != TokenType::Identifier) {
+            throw common::Exception{
+                "Parser: expected identifier after .",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        name += "." + current_.value;
+        consume();
+    }
+    return name;
+}
+
 auto Parser::parse_name_or_keyword() -> std::string {
     if (current_.type == TokenType::IntegerLiteral ||
         current_.type == TokenType::FloatLiteral) {
@@ -1857,7 +1878,7 @@ auto Parser::parse_name_or_keyword() -> std::string {
 }
 
 auto Parser::parse_table_ref() -> std::pair<std::string, std::string> {
-    std::string table = parse_table_name();
+    std::string table = parse_qualified_name();
     std::string alias;
     if (current_.type == TokenType::Identifier) {
         alias = current_.value;
@@ -1967,14 +1988,29 @@ auto Parser::parse_value_row() -> std::vector<std::string> {
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume (
-    std::vector<std::string> row;
-    row.push_back(current_.value);
-    consume();
-    while (current_.type == TokenType::Comma) {
-        consume(); // consume ,
-        row.push_back(current_.value);
+
+    // Helper: consume one value, handling a leading unary minus.
+    auto read_one = [&]() -> std::string {
+        if (current_.type == TokenType::Minus) {
+            consume(); // consume -
+            std::string val = "-" + current_.value;
+            consume();
+            return val;
+        }
+        std::string val = current_.value;
         consume();
+        return val;
+    };
+
+    std::vector<std::string> row;
+    if (current_.type != TokenType::RParen) {
+        row.push_back(read_one());
+        while (current_.type == TokenType::Comma) {
+            consume(); // consume ,
+            row.push_back(read_one());
+        }
     }
+
     if (current_.type != TokenType::RParen) {
         throw common::Exception{
             "Parser: expected )",

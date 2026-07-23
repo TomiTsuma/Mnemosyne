@@ -115,6 +115,7 @@ protected:
 
     // ── Clause parsing helpers ──
     auto parse_table_name() -> std::string;
+    auto parse_qualified_name() -> std::string;
     auto parse_name_or_keyword() -> std::string;
     auto parse_table_ref() -> std::pair<std::string, std::string>;
     auto parse_subquery() -> std::shared_ptr<QueryAST>;
