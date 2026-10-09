@@ -177,8 +177,11 @@ def test_errors(client: Client, t: TestRunner) -> None:
     r = client.query(
         f"CREATE TABLE bad_s3 (id Float64) ENGINE=File STORAGE_UNIT {S3_UNIT}"
     )
+    # ENGINE=File on S3 is supported, but CREATE TABLE writes _schema.json to the
+    # unit, so an unreachable endpoint must fail it (and must not leak a reference
+    # on the unit, which the S3 DROP in cleanup verifies).
     t.check(
-        "CREATE TABLE on S3 unit with File engine fails",
+        "CREATE TABLE on unreachable S3 unit fails",
         not r.ok(),
         f"status={r.status} body={r.body!r}",
     )

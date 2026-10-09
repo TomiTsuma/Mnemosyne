@@ -651,6 +651,11 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
         drop.object_kind = QueryAST::ObjectKind::TuningJob;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
+    } else if (current_.type == TokenType::KeywordDatabase) {
+        consume(); // consume DATABASE
+        drop.object_kind = QueryAST::ObjectKind::Database;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         drop.object_kind = QueryAST::ObjectKind::Table;

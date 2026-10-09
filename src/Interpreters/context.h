@@ -70,6 +70,9 @@ public:
     // Register a database
     void register_database(std::string name, std::shared_ptr<databases::IDatabase> db);
 
+    // Remove a database from the session catalog
+    void unregister_database(std::string_view name);
+
     // Get registered database
     [[nodiscard]] auto get_database(std::string_view name)
         -> std::shared_ptr<databases::IDatabase>;

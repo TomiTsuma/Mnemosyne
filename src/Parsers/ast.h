@@ -103,7 +103,7 @@ public:
         std::optional<std::string> comment;
     };
     std::vector<ColumnDef> columns;
-    std::string engine = "Memory";
+    std::string engine;  // empty = use system default (File)
     std::string order_by;
     std::string primary_key;
 
@@ -275,7 +275,7 @@ public:
     };
 
     enum class ObjectKind {
-        Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup, ShardGroup,
+        Table, Database, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup, ShardGroup,
         Connector, Pipeline, Stage, Task, Trigger, Stream, Topic, ConsumerGroup,
         // MODEL layer entities
         Model, ModelVersion, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset,
@@ -329,7 +329,7 @@ public:
         std::string table_name;
         std::string view_name;
         std::vector<ColumnDef> columns;
-        std::string engine = "Memory";
+        std::string engine;  // empty = use system default (File)
         Select select_definition;
         std::string storage_unit_name;
         std::string storage_unit_type;

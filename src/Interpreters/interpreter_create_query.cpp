@@ -28,6 +28,7 @@
 #include "Models/model_catalog.h"
 #include "FeatureSets/feature_set_manager.h"
 #include "FeatureSets/feature_set_catalog.h"
+#include "DataTypes/data_type_factory.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -47,8 +48,14 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
             break;
         }
         case parsers::QueryAST::Create::Kind::Table: {
-            const auto db_name = ddl_utils::resolve_current_database(context);
-            txn.snapshot_table(db_name, query.create.table_name);
+            auto dot = query.create.table_name.find('.');
+            const auto snap_db = (dot != std::string::npos)
+                ? query.create.table_name.substr(0, dot)
+                : ddl_utils::resolve_current_database(context);
+            const auto snap_tbl = (dot != std::string::npos)
+                ? query.create.table_name.substr(dot + 1)
+                : query.create.table_name;
+            txn.snapshot_table(snap_db, snap_tbl);
             do_create_table(context, query.create);
             break;
         }
@@ -146,29 +153,39 @@ auto InterpreterCreateQuery::do_create_database(
 
 auto InterpreterCreateQuery::do_create_table(
     Context& context, const parsers::QueryAST::Create& create) -> void {
-    const auto db_name = ddl_utils::resolve_current_database(context);
-    DDLGuard guard{db_name, create.table_name};
+    std::string db_name;
+    std::string table_name;
+    auto dot = create.table_name.find('.');
+    if (dot != std::string::npos) {
+        db_name    = create.table_name.substr(0, dot);
+        table_name = create.table_name.substr(dot + 1);
+    } else {
+        db_name    = ddl_utils::resolve_current_database(context);
+        table_name = create.table_name;
+    }
+
+    DDLGuard guard{db_name, table_name};
 
     auto db = ddl_utils::require_database(context, db_name);
     const bool exists = [&] {
         if (auto catalog = std::dynamic_pointer_cast<databases::Database>(db)) {
-            return catalog->relation_exists(create.table_name);
+            return catalog->relation_exists(table_name);
         }
-        return db->table_exists(create.table_name);
+        return db->table_exists(table_name);
     }();
     if (exists) {
         if (create.if_not_exists) {
-            if (auto existing = db->table(create.table_name)) {
-                context.register_storage(create.table_name, existing);
+            if (auto existing = db->table(table_name)) {
+                context.register_storage(table_name, existing);
             }
             return;
         }
         throw common::Exception{
-            "Table already exists: " + create.table_name,
+            "Table already exists: " + table_name,
             static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
     }
 
-    const auto engine = create.engine.empty() ? "Memory" : create.engine;
+    const auto engine = create.engine.empty() ? "File" : create.engine;
     if (!storages::StorageFactory::instance().has(engine)) {
         throw common::Exception{
             "Unknown storage engine: " + engine,
@@ -176,19 +193,30 @@ auto InterpreterCreateQuery::do_create_table(
     }
 
     auto columns = ddl_utils::build_column_map(create.columns);
-    auto storage = db->create_table(create.table_name, columns, engine);
+    auto storage = db->create_table(table_name, columns, engine);
     if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
         mem->set_columns(columns);
     } else if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
-        file->set_columns(columns);
+        // Preserve declaration order so _schema.json and column files are ordered correctly
+        std::vector<std::pair<std::string, datatypes::DataTypePtr>> ordered_cols;
+        for (const auto& col_def : create.columns) {
+            ordered_cols.emplace_back(col_def.name, datatypes::get_data_type(col_def.data_type));
+        }
+        file->set_columns_ordered(ordered_cols);
     }
 
-    if (!create.storage_unit_name.empty()) {
+    // Resolve which storage unit to bind this File table to.
+    // Explicit STORAGE_UNIT clause takes priority; otherwise fall back to su_default.
+    const std::string su_name = !create.storage_unit_name.empty()
+        ? create.storage_unit_name
+        : (engine == "File" ? "su_default" : "");
+
+    if (!su_name.empty()) {
         auto& mgr = storage_units::StorageUnitManager::instance();
-        const auto* unit = mgr.get_unit(create.storage_unit_name);
+        const auto* unit = mgr.get_unit(su_name);
         if (!unit) {
             throw common::Exception{
-                "Unknown storage unit: " + create.storage_unit_name,
+                "Unknown storage unit: " + su_name,
                 static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
         }
         if (engine != "File") {
@@ -196,13 +224,23 @@ auto InterpreterCreateQuery::do_create_table(
                 "STORAGE_UNIT clause requires ENGINE=File",
                 static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
         }
-        auto disk = mgr.acquire_disk(create.storage_unit_name);
+        auto disk = mgr.acquire_disk(su_name);
         if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
-            const auto table_path = db_name + "/" + create.table_name;
+            const auto table_path = db_name + "/" + table_name;
             file->set_disk(disk);
             file->set_data_path(table_path);
-            file->set_storage_unit_name(create.storage_unit_name);
-            disk->create_dir(table_path);
+            file->set_storage_unit_name(su_name);
+            try
+            {
+                disk->create_dir(table_path);
+                file->write_schema(db_name, table_name);
+            }
+            catch (...)
+            {
+                // The table creation is rolled back, so its disk reference must not leak.
+                mgr.release_disk(su_name);
+                throw;
+            }
         }
     }
 
@@ -233,7 +271,7 @@ auto InterpreterCreateQuery::do_create_table(
     }
 
     if (storage) {
-        context.register_storage(create.table_name, storage);
+        context.register_storage(table_name, storage);
     }
 }
 

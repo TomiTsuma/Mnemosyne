@@ -4,6 +4,8 @@
 #include "Interpreters/ddl_guard.h"
 #include "Interpreters/ddl_transaction.h"
 #include "Interpreters/interpreter_ddl_utils.h"
+#include "Databases/database_manager.h"
+#include "Disks/disk.h"
 #include "Storages/memory_storage.h"
 #include "Storages/file_storage.h"
 #include "StorageUnits/storage_unit_manager.h"
@@ -25,6 +27,34 @@ auto resolve_storage(Context& context, const std::string& table)
     return ddl_utils::resolve_storage(context, table);
 }
 
+/// Deletes the table's data files and releases the storage unit, shard group and
+/// replica group references it holds. Files must go too, otherwise a later table
+/// with the same name (or a server restart) would resurrect the dropped rows.
+auto release_table_resources(const std::shared_ptr<storages::IStorage>& storage) -> void
+{
+    if (!storage) {
+        return;
+    }
+    if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
+        const auto path = file->path();
+        if (auto disk = file->get_disk(); disk && !path.empty()) {
+            disk->remove_dir(path);
+        }
+        const auto unit_name = file->storage_unit_name();
+        if (!unit_name.empty()) {
+            storage_units::StorageUnitManager::instance().release_disk(unit_name);
+        }
+    }
+    const auto sg_name = storage->shard_group_name();
+    if (!sg_name.empty()) {
+        shard_groups::ShardGroupManager::instance().release_group(sg_name);
+    }
+    const auto rg_name = storage->replica_group_name();
+    if (!rg_name.empty()) {
+        replica_groups::ReplicaGroupManager::instance().release_group(rg_name);
+    }
+}
+
 } // namespace
 
 auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& query)
@@ -35,7 +65,9 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
 
     switch (query.drop.kind) {
         case parsers::QueryAST::Drop::Kind::Drop:
-            if (query.drop.object_kind == parsers::QueryAST::ObjectKind::View) {
+            if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Database) {
+                do_drop_database(context, query.drop);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::View) {
                 do_drop_view(context, query.drop);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::MaterializedView) {
                 do_drop_materialized_view(context, query.drop);
@@ -104,23 +136,7 @@ auto InterpreterDropQuery::do_drop(Context& context, const parsers::QueryAST::Dr
             static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
     }
 
-    auto storage = db->table(drop.table);
-    if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
-        const auto unit_name = file->storage_unit_name();
-        if (!unit_name.empty()) {
-            storage_units::StorageUnitManager::instance().release_disk(unit_name);
-        }
-    }
-    if (storage) {
-        const auto sg_name = storage->shard_group_name();
-        if (!sg_name.empty()) {
-            shard_groups::ShardGroupManager::instance().release_group(sg_name);
-        }
-        const auto rg_name = storage->replica_group_name();
-        if (!rg_name.empty()) {
-            replica_groups::ReplicaGroupManager::instance().release_group(rg_name);
-        }
-    }
+    release_table_resources(db->table(drop.table));
 
     db->drop_table(drop.table);
     context.unregister_storage(drop.table);
@@ -236,6 +252,40 @@ auto InterpreterDropQuery::do_drop_consumer_group(Context& context, const parser
     -> void {
     (void)context;
     streaming::StreamManager::instance().drop_consumer_group(drop.table, drop.if_exists);
+}
+
+auto InterpreterDropQuery::do_drop_database(
+    Context& context, const parsers::QueryAST::Drop& drop) -> void {
+    const auto& db_name = drop.table;
+    auto& mgr = databases::DatabaseManager::instance();
+    if (!mgr.has_database(db_name)) {
+        if (drop.if_exists) {
+            return;
+        }
+        throw common::Exception{
+            "Unknown database: " + db_name,
+            static_cast<int>(common::ErrorCode::UNKNOWN_DATABASE)};
+    }
+
+    // Collect a disk first: once the tables are gone nothing else points at the
+    // (otherwise empty) database directory that must be removed as well.
+    std::shared_ptr<disks::IDisk> database_disk;
+    for (const auto& table_name : mgr.list_tables(db_name)) {
+        auto storage = mgr.get_table_storage(db_name, table_name);
+        if (auto file = std::dynamic_pointer_cast<storages::FileStorage>(storage)) {
+            if (!database_disk) {
+                database_disk = file->get_disk();
+            }
+        }
+        release_table_resources(storage);
+        context.unregister_storage(table_name);
+    }
+    if (database_disk) {
+        database_disk->remove_dir(db_name);
+    }
+
+    mgr.drop_database(db_name);
+    context.unregister_database(db_name);
 }
 
 auto InterpreterDropQuery::do_truncate(Context& context, const parsers::QueryAST::Drop& drop)

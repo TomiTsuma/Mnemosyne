@@ -63,6 +63,18 @@ inline auto require_catalog(Context& context) -> std::shared_ptr<databases::Data
 
 inline auto resolve_storage(Context& context, const std::string& table)
     -> std::shared_ptr<storages::IStorage> {
+    auto dot = table.find('.');
+    if (dot != std::string::npos) {
+        const auto db_part  = table.substr(0, dot);
+        const auto tbl_part = table.substr(dot + 1);
+        if (auto idb = context.get_database(db_part)) {
+            if (auto storage = idb->table(tbl_part)) {
+                context.register_storage(table, storage);
+                return storage;
+            }
+        }
+        return nullptr;
+    }
     const auto db_name = resolve_current_database(context);
     if (auto idb = context.get_database(db_name)) {
         if (auto catalog = std::dynamic_pointer_cast<databases::Database>(idb)) {
