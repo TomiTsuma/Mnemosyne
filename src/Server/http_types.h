@@ -61,7 +61,19 @@ struct Response {
         Response r;
         r.status_code = code;
         std::ostringstream oss;
-        oss << "{\n  \"error\": \"" << message << "\",\n  \"status_code\": " << code << "\n}\n";
+        std::string escaped;
+        escaped.reserve(message.size() + 8);
+        for (char c : message) {
+            switch (c) {
+                case '"':  escaped += "\\\""; break;
+                case '\\': escaped += "\\\\"; break;
+                case '\n': escaped += "\\n";  break;
+                case '\r': escaped += "\\r";  break;
+                case '\t': escaped += "\\t";  break;
+                default:   escaped += c;      break;
+            }
+        }
+        oss << "{\n  \"error\": \"" << escaped << "\",\n  \"status_code\": " << code << "\n}\n";
         r.body = oss.str();
         r.content_type = "application/json";
         return r;

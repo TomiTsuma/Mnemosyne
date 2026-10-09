@@ -59,6 +59,7 @@ public:
 
     // ── UI ──
     auto handle_index() -> Response;
+    auto handle_static_asset(std::string_view path) -> Response;
 
     // ── Databases ──
     auto handle_databases() -> Response;
