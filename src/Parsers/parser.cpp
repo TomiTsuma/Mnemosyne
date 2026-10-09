@@ -1000,8 +1000,7 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                 show.node_name = parse_table_name();
             }
         } else if (current_.type == TokenType::KeywordPartition ||
-                   (current_.type == TokenType::Identifier &&
-                    current_.value == "PARTITIONS")) {
+                   current_.type == TokenType::KeywordPartitions) {
             consume();
             show.show_type = QueryAST::Show::ShowType::NODE_PARTITIONS;
             if (current_.type == TokenType::Identifier ||
