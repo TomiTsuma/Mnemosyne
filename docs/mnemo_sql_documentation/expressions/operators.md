@@ -28,7 +28,9 @@
 | `-` | Subtraction (binary) or negation (unary) |
 | `*` | Multiplication |
 | `/` | Division |
-| `%` | Modulo (parsed; may map to div in AST) |
+| `%` | Modulo (integer operands give an integer; a zero divisor raises an error) |
+
+`+`, `-`, `*` and `%` on two integers give an integer; any fractional operand gives a floating-point result. `/` always gives a floating-point result, so `7 / 2` is `3.5`.
 
 ## String concatenation
 
@@ -41,6 +43,10 @@ Comparison and arithmetic can also be expressed as functions (see [functions.md]
 ```sql
 SELECT eq(a, b), gt(a, b), add(a, b) FROM t;
 ```
+
+## Precedence {#precedence}
+
+From loosest to tightest binding: `OR`, `AND`, comparisons (`=`, `!=`, `<`, `>`, `<=`, `>=`, `IN`), `+ -`, `* / %`, unary `-`.
 
 ## Precedence examples
 
