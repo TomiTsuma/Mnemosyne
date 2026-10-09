@@ -108,9 +108,14 @@ protected:
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;
+    auto parse_and() -> std::shared_ptr<ASTExpr>;
     auto parse_comparison() -> std::shared_ptr<ASTExpr>;
     auto parse_term() -> std::shared_ptr<ASTExpr>;
+    auto parse_multiplicative() -> std::shared_ptr<ASTExpr>;
+    auto parse_unary() -> std::shared_ptr<ASTExpr>;
     auto parse_factor() -> std::shared_ptr<ASTExpr>;
+    auto parse_select_item() -> std::shared_ptr<ASTExpr>;
+    auto parse_select_list() -> std::vector<std::shared_ptr<ASTExpr>>;
     auto parse_expression_list() -> std::vector<std::shared_ptr<ASTExpr>>;
 
     // ── Clause parsing helpers ──

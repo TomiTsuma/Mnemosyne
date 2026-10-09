@@ -38,6 +38,11 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     if (current_.type == TokenType::KeywordSelect) {
         ast->query_type = QueryAST::QueryType::SELECT;
         parse_select(ast);
+        if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+            throw common::Exception{
+                "Parser: unexpected token '" + current_.value + "' after SELECT",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
     } else if (current_.type == TokenType::KeywordInsert) {
         ast->query_type = QueryAST::QueryType::INSERT;
         parse_insert(ast);
@@ -126,7 +131,7 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
 
     // SELECT <columns> FROM <table>
     consume(); // consume SELECT
-    select.columns = parse_expression_list();
+    select.columns = parse_select_list();
 
     if (current_.type == TokenType::KeywordFrom) {
         consume(); // consume FROM
@@ -214,6 +219,7 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
     if (current_.type == TokenType::KeywordLimit) {
         consume(); // consume LIMIT
         select.limit = parse_limit();
+        select.has_limit = true;
     }
 }
 
@@ -1533,14 +1539,29 @@ void Parser::parse_use(std::unique_ptr<QueryAST>& ast) {
 
 // ── Expression parsing ──
 
+// Precedence, loosest to tightest: OR, AND, comparison, + -, * / %, unary minus.
 auto Parser::parse_expression() -> std::shared_ptr<ASTExpr> {
+    auto left = parse_and();
+
+    while (current_.type == TokenType::KeywordOr) {
+        auto op = std::make_shared<ASTBinaryOp>();
+        op->op = ASTBinaryOp::Op::Or;
+        consume();
+        auto right = parse_and();
+        op->left = left;
+        op->right = right;
+        left = op;
+    }
+
+    return left;
+}
+
+auto Parser::parse_and() -> std::shared_ptr<ASTExpr> {
     auto left = parse_comparison();
 
-    while (current_.type == TokenType::KeywordAnd ||
-           current_.type == TokenType::KeywordOr) {
+    while (current_.type == TokenType::KeywordAnd) {
         auto op = std::make_shared<ASTBinaryOp>();
-        op->op = current_.type == TokenType::KeywordAnd ?
-                  ASTBinaryOp::Op::And : ASTBinaryOp::Op::Or;
+        op->op = ASTBinaryOp::Op::And;
         consume();
         auto right = parse_comparison();
         op->left = left;
@@ -1600,45 +1621,103 @@ auto Parser::parse_comparison() -> std::shared_ptr<ASTExpr> {
     return left;
 }
 
+// Additive level (+, -).
 auto Parser::parse_term() -> std::shared_ptr<ASTExpr> {
-    auto left = parse_factor();
+    auto left = parse_multiplicative();
 
-    while (current_.type == TokenType::Plus ||
-           current_.type == TokenType::Minus ||
-           current_.type == TokenType::Star ||
-           current_.type == TokenType::Slash ||
-           current_.type == TokenType::Percent) {
+    while (current_.type == TokenType::Plus || current_.type == TokenType::Minus) {
         auto op = std::make_shared<ASTBinaryOp>();
-        switch (current_.type) {
-            case TokenType::Plus:   op->op = ASTBinaryOp::Op::Add;   break;
-            case TokenType::Minus:  op->op = ASTBinaryOp::Op::Sub;   break;
-            case TokenType::Star:   op->op = ASTBinaryOp::Op::Mul;   break;
-            case TokenType::Slash:  op->op = ASTBinaryOp::Op::Div;   break;
-            case TokenType::Percent: op->op = ASTBinaryOp::Op::Div;  break;
-            default: break;
-        }
+        op->op = current_.type == TokenType::Plus ? ASTBinaryOp::Op::Add : ASTBinaryOp::Op::Sub;
         consume();
-        auto right = parse_factor();
+        auto right = parse_multiplicative();
         op->left = left;
         op->right = right;
         left = op;
     }
 
-    if (current_.type == TokenType::KeywordAs) {
-        consume();
-        if (current_.type != TokenType::Identifier) {
-            throw common::Exception{
-                "Parser: expected alias name after AS",
-                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    return left;
+}
+
+auto Parser::parse_multiplicative() -> std::shared_ptr<ASTExpr> {
+    auto left = parse_unary();
+
+    while (current_.type == TokenType::Star ||
+           current_.type == TokenType::Slash ||
+           current_.type == TokenType::Percent) {
+        auto op = std::make_shared<ASTBinaryOp>();
+        switch (current_.type) {
+            case TokenType::Star:    op->op = ASTBinaryOp::Op::Mul; break;
+            case TokenType::Slash:   op->op = ASTBinaryOp::Op::Div; break;
+            default:                 op->op = ASTBinaryOp::Op::Mod; break;
         }
-        auto alias = std::make_shared<ASTAlias>();
-        alias->alias = current_.value;
         consume();
-        alias->expression = left;
-        return alias;
+        auto right = parse_unary();
+        op->left = left;
+        op->right = right;
+        left = op;
     }
 
     return left;
+}
+
+auto Parser::parse_unary() -> std::shared_ptr<ASTExpr> {
+    if (current_.type == TokenType::Minus) {
+        consume();
+        auto operand = parse_unary();
+        if (auto* lit = dynamic_cast<ASTLiteral*>(operand.get())) {
+            if (std::holds_alternative<int64_t>(lit->value)) {
+                lit->value = -std::get<int64_t>(lit->value);
+                return operand;
+            }
+            if (std::holds_alternative<double>(lit->value)) {
+                lit->value = -std::get<double>(lit->value);
+                return operand;
+            }
+        }
+        auto neg = std::make_shared<ASTUnaryOp>();
+        neg->op = ASTUnaryOp::Op::Neg;
+        neg->operand = std::move(operand);
+        return neg;
+    }
+    return parse_factor();
+}
+
+// One select-list item: an expression with an optional [AS] alias.
+auto Parser::parse_select_item() -> std::shared_ptr<ASTExpr> {
+    auto expr = parse_expression();
+
+    // After AS any word is a valid alias (e.g. "AS bucket", which is also a keyword); without
+    // AS only a plain identifier is, otherwise FROM, WHERE and friends would be taken as aliases.
+    const bool has_as = current_.type == TokenType::KeywordAs;
+    if (has_as) {
+        consume();
+    }
+    const bool is_word = !current_.value.empty() &&
+        (std::isalpha(static_cast<unsigned char>(current_.value.front())) || current_.value.front() == '_') &&
+        current_.type != TokenType::StringLiteral;
+    if (has_as ? is_word : current_.type == TokenType::Identifier) {
+        auto alias = std::make_shared<ASTAlias>();
+        alias->alias = current_.value;
+        consume();
+        alias->expression = std::move(expr);
+        return alias;
+    }
+    if (has_as) {
+        throw common::Exception{
+            "Parser: expected alias name after AS",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    return expr;
+}
+
+auto Parser::parse_select_list() -> std::vector<std::shared_ptr<ASTExpr>> {
+    std::vector<std::shared_ptr<ASTExpr>> items;
+    items.push_back(parse_select_item());
+    while (current_.type == TokenType::Comma) {
+        consume();
+        items.push_back(parse_select_item());
+    }
+    return items;
 }
 
 auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
@@ -1730,7 +1809,7 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
             auto func = std::make_shared<ASTFunction>();
             func->name = name;
             static const std::unordered_set<std::string> aggs = {
-                "COUNT", "SUM", "AVG", "MIN", "MAX"};
+                "COUNT", "SUM", "AVG", "MIN", "MAX", "QUANTILE", "MEDIAN", "PERCENTILE"};
             std::string upper = name;
             std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
             func->is_aggregate = aggs.count(upper) > 0;
@@ -1752,6 +1831,25 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
                     static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
             }
             consume();
+            // Parametric call, e.g. quantile(0.9)(x): the first list holds the parameters.
+            if (current_.type == TokenType::LParen) {
+                consume();
+                func->parameters = std::move(func->args);
+                func->args.clear();
+                if (current_.type != TokenType::RParen) {
+                    func->args.push_back(parse_expression());
+                    while (current_.type == TokenType::Comma) {
+                        consume();
+                        func->args.push_back(parse_expression());
+                    }
+                }
+                if (current_.type != TokenType::RParen) {
+                    throw common::Exception{
+                        "Parser: expected ) after parametric function call",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                consume();
+            }
             if (current_.type == TokenType::KeywordOver) {
                 consume();
                 if (current_.type != TokenType::LParen) {
@@ -2037,8 +2135,20 @@ auto Parser::parse_order_by_list() -> std::vector<OrderBy> {
 
 auto Parser::parse_order_by() -> OrderBy {
     OrderBy order;
+    const bool is_name = !current_.value.empty() && current_.type != TokenType::StringLiteral &&
+        (std::isalpha(static_cast<unsigned char>(current_.value.front())) || current_.value.front() == '_');
+    if (!is_name) {
+        throw common::Exception{
+            "Parser: ORDER BY supports column names and select aliases, got '" + current_.value + "'",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
     order.column = current_.value;
     consume();
+    if (current_.type == TokenType::Dot) {
+        consume(); // consume .
+        order.column += "." + current_.value;
+        consume();
+    }
     if (current_.type == TokenType::KeywordAsc || current_.type == TokenType::KeywordDesc) {
         order.direction = current_.type == TokenType::KeywordAsc ?
                   OrderBy::Direction::ASC : OrderBy::Direction::DESC;
@@ -2047,16 +2157,29 @@ auto Parser::parse_order_by() -> OrderBy {
     return order;
 }
 
+// Returns {offset, count}. Accepts "LIMIT n", "LIMIT n OFFSET m" and "LIMIT m, n" (offset first).
 auto Parser::parse_limit() -> std::pair<size_t, size_t> {
-    size_t count = static_cast<size_t>(std::stoll(current_.value));
-    consume();
-    size_t offset = 0;
+    const auto read_number = [this]() -> size_t {
+        if (current_.type != TokenType::IntegerLiteral) {
+            throw common::Exception{
+                "Parser: expected an integer in LIMIT/OFFSET",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        const auto value = static_cast<size_t>(std::stoull(current_.value));
+        consume();
+        return value;
+    };
+
+    const size_t first = read_number();
     if (current_.type == TokenType::Comma) {
         consume(); // consume ,
-        offset = static_cast<size_t>(std::stoll(current_.value));
-        consume();
+        return {first, read_number()};
     }
-    return {offset, count};
+    if (current_.type == TokenType::KeywordOffset) {
+        consume(); // consume OFFSET
+        return {read_number(), first};
+    }
+    return {0, first};
 }
 
 auto Parser::consume_node_keyword() -> bool {

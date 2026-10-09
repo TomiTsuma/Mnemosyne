@@ -184,6 +184,8 @@ public:
     };
 
     std::string    name;
+    // First argument list of a parametric call: quantile(0.9)(x) has parameters {0.9}, args {x}.
+    std::vector<std::shared_ptr<ASTExpr>> parameters;
     std::vector<std::shared_ptr<ASTExpr>> args;
     bool            is_aggregate = false;
     std::vector<std::shared_ptr<ASTExpr>> distinct_args;
@@ -196,7 +198,7 @@ public:
 // ── ASTBinaryOp ──
 class ASTBinaryOp : public ASTExpr {
 public:
-    enum class Op { Add, Sub, Mul, Div, Eq, Ne, Gt, Lt, Ge, Le, And, Or, Like, NotLike, In };
+    enum class Op { Add, Sub, Mul, Div, Mod, Eq, Ne, Gt, Lt, Ge, Le, And, Or, Like, NotLike, In };
     Op       op;
     std::shared_ptr<ASTExpr> left;
     std::shared_ptr<ASTExpr> right;
@@ -307,7 +309,9 @@ public:
         std::vector<std::shared_ptr<ASTExpr>> group_by;
         std::shared_ptr<ASTExpr> having;
         std::vector<std::pair<std::string, bool>> order_by;
+        // {offset, count}; only meaningful when has_limit is set, so LIMIT 0 differs from no LIMIT.
         std::pair<size_t, size_t> limit = {0, 0};
+        bool has_limit = false;
     } select;
 
     struct Insert {
