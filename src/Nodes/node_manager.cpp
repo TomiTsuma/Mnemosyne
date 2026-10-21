@@ -271,11 +271,181 @@ auto NodeManager::create_cluster(ClusterEntry entry, bool if_not_exists) -> void
     clusters_.emplace(entry.name, std::move(entry));
 }
 
+auto NodeManager::drop_cluster(std::string_view name, bool if_exists) -> void {
+    std::lock_guard lock{mutex_};
+    auto it = clusters_.find(std::string{name});
+    if (it == clusters_.end()) {
+        if (if_exists) return;
+        throw common::Exception{
+            "Unknown cluster: " + std::string{name},
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+    // Detach member nodes so none is left pointing at a cluster that no longer exists.
+    for (auto& [node_name, node] : nodes_) {
+        if (node.cluster_id == it->first) {
+            node.cluster_id.clear();
+            node.updated_at = std::chrono::system_clock::now();
+        }
+    }
+    clusters_.erase(it);
+}
+
 auto NodeManager::get_cluster(std::string_view name) const -> const ClusterEntry* {
     std::lock_guard lock{mutex_};
     auto it = clusters_.find(std::string{name});
     if (it == clusters_.end()) return nullptr;
     return &it->second;
+}
+
+auto NodeManager::alter_cluster_membership(std::string_view cluster_name,
+                                           const std::vector<ClusterMembershipOp>& ops) -> void {
+    std::lock_guard lock{mutex_};
+    const std::string cluster{cluster_name};
+    if (!clusters_.contains(cluster)) {
+        throw common::Exception{
+            "Unknown cluster: " + cluster,
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+
+    // Remember each touched node's original cluster_id so a failure part-way through can be undone.
+    std::unordered_map<std::string, std::string> original;
+    const auto restore = [&]() {
+        for (const auto& [node_name, cluster_id] : original) {
+            nodes_.at(node_name).cluster_id = cluster_id;
+        }
+    };
+
+    try {
+        for (const auto& op : ops) {
+            auto it = nodes_.find(op.node);
+            if (it == nodes_.end()) {
+                throw common::Exception{
+                    "Unknown node: " + op.node,
+                    static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+            }
+            original.emplace(op.node, it->second.cluster_id);
+
+            if (op.add) {
+                // A node belongs to one cluster. Refuse to move it silently: the caller must
+                // REMOVE it from its current cluster first. A cluster_id that names no registered
+                // cluster (the self node is seeded with "default", and ALTER NODE ... SET CLUSTER
+                // does not validate) is not membership.
+                const auto& current = it->second.cluster_id;
+                if (!current.empty() && current != cluster && clusters_.contains(current)) {
+                    throw common::Exception{
+                        "Node " + op.node + " already belongs to cluster " + current
+                            + "; remove it from that cluster first",
+                        static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+                }
+                it->second.cluster_id = cluster;
+            } else {
+                if (it->second.cluster_id != cluster) {
+                    throw common::Exception{
+                        "Node " + op.node + " is not a member of cluster " + cluster,
+                        static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+                }
+                it->second.cluster_id.clear();
+            }
+        }
+    } catch (...) {
+        restore();
+        throw;
+    }
+
+    const auto now = std::chrono::system_clock::now();
+    for (const auto& [node_name, cluster_id] : original) {
+        auto& node = nodes_.at(node_name);
+        if (node.cluster_id != cluster_id) {
+            node.updated_at = now;
+        }
+    }
+}
+
+auto NodeManager::nodes_in_cluster(std::string_view cluster_name) const -> std::vector<NodeEntry> {
+    std::lock_guard lock{mutex_};
+    std::vector<NodeEntry> out;
+    for (const auto& [node_name, node] : nodes_) {
+        if (node.cluster_id == std::string{cluster_name}) {
+            out.push_back(node);
+        }
+    }
+    std::sort(out.begin(), out.end(),
+              [](const NodeEntry& a, const NodeEntry& b) { return a.node_name < b.node_name; });
+    return out;
+}
+
+auto cluster_state_name(ClusterState state) -> std::string {
+    switch (state) {
+        case ClusterState::Creating: return "CREATING";
+        case ClusterState::Online: return "ONLINE";
+        case ClusterState::Degraded: return "DEGRADED";
+        case ClusterState::Offline: return "OFFLINE";
+    }
+    return "UNKNOWN";
+}
+
+auto NodeManager::summarize_locked(const std::string& cluster_name) const -> ClusterSummary {
+    ClusterSummary summary;
+    summary.name = cluster_name;
+    double cpu_sum = 0.0;
+    for (const auto& [node_name, node] : nodes_) {
+        if (node.cluster_id != cluster_name) continue;
+        ++summary.node_count;
+        if (node.status == NodeStatus::Online || node.status == NodeStatus::Busy) {
+            ++summary.online_count;
+        } else if (node.status == NodeStatus::Offline) {
+            ++summary.offline_count;
+        }
+        summary.cpu_cores += node.resources.cpu_cores;
+        summary.memory_bytes += node.resources.memory_bytes;
+        summary.gpu_count += node.resources.gpu_count;
+        summary.storage_bytes += node.resources.storage_bytes;
+        cpu_sum += node.metrics.cpu_utilization_pct;
+        summary.memory_used_bytes += node.metrics.memory_used_bytes;
+        summary.storage_used_bytes += node.metrics.storage_used_bytes;
+        summary.query_throughput += node.metrics.query_throughput;
+        summary.pipeline_throughput += node.metrics.pipeline_throughput;
+        summary.stream_throughput += node.metrics.stream_throughput;
+    }
+    if (summary.node_count > 0) {
+        summary.avg_cpu_utilization_pct = cpu_sum / static_cast<double>(summary.node_count);
+    }
+
+    // No members: the cluster is still being assembled. All members offline: OFFLINE. All members
+    // up: ONLINE. Anything else (a node that is offline, draining, registering, ...): DEGRADED.
+    if (summary.node_count == 0) {
+        summary.state = ClusterState::Creating;
+    } else if (summary.offline_count == summary.node_count) {
+        summary.state = ClusterState::Offline;
+    } else if (summary.online_count == summary.node_count) {
+        summary.state = ClusterState::Online;
+    } else {
+        summary.state = ClusterState::Degraded;
+    }
+    return summary;
+}
+
+auto NodeManager::cluster_summary(std::string_view cluster_name) const -> ClusterSummary {
+    std::lock_guard lock{mutex_};
+    const std::string key{cluster_name};
+    if (!clusters_.contains(key)) {
+        throw common::Exception{
+            "Unknown cluster: " + key,
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+    return summarize_locked(key);
+}
+
+auto NodeManager::cluster_summaries() const -> std::vector<ClusterSummary> {
+    std::lock_guard lock{mutex_};
+    std::vector<ClusterSummary> out;
+    out.reserve(clusters_.size());
+    for (const auto& [name, entry] : clusters_) {
+        out.push_back(summarize_locked(name));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const ClusterSummary& a, const ClusterSummary& b) { return a.name < b.name; });
+    return out;
 }
 
 auto NodeManager::list_clusters() const -> std::vector<ClusterEntry> {

@@ -536,6 +536,12 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::CLUSTERS:
                     node->kind = DDLNode::Kind::ShowClusters;
                     break;
+                case parsers::QueryAST::Show::ShowType::CLUSTER_STATUS:
+                    node->kind = DDLNode::Kind::ShowClusterStatus;
+                    break;
+                case parsers::QueryAST::Show::ShowType::CLUSTER_METRICS:
+                    node->kind = DDLNode::Kind::ShowClusterMetrics;
+                    break;
                 case parsers::QueryAST::Show::ShowType::REPLICA_GROUPS:
                     node->kind = DDLNode::Kind::ShowReplicaGroups;
                     break;
