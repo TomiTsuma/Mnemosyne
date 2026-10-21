@@ -332,6 +332,17 @@ std::string format_query(const QueryAST& query) {
             out << "DISCOVER SCHEMA FROM CONNECTOR " << query.discover.connector_name;
             break;
         }
+        case QueryAST::QueryType::EXPORT: {
+            const auto& export_data = query.export_data;
+            out << "EXPORT TABLE " << export_data.table << " TO CONNECTOR " << export_data.connector;
+            if (!export_data.resource.empty()) {
+                out << "." << export_data.resource;
+            }
+            if (!export_data.mode.empty()) {
+                out << " MODE " << export_data.mode;
+            }
+            break;
+        }
         case QueryAST::QueryType::ALTER: {
             if (query.alter.target == QueryAST::Alter::Target::Node) {
                 out << "ALTER NODE " << query.alter.table;

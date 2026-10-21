@@ -273,7 +273,8 @@ public:
         SELECT, INSERT, CREATE, DROP, ALTER, SHOW, DESCRIBE, EXPLAIN, USE, REFRESH,
         REGISTER, DRAIN, REMOVE, TEST, DISCOVER, RUN, PAUSE, RESUME, PUBLISH, SUBSCRIBE,
         // MODEL layer control verbs
-        DEPLOY, PREDICT, EVALUATE, COMPARE, GENERATE
+        DEPLOY, PREDICT, EVALUATE, COMPARE, GENERATE,
+        EXPORT
     };
 
     enum class ObjectKind {
@@ -514,6 +515,14 @@ public:
     struct Discover {
         std::string connector_name;
     } discover;
+
+    // EXPORT TABLE <table> TO CONNECTOR <connector>[.<resource>] [MODE <mode>]
+    struct ExportData {
+        std::string table;
+        std::string connector;
+        std::string resource;  // empty: named after the table
+        std::string mode;      // as written, upper-cased; empty means APPEND
+    } export_data;
 
     struct Describe {
         ObjectKind object_kind = ObjectKind::Table;

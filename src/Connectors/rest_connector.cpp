@@ -5,8 +5,11 @@
 #include "Common/exceptions.h"
 #include <httplib.h>
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
 #include <sstream>
 
 namespace mnemo::connectors {
@@ -242,6 +245,84 @@ auto rows_to_block(const std::vector<std::unordered_map<std::string, std::string
     return block;
 }
 
+auto json_quote(std::string_view text) -> std::string {
+    std::string out = "\"";
+    for (const char c : text) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    char buffer[8];
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", static_cast<unsigned>(c));
+                    out += buffer;
+                } else {
+                    out.push_back(c);
+                }
+        }
+    }
+    out.push_back('"');
+    return out;
+}
+
+// JSON has no NaN or Infinity, so those become null rather than invalid JSON.
+auto json_number(double value) -> std::string {
+    if (!std::isfinite(value)) {
+        return "null";
+    }
+    char buffer[64];
+    const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
+    return std::string(buffer, result.ptr);
+}
+
+auto field_to_json(const core::Field& field, const std::string& column) -> std::string {
+    switch (field.type()) {
+        case core::FieldType::Null:
+            return "null";
+        case core::FieldType::Bool:
+            return field.as_bool().value_or(false) ? "true" : "false";
+        case core::FieldType::UInt8:
+        case core::FieldType::UInt16:
+        case core::FieldType::UInt32:
+        case core::FieldType::UInt64:
+            return std::to_string(field.as_uint64().value_or(0));
+        case core::FieldType::Int8:
+        case core::FieldType::Int16:
+        case core::FieldType::Int32:
+        case core::FieldType::Int64:
+            return std::to_string(field.as_int64().value_or(0));
+        case core::FieldType::Float32:
+        case core::FieldType::Float64:
+            return json_number(field.as_float64().value_or(0.0));
+        case core::FieldType::String:
+            return json_quote(field.as_string().value_or(std::string{}));
+        default:
+            throw common::Exception{
+                "REST connector: cannot export column '" + column + "' of type " +
+                    field.type_name(),
+                static_cast<int>(common::ErrorCode::NOT_IMPLEMENTED)};
+    }
+}
+
+// The whole block as a JSON array with one object per row.
+auto block_to_json(const core::Block& block) -> std::string {
+    const auto names = block.column_names();
+    std::string body = "[";
+    for (size_t row = 0; row < block.row_count(); ++row) {
+        body += row == 0 ? "{" : ",{";
+        for (size_t col = 0; col < names.size(); ++col) {
+            if (col != 0) body.push_back(',');
+            body += json_quote(names[col]) + ":" + field_to_json(block.get_row_value(col, row), names[col]);
+        }
+        body.push_back('}');
+    }
+    body.push_back(']');
+    return body;
+}
+
 } // namespace
 
 auto RestConnector::test(ConnectorEntry& entry) -> ConnectorTestResult {
@@ -288,6 +369,39 @@ auto RestConnector::read(const ConnectorEntry& entry, std::string_view resource,
     const auto body = http_get(entry, url);
     const auto rows = parse_json_array_of_objects(body);
     return rows_to_block(rows, limit);
+}
+
+auto RestConnector::write(const ConnectorEntry& entry, std::string_view resource,
+                          const core::Block& data, ExportMode mode) -> size_t {
+    const size_t rows = data.row_count();
+    if (rows == 0 && mode == ExportMode::Append) {
+        return 0;  // nothing to add
+    }
+    // Encode before connecting, so a value that cannot be represented fails with no request sent.
+    const auto body = block_to_json(data);
+
+    const auto url = join_url(property(entry, "BASE_URL"), resource);
+    const auto parts = parse_http_url(url);
+    httplib::Client client(parts.host, parts.port);
+    client.set_connection_timeout(5, 0);
+    client.set_read_timeout(30, 0);
+    apply_auth(client, entry);
+
+    const auto response = mode == ExportMode::Overwrite
+        ? client.Put(parts.path, body, "application/json")
+        : client.Post(parts.path, body, "application/json");
+    if (!response) {
+        throw common::Exception{
+            "REST connector: HTTP request failed while exporting to " + std::string{resource},
+            static_cast<int>(common::ErrorCode::CANNOT_CONNECT)};
+    }
+    if (response->status < 200 || response->status >= 300) {
+        throw common::Exception{
+            "REST connector: HTTP " + std::to_string(response->status) + " while exporting to " +
+                std::string{resource},
+            static_cast<int>(common::ErrorCode::NET_ERROR)};
+    }
+    return rows;
 }
 
 } // namespace mnemo::connectors

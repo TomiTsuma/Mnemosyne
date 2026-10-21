@@ -117,6 +117,10 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     } else if (current_.type == TokenType::KeywordGenerate) {
         ast->query_type = QueryAST::QueryType::GENERATE;
         parse_generate(ast);
+    } else if (current_.type == TokenType::Identifier && upper_str(current_.value) == "EXPORT") {
+        // Matched by text, not a reserved word, so `export` stays usable as an identifier.
+        ast->query_type = QueryAST::QueryType::EXPORT;
+        parse_export(ast);
     } else {
         std::string msg = "Parser: unexpected token '" + current_.value + "'";
         int code = static_cast<int>(common::ErrorCode::SYNTAX_ERROR);
@@ -1818,6 +1822,48 @@ void Parser::parse_discover(std::unique_ptr<QueryAST>& ast) {
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     ast->discover.connector_name = parse_table_name();
+}
+
+// EXPORT TABLE <table> TO CONNECTOR <connector>[.<resource>] [MODE <mode>]
+// The mode word is kept as written; the interpreter decides which modes exist.
+void Parser::parse_export(std::unique_ptr<QueryAST>& ast) {
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+    const auto at_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+
+    auto& export_data = ast->export_data;
+    consume(); // EXPORT
+    if (current_.type != TokenType::KeywordTable) {
+        fail("Parser: expected TABLE after EXPORT");
+    }
+    consume(); // TABLE
+    export_data.table = parse_qualified_name();
+    if (!at_word("TO")) {
+        fail("Parser: expected TO after the table name in EXPORT");
+    }
+    consume(); // TO
+    if (!consume_connector_keyword()) {
+        fail("Parser: expected CONNECTOR after TO");
+    }
+    export_data.connector = parse_table_name();
+    if (current_.type == TokenType::Dot) {
+        consume(); // .
+        export_data.resource = parse_table_name();
+    }
+    if (at_word("MODE")) {
+        consume(); // MODE
+        if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
+            fail("Parser: expected APPEND, OVERWRITE, MERGE or UPSERT after MODE");
+        }
+        export_data.mode = upper_str(current_.value);
+        consume();
+    }
+    if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+        fail("Parser: unexpected token '" + current_.value + "' in EXPORT");
+    }
 }
 
 void Parser::parse_explain(std::unique_ptr<QueryAST>& ast) {

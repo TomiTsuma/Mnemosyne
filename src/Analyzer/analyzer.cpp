@@ -208,6 +208,7 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
         case parsers::QueryAST::QueryType::REMOVE:
         case parsers::QueryAST::QueryType::TEST:
         case parsers::QueryAST::QueryType::DISCOVER:
+        case parsers::QueryAST::QueryType::EXPORT:
         case parsers::QueryAST::QueryType::RUN:
         case parsers::QueryAST::QueryType::PAUSE:
         case parsers::QueryAST::QueryType::RESUME:
