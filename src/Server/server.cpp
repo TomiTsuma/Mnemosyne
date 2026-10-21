@@ -11,6 +11,7 @@
 #include "ReplicaGroups/replica_group_manager.h"
 #include "Pipelines/pipeline_scheduler.h"
 #include "Interpreters/pipeline_executor.h"
+#include "Interpreters/materialized_view_scheduler.h"
 #include "Models/model_manager.h"
 #include <iostream>
 
@@ -44,6 +45,7 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
             }
         });
     pipelines::PipelineScheduler::instance().start();
+    interpreters::MaterializedViewScheduler::instance().start(*context_);
 
     // Load the persisted MODEL layer catalog (models, versions, endpoints, runs).
     try {
@@ -73,6 +75,7 @@ void Server::stop() {
     nodes::MembershipService::instance().stop();
     replica_groups::ReplicaFailoverService::instance().stop();
     pipelines::PipelineScheduler::instance().stop();
+    interpreters::MaterializedViewScheduler::instance().stop();
 
     if (http_server_) {
         http_server_->stop();

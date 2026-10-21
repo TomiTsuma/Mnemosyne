@@ -960,6 +960,133 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
         }
         return;
     }
+    // Words that follow the object name are matched by text so they stay usable as identifiers
+    // elsewhere; a quoted string never counts as a word.
+    const auto at_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+    const auto at_end = [this]() {
+        return current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon;
+    };
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+
+    // ALTER STORAGE_UNIT <name> SET RETENTION <n> [DAY|DAYS] | FOREVER
+    if (consume_storage_unit_keyword()) {
+        alter.target = QueryAST::Alter::Target::StorageUnit;
+        alter.table = parse_table_name();
+        if (current_.type != TokenType::KeywordSet) {
+            fail("Parser: expected SET in ALTER STORAGE_UNIT");
+        }
+        consume(); // SET
+        QueryAST::Alter::NodeSet cmd;
+        if (!at_word("RETENTION")) {
+            fail("Parser: unknown ALTER STORAGE_UNIT property '" + current_.value +
+                 "'; expected RETENTION");
+        }
+        cmd.property = "RETENTION";
+        consume(); // RETENTION
+        if (current_.type == TokenType::KeywordForever || at_word("FOREVER")) {
+            consume();
+            cmd.value = "FOREVER";
+        } else if (current_.type == TokenType::IntegerLiteral) {
+            cmd.value = current_.value;
+            consume();
+            if (current_.type == TokenType::KeywordDays || at_word("DAY") || at_word("DAYS")) {
+                consume();
+            } else {
+                fail("Parser: expected DAYS after the retention count");
+            }
+        } else {
+            fail("Parser: expected a number of days or FOREVER after RETENTION");
+        }
+        if (!at_end()) {
+            fail("Parser: unexpected token '" + current_.value + "' in ALTER STORAGE_UNIT");
+        }
+        alter.storage_unit_sets.push_back(std::move(cmd));
+        return;
+    }
+    // ALTER VIEW <name> AS SELECT ...
+    if (current_.type == TokenType::KeywordView) {
+        consume(); // VIEW
+        alter.target = QueryAST::Alter::Target::View;
+        alter.table = parse_table_name();
+        if (current_.type != TokenType::KeywordAs) {
+            fail("Parser: expected AS after view name in ALTER VIEW");
+        }
+        consume(); // AS
+        if (current_.type != TokenType::KeywordSelect) {
+            fail("Parser: expected SELECT after AS");
+        }
+        auto select_ast = std::make_unique<QueryAST>();
+        select_ast->query_type = QueryAST::QueryType::SELECT;
+        parse_select(select_ast);
+        alter.view_definition = std::move(select_ast->select);
+        return;
+    }
+    // ALTER MATERIALIZED VIEW <name> SET REFRESH EVERY <n> <unit> | MANUAL
+    if (current_.type == TokenType::KeywordMaterialized) {
+        consume(); // MATERIALIZED
+        if (current_.type != TokenType::KeywordView) {
+            fail("Parser: expected VIEW after MATERIALIZED");
+        }
+        consume(); // VIEW
+        alter.target = QueryAST::Alter::Target::MaterializedView;
+        alter.table = parse_table_name();
+        if (current_.type != TokenType::KeywordSet) {
+            fail("Parser: expected SET in ALTER MATERIALIZED VIEW");
+        }
+        consume(); // SET
+        if (current_.type != TokenType::KeywordRefresh) {
+            fail("Parser: unknown ALTER MATERIALIZED VIEW property '" + current_.value +
+                 "'; expected REFRESH");
+        }
+        consume(); // REFRESH
+        if (at_word("MANUAL")) {
+            consume();
+            alter.refresh_every_seconds = 0;
+        } else if (at_word("EVERY")) {
+            consume();
+            if (current_.type != TokenType::IntegerLiteral) {
+                fail("Parser: expected a whole number after EVERY");
+            }
+            uint64_t count = 0;
+            try {
+                count = std::stoull(current_.value);
+            } catch (const std::exception&) {
+                fail("Parser: the refresh interval is too large");
+            }
+            consume();
+            uint64_t unit_seconds = 0;
+            if (at_word("SECOND") || at_word("SECONDS")) {
+                unit_seconds = 1;
+            } else if (at_word("MINUTE") || at_word("MINUTES")) {
+                unit_seconds = 60;
+            } else if (at_word("HOUR") || at_word("HOURS")) {
+                unit_seconds = 3600;
+            } else if (current_.type == TokenType::KeywordDays || at_word("DAY") ||
+                       at_word("DAYS")) {
+                unit_seconds = 86400;
+            } else {
+                fail("Parser: expected SECONDS, MINUTES, HOURS or DAYS after the refresh interval");
+            }
+            consume(); // unit
+            if (count == 0) {
+                fail("Parser: the refresh interval must be at least 1");
+            }
+            if (count > UINT64_MAX / unit_seconds) {
+                fail("Parser: the refresh interval is too large");
+            }
+            alter.refresh_every_seconds = count * unit_seconds;
+        } else {
+            fail("Parser: expected EVERY <n> <unit> or MANUAL after REFRESH");
+        }
+        if (!at_end()) {
+            fail("Parser: unexpected token '" + current_.value + "' in ALTER MATERIALIZED VIEW");
+        }
+        return;
+    }
     if (current_.type == TokenType::KeywordCluster) {
         consume(); // CLUSTER
         alter.target = QueryAST::Alter::Target::Cluster;
@@ -994,7 +1121,8 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
     }
     if (current_.type != TokenType::KeywordTable) {
         throw common::Exception{
-            "Parser: expected TABLE, NODE, REPLICA_GROUP, SHARD_GROUP, or CLUSTER after ALTER",
+            "Parser: expected TABLE, NODE, REPLICA_GROUP, SHARD_GROUP, CLUSTER, STORAGE_UNIT, "
+            "VIEW, or MATERIALIZED VIEW after ALTER",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume TABLE

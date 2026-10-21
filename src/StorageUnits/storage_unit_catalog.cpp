@@ -45,6 +45,13 @@ auto parse_storage_unit_type(std::string_view name) -> StorageUnitType {
         static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
 }
 
+auto retention_name(const StorageUnitEntry& entry) -> std::string {
+    if (!entry.retention_days) {
+        return "FOREVER";
+    }
+    return std::to_string(*entry.retention_days) + " DAYS";
+}
+
 auto capabilities_for_type(StorageUnitType type) -> std::vector<std::string> {
     switch (type) {
         case StorageUnitType::Local:

@@ -4,6 +4,7 @@
 #include "Server/http_server.h"
 #include "Server/http_handler.h"
 #include "Common/exceptions.h"
+#include "Common/execution_lock.h"
 #include <iostream>
 #include <sstream>
 
@@ -320,9 +321,10 @@ void HTTPServer::handle_client(int client_socket) {
         // storages_, current_db_, query_info_) is shared, mutable, and has
         // no internal locking, so only one request may execute against it
         // at a time even though many connections are now read concurrently.
+        // Background workers take the same lock (Common/execution_lock.h).
         std::string resp_str;
         {
-            std::lock_guard<std::mutex> lock(handle_mutex_);
+            std::lock_guard<std::mutex> lock(common::execution_mutex());
             auto response = handler_->handle(http_req);
             resp_str = make_http_response(response.status_code, response.body, response.content_type);
         }

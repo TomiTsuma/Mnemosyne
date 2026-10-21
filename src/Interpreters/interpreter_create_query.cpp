@@ -387,6 +387,9 @@ auto InterpreterCreateQuery::do_create_materialized_view(
     entry.definition = create.select_definition;
     entry.backing_table = create.view_name;
     entry.dependencies = std::move(deps);
+    // The view was just populated, so a later SET REFRESH EVERY counts from now.
+    entry.last_refreshed_at = std::chrono::system_clock::now();
+    entry.last_attempt_at = entry.last_refreshed_at;
     db->create_materialized_view(std::move(entry));
     context.register_storage(create.view_name, storage);
 }

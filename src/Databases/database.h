@@ -59,8 +59,15 @@ public:
     [[nodiscard]] auto view_names() const -> std::vector<std::string>;
     [[nodiscard]] auto materialized_view_names() const -> std::vector<std::string>;
     auto create_view(ViewEntry entry) -> void;
+    /// Replaces an existing view's entry; returns false if there is no such view.
+    auto replace_view(ViewEntry entry) -> bool;
     auto drop_view(std::string name) -> bool;
     auto create_materialized_view(MaterializedViewEntry entry) -> void;
+    /// 0 makes the view MANUAL. Returns false if there is no such materialized view.
+    auto set_materialized_view_refresh_interval(std::string_view name, uint64_t seconds) -> bool;
+    /// Records a refresh attempt: error empty means it succeeded. A failed attempt leaves the
+    /// view DEGRADED and keeps the time of the last success.
+    auto record_materialized_view_refresh(std::string_view name, const std::string& error) -> void;
     auto drop_materialized_view(std::string name) -> bool;
     [[nodiscard]] auto relation_exists(std::string_view name) const -> bool;
 

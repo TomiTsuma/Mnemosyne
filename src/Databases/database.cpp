@@ -177,12 +177,49 @@ auto Database::create_view(ViewEntry entry) -> void {
     views_[entry.name] = std::move(entry);
 }
 
+auto Database::replace_view(ViewEntry entry) -> bool {
+    auto it = views_.find(entry.name);
+    if (it == views_.end()) {
+        return false;
+    }
+    it->second = std::move(entry);
+    return true;
+}
+
 auto Database::drop_view(std::string name) -> bool {
     return views_.erase(name) > 0;
 }
 
 auto Database::create_materialized_view(MaterializedViewEntry entry) -> void {
     materialized_views_[entry.name] = std::move(entry);
+}
+
+auto Database::set_materialized_view_refresh_interval(std::string_view name, uint64_t seconds)
+    -> bool {
+    auto it = materialized_views_.find(std::string{name});
+    if (it == materialized_views_.end()) {
+        return false;
+    }
+    it->second.refresh_interval_seconds = seconds;
+    return true;
+}
+
+auto Database::record_materialized_view_refresh(std::string_view name, const std::string& error)
+    -> void {
+    auto it = materialized_views_.find(std::string{name});
+    if (it == materialized_views_.end()) {
+        return;
+    }
+    const auto now = std::chrono::system_clock::now();
+    auto& entry = it->second;
+    entry.last_attempt_at = now;
+    entry.last_refresh_error = error;
+    if (error.empty()) {
+        entry.last_refreshed_at = now;
+        entry.status = "ACTIVE";
+    } else {
+        entry.status = "DEGRADED";
+    }
 }
 
 auto Database::drop_materialized_view(std::string name) -> bool {

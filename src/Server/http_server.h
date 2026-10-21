@@ -72,11 +72,9 @@ private:
 #endif
     std::thread    worker_thread_;
     std::atomic<bool> running_ = false;
-
-    // Context (interpreters::Context) shared by HTTPHandler has no internal
-    // synchronization, so request handling itself stays serialized even
-    // though connections are now accepted/read concurrently.
-    std::mutex handle_mutex_;
+    // Request handling is serialized by common::execution_mutex() (Common/execution_lock.h):
+    // the Context shared by HTTPHandler has no internal synchronization, and background workers
+    // use the same lock.
 };
 
 } // namespace mnemo::server

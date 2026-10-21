@@ -4,6 +4,7 @@
 
 #include "StorageUnits/storage_unit_catalog.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -21,6 +22,8 @@ public:
     [[nodiscard]] auto has_unit(std::string_view name) const -> bool;
     [[nodiscard]] auto list_names() const -> std::vector<std::string>;
     auto drop_unit(std::string name, bool if_exists) -> void;
+    /// nullopt means FOREVER. Recorded only; nothing expires data yet.
+    auto set_retention(std::string_view name, std::optional<uint32_t> days) -> void;
 
     auto acquire_disk(std::string_view name) -> std::shared_ptr<disks::IDisk>;
     auto release_disk(std::string_view name) -> void;
