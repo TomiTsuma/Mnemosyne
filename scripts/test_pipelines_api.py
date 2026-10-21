@@ -453,7 +453,14 @@ def test_scheduler_smoke(client: Client, t: TestRunner) -> None:
     client.query(
         f"CREATE TASK t1 IN STAGE s1 IN PIPELINE {sched_pipeline} TYPE BUILT_IN"
     )
+    # The cron expression names the current minute, the scheduler ticks every 5 seconds and we
+    # wait up to 12, so a trigger created in the last seconds of a minute can expire before any
+    # tick sees it and nothing ever fires. Start in the next minute when too little is left.
     now = datetime.now()
+    remaining = 60 - (now.second + now.microsecond / 1_000_000)
+    if remaining < 10:
+        time.sleep(remaining + 0.5)
+        now = datetime.now()
     cron = f"{now.minute} {now.hour} * * *"
     r = client.query(
         f"CREATE TRIGGER every_minute ON PIPELINE {sched_pipeline} SCHEDULE '{cron}'"
