@@ -69,8 +69,15 @@ After registration, heartbeats update metrics and status.
 ```sql
 ALTER NODE worker_01 SET ROLE WORKER;
 ALTER NODE worker_01 SET TYPE COMPUTE;
+ALTER NODE worker_01 SET STATUS MAINTENANCE;
 ALTER NODE worker_02 SET CLUSTER production;
 ```
+
+`SET STATUS` takes any of the status values above. Heartbeats and the offline sweep also change
+a node's status, so a manually set status can be overwritten.
+
+`SET CLUSTER` stores the name without checking that the cluster exists or that the node is free.
+To manage membership with those checks, use [`ALTER CLUSTER`](#alter-cluster).
 
 ## DRAIN and REMOVE
 
@@ -116,6 +123,12 @@ Group nodes under a deployment boundary (production, staging, development).
 |----------|------|-------------|
 | `name` | string | Cluster identifier |
 | `created_at` | timestamp | Creation time |
+| `status` | enum | Derived from the member nodes (see [Cluster status](#cluster-status)) |
+| `node_count` | integer | Number of member nodes |
+| `nodes` | string | Member node names, sorted, comma-separated (`DESCRIBE` only) |
+
+Membership is stored on the node (its `cluster_id`); a cluster is a name plus the nodes that
+point at it. A node belongs to at most one cluster.
 
 ### SQL
 
@@ -123,15 +136,60 @@ Group nodes under a deployment boundary (production, staging, development).
 CREATE CLUSTER main;
 CREATE CLUSTER IF NOT EXISTS production;
 
-SHOW CLUSTERS;
-DESCRIBE CLUSTER production;
+SHOW CLUSTERS;                 -- name, status, node_count
+DESCRIBE CLUSTER production;   -- name, status, node_count, nodes
+DROP CLUSTER production;
+DROP CLUSTER IF EXISTS production;
 ```
 
-Assign nodes to a cluster:
+`DROP CLUSTER` detaches the member nodes (their `cluster_id` is cleared) and leaves the nodes
+themselves registered.
+
+### ALTER CLUSTER {#alter-cluster}
 
 ```sql
-ALTER NODE worker_02 SET CLUSTER production;
+ALTER CLUSTER production ADD NODE worker_01;
+ALTER CLUSTER production ADD NODE worker_02, ADD NODE worker_03;
+ALTER CLUSTER production REMOVE NODE worker_03;
 ```
+
+Steps in one statement are applied all-or-nothing: if one fails, every node keeps the cluster
+it had. The statement fails when:
+
+- the cluster or a node does not exist;
+- `ADD NODE` names a node that already belongs to a **different** cluster (remove it from that
+  cluster first); adding a current member again does nothing;
+- `REMOVE NODE` names a node that is not a member of this cluster.
+
+A node whose `cluster_id` names no existing cluster is not a member of anything. The self
+node starts with `cluster_id` `default`, so it can join a new cluster straight away, which is
+how a single-node cluster is made:
+
+```sql
+CREATE CLUSTER dev;
+ALTER CLUSTER dev ADD NODE local;
+```
+
+### Cluster status {#cluster-status}
+
+A cluster's status is worked out from its members each time it is asked for:
+
+| Status | When |
+|--------|------|
+| `CREATING` | No member nodes yet |
+| `ONLINE` | Every member is `ONLINE` or `BUSY` |
+| `OFFLINE` | Every member is `OFFLINE` |
+| `DEGRADED` | Anything else, such as one member offline, draining or still registering |
+
+```sql
+SHOW CLUSTER STATUS;    -- name, status, node_count, online, offline
+SHOW CLUSTER METRICS;
+```
+
+`SHOW CLUSTER METRICS` rolls the members up per cluster: `node_count`, `cpu_cores`,
+`cpu_utilization_pct` (the average), `memory_bytes`, `memory_used_bytes`, `storage_bytes`,
+`storage_used_bytes`, `gpu_count`, `query_throughput`, `pipeline_throughput` and
+`stream_throughput`. An empty cluster reports zeros.
 
 ## Complete Python example
 
@@ -188,4 +246,4 @@ ALTER NODE ml_gpu_01 SET CLUSTER production;
 
 - [replication.md](replication.md) — replica placement uses node awareness
 - [sharding.md](sharding.md) — shard assignment to nodes
-- `scripts/test_nodes_api.py`
+- `scripts/test_nodes_api.py`, `scripts/test_clusters_api.py`

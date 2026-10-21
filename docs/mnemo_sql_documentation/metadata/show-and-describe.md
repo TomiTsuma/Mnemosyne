@@ -33,6 +33,8 @@ SHOW NODE CAPABILITIES [ node_name ];
 SHOW NODE PARTITIONS [ node_name ];
 SHOW NODE REPLICAS [ node_name ];
 SHOW CLUSTERS;
+SHOW CLUSTER STATUS;
+SHOW CLUSTER METRICS;
 SHOW REPLICA_GROUPS;
 SHOW REPLICATION STATUS;
 SHOW SHARD GROUPS;
@@ -57,7 +59,12 @@ SHOW TASKS [ FROM PIPELINE pipeline_name ];
 SHOW TRIGGERS [ FROM PIPELINE pipeline_name ];
 SHOW PIPELINE RUNS [ FOR PIPELINE pipeline_name ];
 SHOW PIPELINE METRICS [ FOR PIPELINE pipeline_name ];
+SHOW DATA_QUALITY_RULES;
 ```
+
+`SHOW MATERIALIZED VIEWS` and `SHOW STORAGE_UNITS` also report refresh and retention policy;
+`SHOW CLUSTERS`, `SHOW CLUSTER STATUS` and `SHOW CLUSTER METRICS` are described in
+[entities/nodes-and-clusters.md](../entities/nodes-and-clusters.md#cluster-status).
 
 ## SHOW — streams
 
@@ -99,6 +106,7 @@ DESCRIBE REPLICA_GROUP standard_ha;
 DESCRIBE SHARD_GROUP customer_distribution;
 DESCRIBE CONNECTOR api_rest;
 DESCRIBE PIPELINE etl_sync;
+DESCRIBE DATA_QUALITY_RULE valid_email;
 DESCRIBE STREAM events;
 DESCRIBE TOPIC user_activity;
 DESCRIBE CONSUMER_GROUP analytics;

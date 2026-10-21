@@ -22,6 +22,7 @@ statement       ::= select_stmt
                   | remove_node_stmt
                   | test_stmt
                   | discover_stmt
+                  | export_stmt
                   | run_stmt
                   | pause_stmt
                   | resume_stmt
@@ -67,7 +68,7 @@ _distinct       ::= _ SELECT ( ALL | DISTINCT ) ... _
 ## INSERT
 
 ```ebnf
-insert_stmt     ::= ** INSERT INTO identifier [ column_list ] VALUES value_rows **
+insert_stmt     ::= ** INSERT INTO identifier [ column_list ] ( VALUES value_rows | select_stmt ) **
 
 column_list     ::= '(' identifier ( ',' identifier )* ')'
 value_rows      ::= '(' expr ( ',' expr )* ')' ( ',' '(' expr ( ',' expr )* ')' )*
@@ -94,6 +95,7 @@ create_target   ::= DATABASE identifier
                   | PIPELINE identifier
                   | STAGE identifier IN PIPELINE identifier
                   | TASK identifier IN STAGE identifier IN PIPELINE identifier
+                  | DATA_QUALITY_RULE identifier ON identifier quality_check [ ACTION ( WARN | FAIL ) ]
                   | TRIGGER identifier ON PIPELINE identifier
                   | STREAM identifier [ TOPIC identifier ]
                   | TOPIC identifier
@@ -104,6 +106,11 @@ create_target   ::= DATABASE identifier
                   | DATASET identifier
                   | TRAINING_JOB identifier
                   | TUNING_JOB identifier
+
+quality_check   ::= UNIQUE identifier
+                  | RANGE identifier [ MIN number ] [ MAX number ]
+                  | EXPRESSION string
+                  | MIN_ROWS integer
 
 create_body     ::= /* target-specific clauses; see statement-catalog.md */
 ```
@@ -144,6 +151,9 @@ drop_target     ::= TABLE identifier
                   | STREAM | TOPIC | CONSUMER_GROUP | REPLICA_GROUP | SHARD_GROUP
                   | MODEL | MODEL_TEMPLATE | FEATURE_SET | DATASET
                   | TRAINING_JOB | TUNING_JOB
+                  | CLUSTER identifier
+                  | DATA_QUALITY_RULE identifier
+                  | DATABASE identifier
                   | TABLE identifier   /* TRUNCATE TABLE only */
 ```
 
@@ -159,6 +169,13 @@ alter_target    ::= TABLE identifier alter_table_cmds
                   | CONNECTOR identifier SET prop_list
                   | STREAM identifier SET prop_list
                   | PIPELINE identifier SET prop_list
+                  | CLUSTER identifier cluster_step ( ',' cluster_step )*
+                  | STORAGE_UNIT identifier SET RETENTION ( integer ( DAY | DAYS ) | FOREVER )
+                  | VIEW identifier AS select_stmt
+                  | MATERIALIZED VIEW identifier SET REFRESH ( EVERY integer interval_unit | MANUAL )
+
+cluster_step    ::= ( ADD | REMOVE ) NODE identifier
+interval_unit   ::= SECOND | SECONDS | MINUTE | MINUTES | HOUR | HOURS | DAY | DAYS
 
 alter_table_cmds ::= alter_table_cmd ( ',' alter_table_cmd )*
 alter_table_cmd ::= ADD [ COLUMN ] identifier type_identifier
@@ -252,6 +269,8 @@ drain_node_stmt    ::= DRAIN NODE identifier
 remove_node_stmt   ::= REMOVE NODE ( if_exists )? identifier
 test_stmt          ::= TEST CONNECTOR identifier
 discover_stmt      ::= DISCOVER SCHEMA FROM CONNECTOR identifier
+export_stmt        ::= EXPORT TABLE identifier TO CONNECTOR identifier [ '.' identifier ]
+                       [ MODE ( APPEND | OVERWRITE ) ]
 ```
 
 ## refresh

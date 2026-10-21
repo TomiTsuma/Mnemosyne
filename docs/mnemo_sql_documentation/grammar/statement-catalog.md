@@ -12,7 +12,10 @@ SELECT expr [, ...] [FROM ...] [WHERE ...] [GROUP BY ...] [HAVING ...] [ORDER BY
 
 ```sql
 INSERT INTO t [(cols)] VALUES (v1, v2), (v3, v4);
+INSERT INTO t [(cols)] SELECT ...;
 ```
+
+See [dml/README.md](../dml/README.md#insert-select).
 
 ## CREATE
 
@@ -30,7 +33,8 @@ INSERT INTO t [(cols)] VALUES (v1, v2), (v3, v4);
 | Connector | `CREATE CONNECTOR c TYPE REST BASE_URL '...'` |
 | Pipeline | `CREATE PIPELINE p [OWNER 'team']` |
 | Stage | `CREATE STAGE s IN PIPELINE p [ORDER n]` |
-| Task | `CREATE TASK t IN STAGE s IN PIPELINE p TYPE SQL BODY '...' [DEPENDS ON t2]` |
+| Task | `CREATE TASK t IN STAGE s IN PIPELINE p TYPE SQL \| QUALITY \| BUILT_IN BODY '...' [DEPENDS ON t2]` |
+| Data quality rule | `CREATE DATA_QUALITY_RULE [IF NOT EXISTS] r ON t UNIQUE c \| RANGE c [MIN a] [MAX b] \| EXPRESSION '...' \| MIN_ROWS n [ACTION WARN \| FAIL]` |
 | Trigger | `CREATE TRIGGER tr ON PIPELINE p SCHEDULE 'cron'` |
 | Stream | `CREATE STREAM s [TOPIC t] [RETAIN n DAYS \| RETAIN FOREVER]` |
 | Topic | `CREATE TOPIC t [PARTITIONS n] [RETAIN ...]` |
@@ -57,6 +61,12 @@ See [ddl/drop-and-truncate.md](../ddl/drop-and-truncate.md).
 | Connector | `ALTER CONNECTOR c SET key value` |
 | Stream | `ALTER STREAM s SET RETENTION 30 DAYS` |
 | Pipeline | `ALTER PIPELINE p SET OWNER 'x'` |
+| Cluster | `ALTER CLUSTER c ADD NODE n [, REMOVE NODE m ...]` |
+| Storage unit | `ALTER STORAGE_UNIT su SET RETENTION 365 DAYS \| FOREVER` |
+| View | `ALTER VIEW v AS SELECT ...` |
+| Materialized view | `ALTER MATERIALIZED VIEW mv SET REFRESH EVERY n SECONDS \| MINUTES \| HOURS \| DAYS \| MANUAL` |
+
+See [ddl/alter.md](../ddl/alter.md).
 
 ## USE
 
@@ -101,10 +111,19 @@ TEST CONNECTOR c;
 DISCOVER SCHEMA FROM CONNECTOR c;
 ```
 
+## EXPORT
+
+```sql
+EXPORT TABLE t TO CONNECTOR c [.resource] [MODE APPEND | OVERWRITE];
+```
+
+See [entities/connectors.md](../entities/connectors.md#export-table).
+
 ## RUN / PAUSE / RESUME
 
 ```sql
 RUN PIPELINE p;
+RUN DATA_QUALITY_RULE r;
 RUN TRAINING_JOB j;
 RUN TUNING_JOB j;
 PAUSE PIPELINE p;
@@ -138,7 +157,6 @@ Attempting these produces **Parser: unexpected token**:
 |-----------|--------|
 | `UPDATE ... SET ...` | Not implemented |
 | `DELETE FROM ...` | Not implemented |
-| `DROP DATABASE ...` | Not implemented |
 | `SET setting = value` | Not implemented |
 
 ## Version reference

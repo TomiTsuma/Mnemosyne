@@ -11,7 +11,7 @@ Mnemo extends SQL with catalog objects for storage, cluster topology, data integ
 | **Data** | `DATABASE`, `TABLE`, `VIEW`, `MATERIALIZED_VIEW` | Implemented |
 | **Infrastructure** | `CLUSTER`, `NODE`, `STORAGE_UNIT`, `REPLICA_GROUP`, `SHARD_GROUP` | Implemented |
 | **Integration** | `CONNECTOR` | Implemented |
-| **Pipeline** | `PIPELINE`, `STAGE`, `TASK`, `TRIGGER` | Implemented |
+| **Pipeline** | `PIPELINE`, `STAGE`, `TASK`, `TRIGGER`, `DATA_QUALITY_RULE` | Implemented |
 | **Streaming** | `TOPIC`, `STREAM`, `CONSUMER_GROUP` | Implemented |
 | **AI / Model** | `FEATURE_SET`, `DATASET`, `MODEL`, `MODEL_TEMPLATE`, `TRAINING_JOB`, `TUNING_JOB`, `MODEL_ENDPOINT` | Implemented |
 | **Governance** | `USER`, `ROLE`, `POLICY`, `SECRET` | Planned (PRD) |
@@ -103,6 +103,8 @@ CREATE TABLE sales (
 | `REMOVE NODE` | Node | `REMOVE NODE IF EXISTS w02` |
 | `TEST CONNECTOR` | Connector | `TEST CONNECTOR stripe_api` |
 | `DISCOVER SCHEMA FROM CONNECTOR` | Connector | `DISCOVER SCHEMA FROM CONNECTOR stripe_api` |
+| `EXPORT TABLE ... TO CONNECTOR` | Connector | `EXPORT TABLE orders TO CONNECTOR stripe_api MODE APPEND` |
+| `RUN DATA_QUALITY_RULE` | Data quality rule | `RUN DATA_QUALITY_RULE total_nonneg` |
 | `RUN PIPELINE` | Pipeline | `RUN PIPELINE nightly_etl` |
 | `PAUSE PIPELINE` | Pipeline | `PAUSE PIPELINE nightly_etl` |
 | `RESUME PIPELINE` | Pipeline | `RESUME PIPELINE nightly_etl` |
@@ -146,7 +148,7 @@ assert r.ok()
 
 ### Integration and orchestration
 - [connectors.md](connectors.md) — `CONNECTOR`
-- [pipelines.md](pipelines.md) — `PIPELINE`, `STAGE`, `TASK`, `TRIGGER`
+- [pipelines.md](pipelines.md) — `PIPELINE`, `STAGE`, `TASK`, `TRIGGER`, `DATA_QUALITY_RULE`
 
 ### Streaming
 - [streams.md](streams.md) — `TOPIC`, `STREAM`, `CONSUMER_GROUP`
@@ -166,11 +168,13 @@ Each entity has runnable API tests under `scripts/`:
 | Entity | Test script |
 |--------|-------------|
 | Storage unit | `test_storage_units_api.py` |
-| Node / cluster | `test_nodes_api.py` |
+| Node | `test_nodes_api.py` |
+| Cluster | `test_clusters_api.py` |
 | Replica group | `test_replica_groups_api.py` |
 | Shard group | `test_shard_groups_api.py` |
-| Connector | `test_connectors_api.py` |
-| Pipeline | `test_pipelines_api.py` |
+| Connector | `test_connectors_api.py`, `test_export_api.py` |
+| Pipeline, data quality, `INSERT … SELECT` | `test_pipelines_api.py`, `test_pipeline_phase2_api.py` |
+| `ALTER` (storage unit, view, materialized view) | `test_alter_api.py` |
 | Stream | `test_streams_api.py` |
 | Model layer | `test_models_api.py`, `test_tuning_api.py` |
 

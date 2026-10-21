@@ -52,13 +52,24 @@ DROP FEATURE_SET churn_features;
 DROP TRAINING_JOB churn_training;
 DROP TUNING_JOB hyperparam_search;
 DROP MODEL_TEMPLATE rf_template;
+DROP CLUSTER production;
+DROP DATA_QUALITY_RULE valid_email;
 ```
 
 Use `IF EXISTS` to avoid errors when the object is missing.
 
+`DROP CLUSTER` detaches the cluster's member nodes and leaves them registered; see
+[entities/nodes-and-clusters.md](../entities/nodes-and-clusters.md#alter-cluster).
+
 ## DROP DATABASE
 
-Not implemented in the parser.
+```sql
+DROP DATABASE analytics;
+DROP DATABASE IF EXISTS analytics;
+```
+
+Removes the database **and deletes its tables' data from disk**. This cannot be undone. Storage
+unit, shard group and replica group references held by its tables are released.
 
 ## Examples from tests
 

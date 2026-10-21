@@ -7,7 +7,7 @@ Pipelines orchestrate staged, dependent tasks (SQL steps, built-in operations) w
 ```
 PIPELINE
   └── STAGE (ordered by ORDER n)
-        └── TASK (TYPE SQL | BUILT_IN, optional DEPENDS ON)
+        └── TASK (TYPE SQL | QUALITY | BUILT_IN, optional DEPENDS ON)
   └── TRIGGER (SCHEDULE cron)
   └── RUN (execution history)
 ```
@@ -62,8 +62,8 @@ Stages run in `ORDER` sequence; tasks within a stage respect `DEPENDS ON` DAG or
 |----------|------|-------------|
 | `name` | string | Task identifier |
 | `stage_name` | string | Parent stage |
-| `type` | enum | `SQL`, `BUILT_IN` |
-| `body` | string | SQL text (for `TYPE SQL`) |
+| `type` | enum | `SQL`, `QUALITY`, `BUILT_IN` |
+| `body` | string | SQL text (`TYPE SQL`) or comma-separated data quality rule names (`TYPE QUALITY`) |
 | `depends_on` | list | Task names that must complete first |
 | `max_retries` | uint32 | Retry limit |
 | `status` | enum | Per-run: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `SKIPPED` |
@@ -93,7 +93,89 @@ Task types:
 | Type | Use |
 |------|-----|
 | `SQL` | Execute Mnemo SQL in `BODY` |
+| `QUALITY` | Evaluate the data quality rules named in `BODY`; see [Data quality](#data-quality) |
 | `BUILT_IN` | Registered internal step (placeholder / system task) |
+
+A `SQL` task can load data with `INSERT INTO … SELECT`, including from a connector:
+
+```sql
+CREATE TASK extract IN STAGE s IN PIPELINE orders_etl TYPE SQL
+    BODY 'INSERT INTO staging SELECT order_id, customer_id, total FROM CONNECTOR api.orders';
+```
+
+See [../dml/README.md](../dml/README.md#insert-select).
+
+## Data quality {#data-quality}
+
+A `DATA_QUALITY_RULE` is a named check on one table. Run it by hand, or put it in a pipeline
+with a `QUALITY` task to stop the pipeline when the data is bad.
+
+### CREATE DATA_QUALITY_RULE {#create-data-quality-rule}
+
+```sql
+CREATE DATA_QUALITY_RULE uniq_customer ON orders UNIQUE customer_id ACTION WARN;
+CREATE DATA_QUALITY_RULE total_nonneg  ON orders RANGE total MIN 0 ACTION FAIL;
+CREATE DATA_QUALITY_RULE total_capped  ON orders RANGE total MIN -10 MAX 100;
+CREATE DATA_QUALITY_RULE ids_positive  ON orders EXPRESSION 'order_id > 0';
+CREATE DATA_QUALITY_RULE has_rows      ON orders MIN_ROWS 4 ACTION FAIL;
+CREATE DATA_QUALITY_RULE IF NOT EXISTS has_rows ON orders MIN_ROWS 1;
+```
+
+```ebnf
+rule   ::= CREATE DATA_QUALITY_RULE [ IF NOT EXISTS ] name ON table check [ ACTION ( WARN | FAIL ) ]
+check  ::= UNIQUE column
+         | RANGE column [ MIN number ] [ MAX number ]
+         | EXPRESSION 'condition'
+         | MIN_ROWS integer
+```
+
+| Check | A violation is |
+|-------|----------------|
+| `UNIQUE col` | A row whose `col` value is shared with another row (the count is rows, not distinct values) |
+| `RANGE col MIN a MAX b` | A row with `col` below `a` or above `b`; at least one bound is required and `MIN` may not exceed `MAX` |
+| `EXPRESSION 'cond'` | A row for which the condition is not true; the condition must be a complete boolean expression |
+| `MIN_ROWS n` | The table has fewer than `n` rows; the count is the shortfall |
+
+`ACTION` defaults to `FAIL`. `ACTION QUARANTINE` is recognised but not supported yet and is
+rejected. The table name may be database-qualified; column names must be plain identifiers.
+A rule is created even if its table or column does not exist yet; running it then fails with an
+error naming what is missing, and never reports a pass.
+
+### Run, inspect, drop
+
+```sql
+RUN DATA_QUALITY_RULE total_nonneg;
+SHOW DATA_QUALITY_RULES;
+DESCRIBE DATA_QUALITY_RULE total_nonneg;
+DROP DATA_QUALITY_RULE total_nonneg;
+DROP DATA_QUALITY_RULE IF EXISTS total_nonneg;
+```
+
+`RUN` returns `rule`, `table`, `check`, `action`, `status`, `violations` and `message`.
+`status` is `PASSED` (no violations), `WARNED` (violations, action `WARN`) or `FAILED`
+(violations, action `FAIL`). A violation is a result, not an error. `SHOW` and `DESCRIBE`
+list each rule's definition and its last result as `last_status` (`NOT_RUN` until first run),
+`last_violations` and `last_message`. Rules are held in the server's catalog and are not
+written to disk.
+
+### QUALITY tasks {#quality-tasks}
+
+```sql
+CREATE TASK validate IN STAGE s IN PIPELINE orders_etl
+    TYPE QUALITY BODY 'staged_rows, staged_nonneg'
+    DEPENDS ON extract;
+```
+
+The body names one or more existing rules, separated by commas; a task naming an unknown rule,
+or none, is rejected when it is created. When the task runs it evaluates each rule in turn:
+
+- a `FAIL` rule with violations fails the task, which fails the run and stops it: no later task
+  runs, dependent or not;
+- a `WARN` rule with violations does not stop the pipeline.
+
+Each rule's result is recorded on the rule, so after a run `SHOW DATA_QUALITY_RULES` shows which
+rule warned or failed and how many rows. The run itself shows only `SUCCEEDED` or `FAILED`:
+per-task results are kept internally but are not returned by any `SHOW` statement yet.
 
 ## TRIGGER
 
@@ -147,7 +229,10 @@ SHOW PIPELINE METRICS FOR PIPELINE api_revenue_sync;
 | `run_id` | Unique run identifier |
 | `status` | `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED` |
 | `duration_ms` | Total wall time |
-| `task_runs` | Per-task status, error, duration |
+
+`SHOW PIPELINE RUNS` returns `run_id`, `pipeline`, `trigger`, `status` and `duration_ms`.
+Each run also records per-task status, error and duration internally, but no `SHOW` statement
+returns them yet, so a `FAILED` run does not say which task failed.
 
 ## DROP
 
@@ -239,7 +324,8 @@ def create_sql_task(client, name, stage, pipeline, sql, depends_on=()):
 | Issue | Behavior |
 |-------|----------|
 | Cyclic dependencies | `RUN PIPELINE` fails |
-| SQL error in task | Run status `FAILED`; error in `task_runs` |
+| SQL error in task | Run status `FAILED` and the run stops; the task's error is recorded internally |
+| `FAIL` data quality rule violated | Run status `FAILED` and the run stops; see [Data quality](#data-quality) |
 | Missing pipeline | `RUN PIPELINE missing` → error |
 
 ## Related
@@ -247,4 +333,4 @@ def create_sql_task(client, name, stage, pipeline, sql, depends_on=()):
 - [connectors.md](connectors.md) — load external data in SQL tasks
 - [data-layer.md](data-layer.md) — views and materialized views
 - [../model-layer/workflows.md](../model-layer/workflows.md) — train after ETL
-- `scripts/test_pipelines_api.py`
+- `scripts/test_pipelines_api.py`, `scripts/test_pipeline_phase2_api.py`

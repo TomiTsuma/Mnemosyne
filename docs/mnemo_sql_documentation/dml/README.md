@@ -5,7 +5,7 @@ Mnemo SQL currently supports **INSERT** for loading data. `UPDATE` and `DELETE` 
 ## INSERT syntax
 
 ```ebnf
-insert_statement ::= INSERT INTO table_name [ column_list ] VALUES value_lists
+insert_statement ::= INSERT INTO table_name [ column_list ] ( VALUES value_lists | select )
 
 column_list   ::= '(' identifier ( ',' identifier )* ')'
 value_lists   ::= '(' value ( ',' value )* ')'
@@ -47,9 +47,39 @@ INSERT INTO events VALUES
 
 The server coerces string forms to column types (`DateTime`, `Int64`, etc.).
 
-## INSERT … SELECT
+## INSERT … SELECT {#insert-select}
 
-The grammar stub supports `INSERT INTO table SELECT …`. Verify interpreter support before use in production; the primary test path is `INSERT … VALUES`.
+Load the result of a query into a table:
+
+```ebnf
+insert_select ::= INSERT INTO table_name [ column_list ] select
+```
+
+```sql
+INSERT INTO dst SELECT id, name, score FROM src;
+INSERT INTO dst SELECT * FROM src WHERE id > 1;
+INSERT INTO totals SELECT name, COUNT(*), SUM(score) * 2 FROM src GROUP BY name;
+INSERT INTO raw_orders SELECT order_id, customer_id, total FROM CONNECTOR api_rest.orders;
+```
+
+- Rows are **appended**; existing rows stay.
+- The query's columns are matched to the target's columns by position. Without a column list
+  the query must return exactly the table's columns; with one, the listed columns are filled
+  from the query and the rest get their default value.
+  ```sql
+  INSERT INTO dst (id, name) SELECT id + 10, name FROM src WHERE id = 1;   -- score defaults to 0
+  ```
+- Each value is converted to its target column's type. Text must be a whole number or a number
+  to go into a numeric column, and a fractional value does not fit an integer column; either
+  fails the statement. This is what makes loading from a connector, which returns text, work.
+- **All-or-nothing:** every value is converted before anything is written, so one bad value
+  leaves the table unchanged.
+- A table can feed itself (`INSERT INTO src SELECT … FROM src` doubles it).
+- A column-count mismatch, an unknown target table, or an unknown column fails with an error
+  naming it. The target must be a table; inserting into a stream this way is not supported.
+
+See [../entities/connectors.md](../entities/connectors.md#load-into-a-table) and
+[../entities/pipelines.md](../entities/pipelines.md) for loading in a pipeline.
 
 ## Truncate
 
