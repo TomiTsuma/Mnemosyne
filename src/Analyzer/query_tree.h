@@ -86,6 +86,7 @@ public:
         ShowTasks,
         ShowTriggers,
         ShowPipelineRuns,
+        ShowTaskRuns,
         ShowPipelineMetrics,
         ShowStreams,
         ShowTopics,

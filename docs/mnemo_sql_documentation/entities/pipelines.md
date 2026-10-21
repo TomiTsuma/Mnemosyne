@@ -174,8 +174,9 @@ or none, is rejected when it is created. When the task runs it evaluates each ru
 - a `WARN` rule with violations does not stop the pipeline.
 
 Each rule's result is recorded on the rule, so after a run `SHOW DATA_QUALITY_RULES` shows which
-rule warned or failed and how many rows. The run itself shows only `SUCCEEDED` or `FAILED`:
-per-task results are kept internally but are not returned by any `SHOW` statement yet.
+rule warned or failed and how many rows. `SHOW TASK RUNS` shows it per task: a failed `QUALITY`
+task carries the rule and violation count in `error`, and a task whose rules only warned carries
+them in `detail`. See [Task run history](#task-run-history).
 
 ## TRIGGER
 
@@ -219,8 +220,13 @@ SHOW STAGES FROM PIPELINE api_revenue_sync;
 SHOW TASKS FROM PIPELINE api_revenue_sync;
 SHOW TRIGGERS FROM PIPELINE api_revenue_sync;
 SHOW PIPELINE RUNS FOR PIPELINE api_revenue_sync;
+SHOW TASK RUNS FOR PIPELINE api_revenue_sync;
 SHOW PIPELINE METRICS FOR PIPELINE api_revenue_sync;
 ```
+
+`SHOW PIPELINE_RUNS`, `SHOW PIPELINE_METRICS` and `SHOW TASK_RUNS` are accepted as one-word
+spellings. `FOR PIPELINE` is optional; without it the statement covers every pipeline. A word
+after `SHOW PIPELINE` other than `RUNS` or `METRICS` is a syntax error.
 
 ### Pipeline run record
 
@@ -230,9 +236,30 @@ SHOW PIPELINE METRICS FOR PIPELINE api_revenue_sync;
 | `status` | `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED` |
 | `duration_ms` | Total wall time |
 
-`SHOW PIPELINE RUNS` returns `run_id`, `pipeline`, `trigger`, `status` and `duration_ms`.
-Each run also records per-task status, error and duration internally, but no `SHOW` statement
-returns them yet, so a `FAILED` run does not say which task failed.
+`SHOW PIPELINE RUNS` returns `run_id`, `pipeline`, `trigger`, `status` and `duration_ms`: one
+row per run. To see what each task did, use `SHOW TASK RUNS`.
+
+### Task run history {#task-run-history}
+
+```sql
+SHOW TASK RUNS FOR PIPELINE api_revenue_sync;
+```
+
+One row per task per run, oldest run first, in the order the tasks ran:
+
+| Column | Description |
+|--------|-------------|
+| `run_id`, `pipeline` | The run the row belongs to |
+| `stage`, `task` | Where the task is defined |
+| `status` | `SUCCEEDED`, `FAILED` or `SKIPPED` |
+| `duration_ms` | Wall time of the task, including retries |
+| `started_at` | UTC start time; empty for a `SKIPPED` task |
+| `error` | Why a `FAILED` task failed |
+| `detail` | A note: for a `SUCCEEDED` task, such as the data quality rules that warned; for a `SKIPPED` task, which task failed before it |
+
+A run stops at its first failed task. The tasks it never reached are recorded as `SKIPPED`, so
+every task of the run appears. `RUN PIPELINE` on a pipeline whose task dependencies form a cycle
+fails with an error before a run is created, so such an attempt has no rows here.
 
 ## DROP
 
@@ -324,7 +351,7 @@ def create_sql_task(client, name, stage, pipeline, sql, depends_on=()):
 | Issue | Behavior |
 |-------|----------|
 | Cyclic dependencies | `RUN PIPELINE` fails |
-| SQL error in task | Run status `FAILED` and the run stops; the task's error is recorded internally |
+| SQL error in task | Run status `FAILED` and the run stops; the error is in `SHOW TASK RUNS` and later tasks are `SKIPPED` |
 | `FAIL` data quality rule violated | Run status `FAILED` and the run stops; see [Data quality](#data-quality) |
 | Missing pipeline | `RUN PIPELINE missing` → error |
 

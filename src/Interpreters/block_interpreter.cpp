@@ -907,6 +907,35 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 block->add_column("status", status_col);
                 block->add_column("duration_ms", duration_col);
                 result_.block = block;
+            } else if (node->show_type == "TASK_RUNS") {
+                // One row per task per run, oldest run first. A task that was not reached because
+                // an earlier one failed shows as SKIPPED; `error` carries the cause of a failure
+                // and `detail` a note on a task that succeeded, such as a data quality warning.
+                auto& mgr = pipelines::PipelineManager::instance();
+                const auto runs = mgr.list_runs(node->table_name);
+                const std::vector<std::string> names{"run_id", "pipeline", "stage", "task", "status",
+                                                     "duration_ms", "started_at", "error", "detail"};
+                std::vector<std::shared_ptr<columns::ColumnString>> cols;
+                for (size_t c = 0; c < names.size(); ++c) {
+                    cols.push_back(std::make_shared<columns::ColumnString>());
+                }
+                for (const auto& run : runs) {
+                    for (const auto& task : run.task_runs) {
+                        const std::vector<std::string> values{
+                            run.run_id, run.pipeline_name, task.stage_name, task.task_name,
+                            pipelines::task_status_name(task.status),
+                            std::to_string(task.duration_ms),
+                            common::format_utc_timestamp(task.started_at), task.error, task.detail};
+                        for (size_t c = 0; c < values.size(); ++c) {
+                            cols[c]->insert(core::Field(values[c]));
+                        }
+                    }
+                }
+                auto block = std::make_shared<core::Block>();
+                for (size_t c = 0; c < names.size(); ++c) {
+                    block->add_column(names[c], cols[c]);
+                }
+                result_.block = block;
             } else if (node->show_type == "PIPELINE_METRICS") {
                 auto& mgr = pipelines::PipelineManager::instance();
                 std::vector<pipelines::PipelineEntry> pipelines_list;

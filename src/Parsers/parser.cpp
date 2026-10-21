@@ -1214,7 +1214,30 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordPipelineRuns) {
+    // SHOW TASK RUNS [FOR PIPELINE p] (or TASK_RUNS): what each task did in each run.
+    if (current_.type != TokenType::StringLiteral &&
+        (upper_str(current_.value) == "TASK_RUNS" || upper_str(current_.value) == "TASK")) {
+        const bool two_words = upper_str(current_.value) == "TASK";
+        consume(); // TASK / TASK_RUNS
+        if (two_words) {
+            if (current_.type == TokenType::StringLiteral || upper_str(current_.value) != "RUNS") {
+                throw common::Exception{
+                    "Parser: expected RUNS after SHOW TASK",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // RUNS
+        }
+        show.show_type = QueryAST::Show::ShowType::TASK_RUNS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordPipelineRuns) {
         consume();
         show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
         if (current_.type == TokenType::KeywordFor) {
@@ -1439,7 +1462,7 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
             }
         } else if (current_.type == TokenType::KeywordPipelineRuns ||
                    (current_.type == TokenType::Identifier &&
-                    current_.value == "PIPELINE_RUNS")) {
+                    (current_.value == "PIPELINE_RUNS" || upper_str(current_.value) == "RUNS"))) {
             consume();
             show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
             if (current_.type == TokenType::KeywordFor) {
@@ -1456,8 +1479,14 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                     current_.value == "PIPELINES")) {
             consume();
             show.show_type = QueryAST::Show::ShowType::PIPELINES;
-        } else {
+        } else if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
             show.show_type = QueryAST::Show::ShowType::PIPELINES;
+        } else {
+            // Anything else used to fall through to SHOW PIPELINES, so `SHOW PIPELINE RUNS` and
+            // `SHOW PIPELINE typo` silently listed pipelines instead of failing.
+            throw common::Exception{
+                "Parser: expected RUNS or METRICS after SHOW PIPELINE, got '" + current_.value + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
         }
     } else if (current_.type == TokenType::KeywordPipelines ||
                (current_.type == TokenType::Identifier &&
