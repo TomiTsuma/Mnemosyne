@@ -240,6 +240,20 @@ void Parser::parse_insert(std::unique_ptr<QueryAST>& ast) {
     if (current_.type == TokenType::KeywordValues) {
         consume(); // consume VALUES
         insert.values = parse_value_list();
+    } else if (current_.type == TokenType::KeywordSelect) {
+        auto select_ast = std::make_unique<QueryAST>();
+        select_ast->query_type = QueryAST::QueryType::SELECT;
+        parse_select(select_ast);
+        insert.select = std::move(select_ast);
+        if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+            throw common::Exception{
+                "Parser: unexpected token '" + current_.value + "' after INSERT ... SELECT",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+    } else {
+        throw common::Exception{
+            "Parser: expected VALUES or SELECT after INSERT INTO " + insert.table,
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 }
 
@@ -469,6 +483,13 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.if_not_exists = parse_if_not_exists();
         create.tuning_job_name = parse_table_name();
         parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        create.kind = QueryAST::Create::Kind::DataQualityRule;
+        create.if_not_exists = parse_if_not_exists();
+        create.rule_name = parse_table_name();
+        parse_data_quality_rule_clauses(create);
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
@@ -505,6 +526,96 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
             }
             create.replica_group_name = parse_table_name();
         }
+    } else {
+        throw common::Exception{
+            "Parser: unsupported CREATE target '" + current_.value + "'",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+}
+
+// CREATE DATA_QUALITY_RULE <name> ON <table> <check> [ACTION WARN|FAIL]
+//   check ::= UNIQUE <column>
+//           | RANGE <column> [MIN <number>] [MAX <number>]
+//           | EXPRESSION '<condition>'
+//           | MIN_ROWS <integer>
+// The words after ON are matched by text rather than as keywords so that columns named
+// range, action, min, ... keep working everywhere else.
+void Parser::parse_data_quality_rule_clauses(QueryAST::Create& create) {
+    const auto is_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+    const auto read_number = [this, &fail]() -> double {
+        bool negative = false;
+        if (current_.type == TokenType::Minus) {
+            negative = true;
+            consume();
+        }
+        if (current_.type != TokenType::IntegerLiteral && current_.type != TokenType::FloatLiteral) {
+            fail("Parser: expected a number, got '" + current_.value + "'");
+        }
+        const double value = std::stod(current_.value);
+        consume();
+        return negative ? -value : value;
+    };
+
+    if (current_.type != TokenType::KeywordOn) {
+        fail("Parser: expected ON <table> after the rule name");
+    }
+    consume(); // ON
+    create.rule_table = parse_qualified_name();
+
+    if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
+        fail("Parser: expected UNIQUE, RANGE, EXPRESSION or MIN_ROWS after ON <table>");
+    }
+    create.rule_check = upper_str(current_.value);
+    if (is_word("UNIQUE")) {
+        consume();
+        create.rule_column = parse_table_name();
+    } else if (is_word("RANGE")) {
+        consume();
+        create.rule_column = parse_table_name();
+        while (is_word("MIN") || is_word("MAX")) {
+            const bool is_min = is_word("MIN");
+            consume();
+            const double bound = read_number();
+            auto& slot = is_min ? create.rule_min : create.rule_max;
+            if (slot) {
+                fail(std::string{"Parser: duplicate "} + (is_min ? "MIN" : "MAX") + " in RANGE");
+            }
+            slot = bound;
+        }
+    } else if (is_word("EXPRESSION")) {
+        consume();
+        if (current_.type != TokenType::StringLiteral) {
+            fail("Parser: EXPRESSION needs a quoted condition, e.g. EXPRESSION 'amount >= 0'");
+        }
+        create.rule_expression = current_.value;
+        consume();
+    } else if (is_word("MIN_ROWS")) {
+        consume();
+        if (current_.type != TokenType::IntegerLiteral) {
+            fail("Parser: MIN_ROWS needs an integer");
+        }
+        create.rule_min_rows = std::stoull(current_.value);
+        consume();
+    } else {
+        fail("Parser: unknown data quality check '" + current_.value +
+             "'; expected UNIQUE, RANGE, EXPRESSION or MIN_ROWS");
+    }
+
+    if (is_word("ACTION")) {
+        consume();
+        if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
+            fail("Parser: expected WARN or FAIL after ACTION");
+        }
+        create.rule_action = upper_str(current_.value);
+        consume();
+    }
+    if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+        fail("Parser: unexpected token '" + current_.value + "' in CREATE DATA_QUALITY_RULE");
     }
 }
 
@@ -655,6 +766,12 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
         consume();
         drop.object_kind = QueryAST::ObjectKind::TuningJob;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::DataQualityRule;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordDatabase) {
@@ -1325,6 +1442,10 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                 "Parser: expected VERSIONS / ENDPOINTS / METRICS / DRIFT after SHOW MODEL",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
         }
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULES") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::DATA_QUALITY_RULES;
     } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SETS") {
         consume();
         show.show_type = QueryAST::Show::ShowType::FEATURE_SETS;
@@ -1407,6 +1528,10 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
         consume();
         describe.object_kind = QueryAST::ObjectKind::TuningJob;
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::DataQualityRule;
     } else {
         describe.object_kind = QueryAST::ObjectKind::Table;
     }
@@ -2330,6 +2455,11 @@ void Parser::parse_run(std::unique_ptr<QueryAST>& ast) {
         consume();
         ast->model_control.action = QueryAST::ModelControl::Action::RunTuningJob;
         ast->model_control.target_name = parse_table_name();
+        return;
+    }
+    if (current_.type == TokenType::Identifier && upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        ast->quality_control.rule_name = parse_table_name();
         return;
     }
     if (!consume_pipeline_keyword()) {

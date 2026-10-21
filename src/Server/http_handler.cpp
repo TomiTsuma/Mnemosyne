@@ -22,6 +22,7 @@
 #include "Interpreters/interpreter_alter_stream.h"
 #include "Interpreters/interpreter_test_connector.h"
 #include "Interpreters/interpreter_discover_query.h"
+#include "Interpreters/data_quality_runner.h"
 #include "Interpreters/pipeline_executor.h"
 #include "Pipelines/pipeline_scheduler.h"
 #include "Interpreters/context.h"
@@ -473,7 +474,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                 }
                 case parsers::QueryAST::QueryType::RUN: {
                     using Action = parsers::QueryAST::ModelControl::Action;
-                    if (query_ast->model_control.action == Action::RunTrainingJob ||
+                    if (!query_ast->quality_control.rule_name.empty()) {
+                        auto block = interpreters::DataQualityRunner::execute_run(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->model_control.action == Action::RunTrainingJob ||
                         query_ast->model_control.action == Action::RunTuningJob) {
                         auto block = interpreters::InterpreterModelControl::execute(
                             context_, *query_ast);
@@ -547,6 +552,25 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                                  parsers::QueryAST::Alter::Target::Stream) {
                         auto block = interpreters::InterpreterAlterStream::execute(
                             context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
+                case parsers::QueryAST::QueryType::SHOW: {
+                    // Data quality rules are served here; every other SHOW variant is handled by
+                    // the planner path below (query_result.block is left empty for them).
+                    if (query_ast->show.show_type ==
+                            parsers::QueryAST::Show::ShowType::DATA_QUALITY_RULES) {
+                        auto block = interpreters::DataQualityRunner::execute_show();
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DESCRIBE: {
+                    if (query_ast->describe.object_kind ==
+                            parsers::QueryAST::ObjectKind::DataQualityRule) {
+                        auto block = interpreters::DataQualityRunner::execute_describe(
+                            query_ast->describe.table_name);
                         query_result.block = std::make_shared<core::Block>(std::move(block));
                     }
                     break;

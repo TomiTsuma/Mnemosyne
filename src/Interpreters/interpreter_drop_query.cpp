@@ -16,6 +16,7 @@
 #include "Streaming/stream_manager.h"
 #include "Models/model_manager.h"
 #include "FeatureSets/feature_set_manager.h"
+#include "DataQuality/data_quality_manager.h"
 #include "Common/exceptions.h"
 
 namespace mnemo::interpreters {
@@ -105,6 +106,8 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
                 feature_sets::FeatureSetManager::instance().drop_feature_set(query.drop.table, query.drop.if_exists);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Dataset) {
                 feature_sets::FeatureSetManager::instance().drop_dataset(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::DataQualityRule) {
+                data_quality::DataQualityManager::instance().drop_rule(query.drop.table, query.drop.if_exists);
             } else {
                 do_drop(context, query.drop);
             }

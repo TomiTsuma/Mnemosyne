@@ -128,6 +128,7 @@ protected:
     auto parse_database_name() -> std::string;
     auto parse_column_list() -> std::vector<std::string>;
     auto parse_column_definitions() -> std::vector<ColumnDef>;
+    auto parse_data_quality_rule_clauses(QueryAST::Create& create) -> void;
     auto parse_value_list() -> std::vector<std::vector<std::string>>;
     auto parse_value_row() -> std::vector<std::string>;
     auto parse_order_by_list() -> std::vector<OrderBy>;

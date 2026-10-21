@@ -6,11 +6,13 @@
 #include "Interpreters/interpreter_insert_query.h"
 #include "Interpreters/interpreter_drop_query.h"
 #include "Interpreters/interpreter_select_query.h"
+#include "Interpreters/data_quality_runner.h"
 #include "Analyzer/analyzer.h"
 #include "Planner/planner.h"
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
 #include "Pipelines/pipeline_manager.h"
+#include "DataQuality/data_quality_catalog.h"
 #include "Common/exceptions.h"
 #include <chrono>
 
@@ -80,6 +82,30 @@ auto execute_builtin(const pipelines::TaskEntry& task) -> void {
     }
 }
 
+// A QUALITY task evaluates the data quality rules named in its body. A rule whose ACTION is FAIL
+// aborts the task (and therefore the run) on any violation; a WARN rule records a note but lets the
+// pipeline continue. Returns a human-readable summary of the warnings, if any.
+auto execute_quality(Context& context, const pipelines::TaskEntry& task) -> std::string {
+    const auto rule_names = DataQualityRunner::split_rule_names(task.body);
+    std::string warnings;
+    for (const auto& name : rule_names) {
+        const auto eval = DataQualityRunner::evaluate_named(context, name);
+        if (eval.status == data_quality::RuleStatus::Failed) {
+            throw common::Exception{
+                "Data quality rule failed: " + name + " (" + std::to_string(eval.violations)
+                    + " violations)",
+                static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+        }
+        if (eval.status == data_quality::RuleStatus::Warned) {
+            if (!warnings.empty()) {
+                warnings += "; ";
+            }
+            warnings += name + ": " + std::to_string(eval.violations) + " violations";
+        }
+    }
+    return warnings;
+}
+
 } // namespace
 
 auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
@@ -114,6 +140,13 @@ auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
                         case pipelines::TaskType::BuiltIn:
                             execute_builtin(task);
                             break;
+                        case pipelines::TaskType::Quality: {
+                            const auto warnings = execute_quality(context, task);
+                            if (!warnings.empty()) {
+                                record.detail = warnings;
+                            }
+                            break;
+                        }
                     }
                     task_ok = true;
                     break;

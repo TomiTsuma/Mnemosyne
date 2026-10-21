@@ -281,7 +281,8 @@ public:
         Connector, Pipeline, Stage, Task, Trigger, Stream, Topic, ConsumerGroup,
         // MODEL layer entities
         Model, ModelVersion, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset,
-        ModelEndpoint
+        ModelEndpoint,
+        DataQualityRule
     };
     QueryType query_type = QueryType::SELECT;
 
@@ -318,6 +319,8 @@ public:
         std::string table;
         std::vector<std::string> columns;
         std::vector<std::vector<std::string>> values;
+        // INSERT INTO t [(cols)] SELECT ...; mutually exclusive with values.
+        std::shared_ptr<QueryAST> select;
     } insert;
 
     struct Create : ASTDDLQuery {
@@ -325,7 +328,8 @@ public:
             Database, Table, View, MaterializedView, StorageUnit, Node, Cluster, ReplicaGroup,
             ShardGroup, Connector, Pipeline, Stage, Task, Trigger, Stream, Topic, ConsumerGroup,
             // MODEL layer entities
-            Model, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset
+            Model, TrainingJob, TuningJob, ModelTemplate, FeatureSet, Dataset,
+            DataQualityRule
         };
         Kind kind = Kind::Table;
 
@@ -396,6 +400,17 @@ public:
         std::string source_table;         // FROM <table> (feature set / dataset)
         std::unordered_map<std::string, std::string> hyperparams;
         std::unordered_map<std::string, std::string> search_space;
+
+        // ── DATA_QUALITY_RULE ──
+        std::string rule_name;
+        std::string rule_table;          // ON <table>
+        std::string rule_check;          // UNIQUE / RANGE / EXPRESSION / MIN_ROWS
+        std::string rule_column;
+        std::string rule_expression;
+        std::string rule_action;         // empty = default (FAIL)
+        std::optional<double> rule_min;
+        std::optional<double> rule_max;
+        uint64_t rule_min_rows = 0;
     } create;
 
     struct Drop : ASTDDLQuery {
@@ -448,7 +463,8 @@ public:
             STREAMS, TOPICS, CONSUMER_GROUPS, STREAM_METRICS,
             // MODEL layer
             MODELS, MODEL_VERSIONS, MODEL_ENDPOINTS, MODEL_METRICS, MODEL_DRIFT,
-            FEATURE_SETS, DATASETS, TRAINING_JOBS, TUNING_JOBS, MODEL_TEMPLATES
+            FEATURE_SETS, DATASETS, TRAINING_JOBS, TUNING_JOBS, MODEL_TEMPLATES,
+            DATA_QUALITY_RULES
         };
         ShowType show_type = ShowType::DATABASES;
         std::string node_name;
@@ -461,6 +477,11 @@ public:
     struct PipelineControl {
         std::string pipeline_name;
     } pipeline_control;
+
+    // RUN DATA_QUALITY_RULE <name>; an empty name means the RUN targets a pipeline or model job.
+    struct QualityControl {
+        std::string rule_name;
+    } quality_control;
 
     struct StreamControl {
         std::string stream_name;

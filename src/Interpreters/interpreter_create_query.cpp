@@ -28,6 +28,9 @@
 #include "Models/model_catalog.h"
 #include "FeatureSets/feature_set_manager.h"
 #include "FeatureSets/feature_set_catalog.h"
+#include "DataQuality/data_quality_catalog.h"
+#include "DataQuality/data_quality_manager.h"
+#include "Interpreters/data_quality_runner.h"
 #include "DataTypes/data_type_factory.h"
 #include "Common/exceptions.h"
 
@@ -119,6 +122,30 @@ auto InterpreterCreateQuery::execute(Context& context, const parsers::QueryAST& 
         case parsers::QueryAST::Create::Kind::ModelTemplate:
             do_create_model_template(context, query.create);
             break;
+        case parsers::QueryAST::Create::Kind::DataQualityRule: {
+            const auto& c = query.create;
+            data_quality::RuleEntry entry;
+            entry.name       = c.rule_name;
+            entry.database   = ddl_utils::resolve_current_database(context);
+            entry.table      = c.rule_table;
+            entry.kind       = data_quality::parse_rule_kind(c.rule_check);
+            entry.column     = c.rule_column;
+            entry.expression = c.rule_expression;
+            entry.min_value  = c.rule_min;
+            entry.max_value  = c.rule_max;
+            entry.min_rows   = c.rule_min_rows;
+            entry.action     = c.rule_action.empty()
+                ? data_quality::RuleAction::Fail
+                : data_quality::parse_rule_action(c.rule_action);
+            // EXPRESSION rules carry a raw condition; make sure it is a standalone boolean before
+            // it is ever spliced into a generated SELECT.
+            if (entry.kind == data_quality::RuleKind::Expression) {
+                DataQualityRunner::validate_expression(entry.expression);
+            }
+            data_quality::DataQualityManager::instance().create_rule(
+                std::move(entry), c.if_not_exists);
+            break;
+        }
         default:
             throw common::Exception{
                 "CREATE: expected DATABASE, TABLE, VIEW, MATERIALIZED VIEW, STORAGE_UNIT, "
@@ -508,6 +535,23 @@ auto InterpreterCreateQuery::do_create_task(
     task.type = pipelines::parse_task_type(create.task_type);
     task.body = create.task_body;
     task.depends_on = create.task_depends_on;
+    // A QUALITY task names existing data quality rules in its body ("rule_a, rule_b"); validate
+    // them now so a broken task is rejected at creation rather than at run time.
+    if (task.type == pipelines::TaskType::Quality) {
+        const auto rule_names = DataQualityRunner::split_rule_names(task.body);
+        if (rule_names.empty()) {
+            throw common::Exception{
+                "QUALITY task needs at least one data quality rule name in its body",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        for (const auto& name : rule_names) {
+            if (!data_quality::DataQualityManager::instance().has_rule(name)) {
+                throw common::Exception{
+                    "Unknown data quality rule: " + name,
+                    static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+            }
+        }
+    }
     pipelines::PipelineManager::instance().create_task(
         create.pipeline_name, create.stage_name, std::move(task), create.if_not_exists);
 }

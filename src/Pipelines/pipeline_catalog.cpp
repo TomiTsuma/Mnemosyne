@@ -38,6 +38,7 @@ auto task_type_name(TaskType type) -> std::string {
     switch (type) {
         case TaskType::Sql: return "SQL";
         case TaskType::BuiltIn: return "BUILT_IN";
+        case TaskType::Quality: return "QUALITY";
     }
     return "UNKNOWN";
 }
@@ -74,6 +75,7 @@ auto run_status_name(RunStatus status) -> std::string {
 auto parse_task_type(std::string_view name) -> TaskType {
     if (iequals(name, "SQL")) return TaskType::Sql;
     if (iequals(name, "BUILT_IN") || iequals(name, "BUILTIN")) return TaskType::BuiltIn;
+    if (iequals(name, "QUALITY")) return TaskType::Quality;
     throw common::Exception{
         "Unknown task type: " + std::string{name},
         static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
@@ -112,6 +114,11 @@ void validate_task_entry(const TaskEntry& entry) {
     if (entry.type == TaskType::Sql && entry.body.empty()) {
         throw common::Exception{
             "SQL task body cannot be empty",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    if (entry.type == TaskType::Quality && entry.body.empty()) {
+        throw common::Exception{
+            "QUALITY task body must list at least one data quality rule",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 }

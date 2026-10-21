@@ -18,6 +18,7 @@ target_link_libraries(mnemosyne_interpreters PUBLIC
     mnemosyne_shard_groups
     mnemosyne_pipelines
     mnemosyne_streaming
+    mnemosyne_data_quality
     mnemosyne_feature_sets
     mnemosyne_models
     mnemosyne_common

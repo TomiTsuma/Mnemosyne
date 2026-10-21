@@ -19,7 +19,7 @@ enum class PipelineStatus {
     Archived
 };
 
-enum class TaskType { Sql, BuiltIn };
+enum class TaskType { Sql, BuiltIn, Quality };
 
 enum class TaskStatus { Pending, Running, Succeeded, Failed, Skipped };
 
@@ -69,6 +69,8 @@ struct TaskRunRecord {
     std::string stage_name;
     TaskStatus status = TaskStatus::Pending;
     std::string error;
+    // Non-fatal findings of a succeeded task, e.g. data quality rules that only warn.
+    std::string detail;
     double duration_ms = 0.0;
     std::chrono::system_clock::time_point started_at{};
     std::chrono::system_clock::time_point ended_at{};
