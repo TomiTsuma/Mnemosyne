@@ -11,6 +11,7 @@
 #include "StorageUnits/storage_unit_manager.h"
 #include "ReplicaGroups/replica_group_manager.h"
 #include "ShardGroups/shard_group_manager.h"
+#include "Nodes/node_manager.h"
 #include "Connectors/connector_manager.h"
 #include "Pipelines/pipeline_manager.h"
 #include "Streaming/stream_manager.h"
@@ -108,6 +109,8 @@ auto InterpreterDropQuery::execute(Context& context, const parsers::QueryAST& qu
                 feature_sets::FeatureSetManager::instance().drop_dataset(query.drop.table, query.drop.if_exists);
             } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::DataQualityRule) {
                 data_quality::DataQualityManager::instance().drop_rule(query.drop.table, query.drop.if_exists);
+            } else if (query.drop.object_kind == parsers::QueryAST::ObjectKind::Cluster) {
+                nodes::NodeManager::instance().drop_cluster(query.drop.table, query.drop.if_exists);
             } else {
                 do_drop(context, query.drop);
             }

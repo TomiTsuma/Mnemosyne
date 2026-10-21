@@ -386,6 +386,14 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "CLUSTERS";
             break;
+        case analyzer::DDLNode::Kind::ShowClusterStatus:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CLUSTER_STATUS";
+            break;
+        case analyzer::DDLNode::Kind::ShowClusterMetrics:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "CLUSTER_METRICS";
+            break;
         case analyzer::DDLNode::Kind::ShowReplicaGroups:
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "REPLICA_GROUPS";

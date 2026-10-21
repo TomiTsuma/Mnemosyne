@@ -44,8 +44,20 @@ public:
     [[nodiscard]] auto offline_callbacks() const -> std::vector<std::function<void(std::string_view)>>;
 
     auto create_cluster(ClusterEntry entry, bool if_not_exists) -> void;
+    auto drop_cluster(std::string_view name, bool if_exists) -> void;
     auto get_cluster(std::string_view name) const -> const ClusterEntry*;
     [[nodiscard]] auto list_clusters() const -> std::vector<ClusterEntry>;
+
+    // CLUSTER membership: a node belongs to a cluster through its cluster_id. The operations are
+    // applied in order and all-or-nothing: if any step fails, every node is restored to the
+    // cluster_id it had before the call and the error is rethrown.
+    auto alter_cluster_membership(std::string_view cluster_name,
+                                  const std::vector<ClusterMembershipOp>& ops) -> void;
+    [[nodiscard]] auto nodes_in_cluster(std::string_view cluster_name) const -> std::vector<NodeEntry>;
+    // Roll-up of one cluster's members; throws on an unknown cluster.
+    [[nodiscard]] auto cluster_summary(std::string_view cluster_name) const -> ClusterSummary;
+    // One summary per cluster, sorted by name.
+    [[nodiscard]] auto cluster_summaries() const -> std::vector<ClusterSummary>;
 
     auto increment_query_throughput(std::string_view name) -> void;
     auto assign_partition(std::string_view name, std::string_view partition_id) -> void;
@@ -53,6 +65,9 @@ public:
 
 private:
     NodeManager() = default;
+
+    // Caller must hold mutex_.
+    [[nodiscard]] auto summarize_locked(const std::string& cluster_name) const -> ClusterSummary;
 
     mutable std::mutex mutex_;
     std::unordered_map<std::string, NodeEntry> nodes_;

@@ -614,14 +614,74 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 block->add_column("replica_id", rep_col);
                 result_.block = block;
             } else if (node->show_type == "CLUSTERS") {
-                auto& mgr = nodes::NodeManager::instance();
-                const auto clusters = mgr.list_clusters();
+                // SHOW CLUSTERS: name, derived state, member count.
+                const auto summaries = nodes::NodeManager::instance().cluster_summaries();
                 auto name_col = std::make_shared<columns::ColumnString>();
-                for (size_t i = 0; i < clusters.size(); ++i) {
-                    name_col->insert_at(i, core::Field(clusters[i].name));
+                auto status_col = std::make_shared<columns::ColumnString>();
+                auto nodes_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < summaries.size(); ++i) {
+                    name_col->insert_at(i, core::Field(summaries[i].name));
+                    status_col->insert_at(
+                        i, core::Field(nodes::cluster_state_name(summaries[i].state)));
+                    nodes_col->insert_at(i, core::Field(std::to_string(summaries[i].node_count)));
                 }
                 auto block = std::make_shared<core::Block>();
                 block->add_column("name", name_col);
+                block->add_column("status", status_col);
+                block->add_column("node_count", nodes_col);
+                result_.block = block;
+            } else if (node->show_type == "CLUSTER_STATUS") {
+                // SHOW CLUSTER STATUS: membership health per cluster.
+                const auto summaries = nodes::NodeManager::instance().cluster_summaries();
+                auto name_col = std::make_shared<columns::ColumnString>();
+                auto status_col = std::make_shared<columns::ColumnString>();
+                auto nodes_col = std::make_shared<columns::ColumnString>();
+                auto online_col = std::make_shared<columns::ColumnString>();
+                auto offline_col = std::make_shared<columns::ColumnString>();
+                for (size_t i = 0; i < summaries.size(); ++i) {
+                    name_col->insert_at(i, core::Field(summaries[i].name));
+                    status_col->insert_at(
+                        i, core::Field(nodes::cluster_state_name(summaries[i].state)));
+                    nodes_col->insert_at(i, core::Field(std::to_string(summaries[i].node_count)));
+                    online_col->insert_at(i, core::Field(std::to_string(summaries[i].online_count)));
+                    offline_col->insert_at(
+                        i, core::Field(std::to_string(summaries[i].offline_count)));
+                }
+                auto block = std::make_shared<core::Block>();
+                block->add_column("name", name_col);
+                block->add_column("status", status_col);
+                block->add_column("node_count", nodes_col);
+                block->add_column("online", online_col);
+                block->add_column("offline", offline_col);
+                result_.block = block;
+            } else if (node->show_type == "CLUSTER_METRICS") {
+                // SHOW CLUSTER METRICS: capacity and utilisation rolled up over member nodes.
+                const auto summaries = nodes::NodeManager::instance().cluster_summaries();
+                const std::vector<std::string> column_names{
+                    "name", "node_count", "cpu_cores", "cpu_utilization_pct", "memory_bytes",
+                    "memory_used_bytes", "storage_bytes", "storage_used_bytes", "gpu_count",
+                    "query_throughput", "pipeline_throughput", "stream_throughput"};
+                std::vector<std::shared_ptr<columns::ColumnString>> cols;
+                for (size_t c = 0; c < column_names.size(); ++c) {
+                    cols.push_back(std::make_shared<columns::ColumnString>());
+                }
+                for (size_t i = 0; i < summaries.size(); ++i) {
+                    const auto& s = summaries[i];
+                    const std::vector<std::string> values{
+                        s.name, std::to_string(s.node_count), std::to_string(s.cpu_cores),
+                        std::to_string(s.avg_cpu_utilization_pct), std::to_string(s.memory_bytes),
+                        std::to_string(s.memory_used_bytes), std::to_string(s.storage_bytes),
+                        std::to_string(s.storage_used_bytes), std::to_string(s.gpu_count),
+                        std::to_string(s.query_throughput), std::to_string(s.pipeline_throughput),
+                        std::to_string(s.stream_throughput)};
+                    for (size_t c = 0; c < values.size(); ++c) {
+                        cols[c]->insert_at(i, core::Field(values[c]));
+                    }
+                }
+                auto block = std::make_shared<core::Block>();
+                for (size_t c = 0; c < column_names.size(); ++c) {
+                    block->add_column(column_names[c], cols[c]);
+                }
                 result_.block = block;
             } else if (node->show_type == "REPLICA_GROUPS") {
                 auto& mgr = replica_groups::ReplicaGroupManager::instance();
@@ -1316,8 +1376,22 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 }
                 auto field_col = std::make_shared<columns::ColumnString>();
                 auto value_col = std::make_shared<columns::ColumnString>();
-                field_col->insert(core::Field("name"));
-                value_col->insert(core::Field(cluster->name));
+                // Takes std::string, not const char*: core::Field("literal") would pick the bool
+                // constructor and store an empty string.
+                auto add_row = [&](const std::string& field, const std::string& value) {
+                    field_col->insert(core::Field(field));
+                    value_col->insert(core::Field(value));
+                };
+                const auto members = mgr.nodes_in_cluster(cluster->name);
+                std::string member_names;
+                for (const auto& member : members) {
+                    if (!member_names.empty()) member_names += ", ";
+                    member_names += member.node_name;
+                }
+                add_row("name", cluster->name);
+                add_row("status", nodes::cluster_state_name(mgr.cluster_summary(cluster->name).state));
+                add_row("node_count", std::to_string(members.size()));
+                add_row("nodes", member_names);
                 auto out = std::make_shared<core::Block>();
                 out->add_column("field", field_col);
                 out->add_column("value", value_col);

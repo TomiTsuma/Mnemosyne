@@ -422,7 +422,8 @@ public:
     } drop;
 
     struct Alter : ASTDDLQuery {
-        enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector, Pipeline, Stream };
+        enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector, Pipeline, Stream,
+                            Cluster };
         Target target = Target::Table;
         std::vector<ASTAlterQuery::AlterCommand> commands;
         struct NodeSet {
@@ -435,6 +436,12 @@ public:
         std::vector<NodeSet> connector_sets;
         std::vector<NodeSet> pipeline_sets;
         std::vector<NodeSet> stream_sets;
+        // ALTER CLUSTER <name> ADD/REMOVE NODE <node> — membership changes, add=false means REMOVE.
+        struct ClusterNodeOp {
+            bool add = true;
+            std::string node;
+        };
+        std::vector<ClusterNodeOp> cluster_node_ops;
     } alter;
 
     struct RegisterNode {
@@ -456,6 +463,7 @@ public:
         enum class ShowType {
             DATABASES, TABLES, VIEWS, MATERIALIZED_VIEWS, STORAGE_UNITS, STORAGE_USAGE,
             NODES, NODE_METRICS, NODE_CAPABILITIES, NODE_PARTITIONS, NODE_REPLICAS, CLUSTERS,
+            CLUSTER_STATUS, CLUSTER_METRICS,
             REPLICA_GROUPS, REPLICATION_STATUS,
             SHARD_GROUPS, SHARDS, SHARD_STATUS,
             CONNECTORS, CONNECTOR_CAPABILITIES, CONNECTOR_STATUS,

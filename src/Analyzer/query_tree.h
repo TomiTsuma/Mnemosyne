@@ -71,6 +71,8 @@ public:
         ShowNodePartitions,
         ShowNodeReplicas,
         ShowClusters,
+        ShowClusterStatus,
+        ShowClusterMetrics,
         ShowReplicaGroups,
         ShowReplicationStatus,
         ShowShardGroups,

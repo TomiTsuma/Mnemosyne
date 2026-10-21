@@ -20,6 +20,7 @@
 #include "Interpreters/interpreter_stream_control.h"
 #include "Interpreters/interpreter_model_control.h"
 #include "Interpreters/interpreter_alter_stream.h"
+#include "Interpreters/interpreter_alter_cluster.h"
 #include "Interpreters/interpreter_test_connector.h"
 #include "Interpreters/interpreter_discover_query.h"
 #include "Interpreters/data_quality_runner.h"
@@ -551,6 +552,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     } else if (query_ast->alter.target ==
                                  parsers::QueryAST::Alter::Target::Stream) {
                         auto block = interpreters::InterpreterAlterStream::execute(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->alter.target ==
+                                 parsers::QueryAST::Alter::Target::Cluster) {
+                        auto block = interpreters::InterpreterAlterCluster::execute(
                             context_, *query_ast);
                         query_result.block = std::make_shared<core::Block>(std::move(block));
                     }

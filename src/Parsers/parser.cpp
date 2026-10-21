@@ -774,6 +774,11 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
         drop.object_kind = QueryAST::ObjectKind::DataQualityRule;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
+    } else if (current_.type == TokenType::KeywordCluster) {
+        consume(); // consume CLUSTER
+        drop.object_kind = QueryAST::ObjectKind::Cluster;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordDatabase) {
         consume(); // consume DATABASE
         drop.object_kind = QueryAST::ObjectKind::Database;
@@ -955,9 +960,41 @@ void Parser::parse_alter(std::unique_ptr<QueryAST>& ast) {
         }
         return;
     }
+    if (current_.type == TokenType::KeywordCluster) {
+        consume(); // CLUSTER
+        alter.target = QueryAST::Alter::Target::Cluster;
+        alter.table = parse_table_name();
+        while (current_.type != TokenType::EndOfQuery &&
+               current_.type != TokenType::Semicolon) {
+            QueryAST::Alter::ClusterNodeOp op;
+            if (current_.type == TokenType::KeywordAdd) {
+                op.add = true;
+            } else if (current_.type == TokenType::KeywordRemove) {
+                op.add = false;
+            } else {
+                throw common::Exception{
+                    "Parser: expected ADD or REMOVE in ALTER CLUSTER",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // ADD / REMOVE
+            if (!consume_node_keyword()) {
+                throw common::Exception{
+                    "Parser: expected NODE after ADD/REMOVE in ALTER CLUSTER",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            op.node = parse_table_name();
+            alter.cluster_node_ops.push_back(std::move(op));
+            if (current_.type == TokenType::Comma) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        return;
+    }
     if (current_.type != TokenType::KeywordTable) {
         throw common::Exception{
-            "Parser: expected TABLE, NODE, REPLICA_GROUP, or SHARD_GROUP after ALTER",
+            "Parser: expected TABLE, NODE, REPLICA_GROUP, SHARD_GROUP, or CLUSTER after ALTER",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume TABLE
@@ -1139,6 +1176,19 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::KeywordNodes) {
         consume();
         show.show_type = QueryAST::Show::ShowType::NODES;
+    } else if (current_.type == TokenType::KeywordCluster) {
+        consume(); // CLUSTER
+        if (current_.type == TokenType::KeywordStatus) {
+            consume(); // STATUS
+            show.show_type = QueryAST::Show::ShowType::CLUSTER_STATUS;
+        } else if (current_.type == TokenType::KeywordMetrics) {
+            consume(); // METRICS
+            show.show_type = QueryAST::Show::ShowType::CLUSTER_METRICS;
+        } else {
+            throw common::Exception{
+                "Parser: expected STATUS or METRICS after SHOW CLUSTER",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
     } else if (current_.type == TokenType::KeywordClusters) {
         consume();
         show.show_type = QueryAST::Show::ShowType::CLUSTERS;
@@ -2075,6 +2125,7 @@ auto Parser::parse_name_or_keyword() -> std::string {
         current_.type == TokenType::KeywordCoordinator ||
         current_.type == TokenType::KeywordObserver ||
         current_.type == TokenType::KeywordCluster ||
+        current_.type == TokenType::KeywordStatus ||
         current_.type == TokenType::KeywordReplicas ||
         current_.type == TokenType::KeywordShards ||
         current_.type == TokenType::KeywordReplica ||
