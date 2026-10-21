@@ -15,3 +15,6 @@ returns {'rows': 9,
  'duration_ms': 0.19,
  'bytes_read': 0,
  'bytes_written': 0}
+## Resolution {#resolution}
+
+Resolved. The `LIMIT` count was already honoured on this branch's base, but `OFFSET` was ignored (`LIMIT 3 OFFSET 2` and `LIMIT 2, 3` returned the first rows) and `LIMIT 0` meant "no limit". All three forms are now applied after `ORDER BY`. See `docs/changelog/101026-020728_select_correctness_changelog.md`.

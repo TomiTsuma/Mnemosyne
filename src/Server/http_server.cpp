@@ -235,88 +235,108 @@ void HTTPServer::accept_loop() {
             continue;
         }
 
-        // Read request
-        char buffer[8192];
-        int bytes_read = 0;
-        std::string raw_request;
-        bool body_complete = false;
-
-        while (!body_complete && running_) {
-            bytes_read = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-            if (bytes_read <= 0) {
-                body_complete = true;
-                break;
-            }
-            buffer[bytes_read] = '\0';
-            raw_request += std::string(buffer, bytes_read);
-
-            const auto header_end = raw_request.find("\r\n\r\n");
-            const auto header_end_lf = raw_request.find("\n\n");
-            const bool headers_done = header_end != std::string::npos ||
-                                      header_end_lf != std::string::npos;
-            if (headers_done) {
-                size_t content_length = 0;
-                std::istringstream hdr{raw_request.substr(
-                    0, header_end != std::string::npos
-                        ? header_end
-                        : header_end_lf)};
-                std::string hline;
-                while (std::getline(hdr, hline)) {
-                    if (hline.empty()) break;
-                    if (hline.back() == '\r') hline.pop_back();
-                    const auto colon = hline.find(':');
-                    if (colon == std::string::npos) continue;
-                    auto key = hline.substr(0, colon);
-                    auto val = hline.substr(colon + 1);
-                    while (!val.empty() && (val.front() == ' ' || val.front() == '\t')) {
-                        val.erase(val.begin());
-                    }
-                    if (key.size() == 14 &&
-                        (key == "Content-Length" || key == "content-length")) {
-                        content_length = static_cast<size_t>(std::stoul(val));
-                    }
-                }
-                const size_t body_offset = header_end != std::string::npos
-                    ? header_end + 4
-                    : header_end_lf + 2;
-                if (raw_request.size() >= body_offset + content_length) {
-                    body_complete = true;
-                }
-            }
-
-            // Safety limit
-            if (raw_request.size() > 65536) {
-                body_complete = true;
-            }
-        }
-
-        if (!raw_request.empty()) {
-            // Parse request
-            auto parsed = parse_http_request(raw_request);
-
-            // Create request object
-            server::Request http_req;
-            http_req.method = parsed.method;
-            http_req.path = parsed.path;
-            http_req.headers = parsed.headers;
-            http_req.body = parsed.body;
-            http_req.query_params = parsed.query_params;
-
-            // Handle request
-            auto response = handler_->handle(http_req);
-
-            // Send response
-            auto resp_str = make_http_response(response.status_code, response.body, response.content_type);
-            send(client_socket, resp_str.c_str(), resp_str.size(), 0);
-        }
-
-        // Close client socket
-#ifdef _WIN32
-        closesocket(client_socket);
-#else
-        close(client_socket);
-#endif
+        // Handle this connection on its own thread. accept() must return
+        // immediately to the next connection — a client that connects but
+        // sends no bytes (browsers pre-open idle/keep-alive sockets) would
+        // otherwise block recv() here forever and starve every other
+        // pending connection.
+        std::thread(&HTTPServer::handle_client, this, client_socket).detach();
     }
+}
+
+#ifdef _WIN32
+void HTTPServer::handle_client(SOCKET client_socket) {
+#else
+void HTTPServer::handle_client(int client_socket) {
+#endif
+    // Read request
+    char buffer[8192];
+    int bytes_read = 0;
+    std::string raw_request;
+    bool body_complete = false;
+
+    while (!body_complete && running_) {
+        bytes_read = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read <= 0) {
+            body_complete = true;
+            break;
+        }
+        buffer[bytes_read] = '\0';
+        raw_request += std::string(buffer, bytes_read);
+
+        const auto header_end = raw_request.find("\r\n\r\n");
+        const auto header_end_lf = raw_request.find("\n\n");
+        const bool headers_done = header_end != std::string::npos ||
+                                  header_end_lf != std::string::npos;
+        if (headers_done) {
+            size_t content_length = 0;
+            std::istringstream hdr{raw_request.substr(
+                0, header_end != std::string::npos
+                    ? header_end
+                    : header_end_lf)};
+            std::string hline;
+            while (std::getline(hdr, hline)) {
+                if (hline.empty()) break;
+                if (hline.back() == '\r') hline.pop_back();
+                const auto colon = hline.find(':');
+                if (colon == std::string::npos) continue;
+                auto key = hline.substr(0, colon);
+                auto val = hline.substr(colon + 1);
+                while (!val.empty() && (val.front() == ' ' || val.front() == '\t')) {
+                    val.erase(val.begin());
+                }
+                if (key.size() == 14 &&
+                    (key == "Content-Length" || key == "content-length")) {
+                    content_length = static_cast<size_t>(std::stoul(val));
+                }
+            }
+            const size_t body_offset = header_end != std::string::npos
+                ? header_end + 4
+                : header_end_lf + 2;
+            if (raw_request.size() >= body_offset + content_length) {
+                body_complete = true;
+            }
+        }
+
+        // Safety limit
+        if (raw_request.size() > 65536) {
+            body_complete = true;
+        }
+    }
+
+    if (!raw_request.empty()) {
+        // Parse request
+        auto parsed = parse_http_request(raw_request);
+
+        // Create request object
+        server::Request http_req;
+        http_req.method = parsed.method;
+        http_req.path = parsed.path;
+        http_req.headers = parsed.headers;
+        http_req.body = parsed.body;
+        http_req.query_params = parsed.query_params;
+
+        // Handle request. Serialized: interpreters::Context (databases_,
+        // storages_, current_db_, query_info_) is shared, mutable, and has
+        // no internal locking, so only one request may execute against it
+        // at a time even though many connections are now read concurrently.
+        std::string resp_str;
+        {
+            std::lock_guard<std::mutex> lock(handle_mutex_);
+            auto response = handler_->handle(http_req);
+            resp_str = make_http_response(response.status_code, response.body, response.content_type);
+        }
+
+        // Send response
+        send(client_socket, resp_str.c_str(), resp_str.size(), 0);
+    }
+
+    // Close client socket
+#ifdef _WIN32
+    closesocket(client_socket);
+#else
+    close(client_socket);
+#endif
 }
 
 } // namespace mnemo::server

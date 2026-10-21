@@ -55,6 +55,13 @@ public:
     [[nodiscard]] auto shard_group_name() const -> std::string override;
     auto add_column(std::string name, datatypes::DataTypePtr type) -> void;
     auto set_columns(std::unordered_map<std::string, datatypes::DataTypePtr> types) -> void;
+    // Set columns preserving the given order (used for schema bootstrap)
+    auto set_columns_ordered(
+        const std::vector<std::pair<std::string, datatypes::DataTypePtr>>& cols) -> void;
+    // Write _schema.json to disk so the table can be reconstructed on restart
+    auto write_schema(const std::string& db_name, const std::string& table_name) -> void;
+    // Sync row_count_ from what's actually on disk
+    auto sync_row_count() -> void;
 
 private:
     FileStorage();

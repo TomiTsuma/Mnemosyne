@@ -24,6 +24,10 @@ void Context::register_database(std::string name,
     databases_[std::move(name)] = std::move(db);
 }
 
+void Context::unregister_database(std::string_view name) {
+    databases_.erase(std::string{name});
+}
+
 auto Context::get_database(std::string_view name)
     -> std::shared_ptr<databases::IDatabase> {
     auto it = databases_.find(static_cast<std::string>(name));

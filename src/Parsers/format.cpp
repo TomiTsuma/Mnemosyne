@@ -32,6 +32,7 @@ static std::string expression_to_string(const ASTExpr& expr) {
             case ASTBinaryOp::Op::Sub:     sep = " - "; break;
             case ASTBinaryOp::Op::Mul:     sep = " * "; break;
             case ASTBinaryOp::Op::Div:     sep = " / "; break;
+            case ASTBinaryOp::Op::Mod:     sep = " % "; break;
             case ASTBinaryOp::Op::Eq:      sep = " = "; break;
             case ASTBinaryOp::Op::Ne:      sep = " != "; break;
             case ASTBinaryOp::Op::Lt:      sep = " < "; break;
@@ -90,7 +91,16 @@ std::string ASTColumnRef::to_string() const {
 
 std::string ASTFunction::to_string() const {
     std::ostringstream out;
-    out << name << "(";
+    out << name;
+    if (!parameters.empty()) {
+        out << "(";
+        for (size_t i = 0; i < parameters.size(); ++i) {
+            if (i > 0) out << ", ";
+            out << expression_to_string(*parameters[i]);
+        }
+        out << ")";
+    }
+    out << "(";
     for (size_t i = 0; i < args.size(); ++i) {
         if (i > 0) out << ", ";
         out << expression_to_string(*args[i]);
@@ -106,6 +116,7 @@ std::string ASTBinaryOp::to_string() const {
         case Op::Sub:      sep = " - "; break;
         case Op::Mul:      sep = " * "; break;
         case Op::Div:      sep = " / "; break;
+        case Op::Mod:      sep = " % "; break;
         case Op::Eq:       sep = " = "; break;
         case Op::Ne:       sep = " != "; break;
         case Op::Lt:       sep = " < "; break;
@@ -175,10 +186,11 @@ std::string format_query(const QueryAST& query) {
                     out << (s.order_by[i].second ? " DESC" : " ASC");
                 }
             }
-            if (s.limit.first > 0) {
-                out << "\nLIMIT " << s.limit.second << " OFFSET " << s.limit.first;
-            } else if (s.limit.second > 0) {
+            if (s.has_limit) {
                 out << "\nLIMIT " << s.limit.second;
+                if (s.limit.first > 0) {
+                    out << " OFFSET " << s.limit.first;
+                }
             }
             break;
         }

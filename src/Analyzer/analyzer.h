@@ -31,6 +31,8 @@ struct AnalyzeResult {
     std::unordered_map<std::string, Context::ColumnInfo> columns;
     std::unordered_map<std::string, datatypes::DataTypePtr> column_types;
     std::unordered_set<std::string>             unresolved_columns;
+    // Names introduced by "expr AS name" in the select list; valid in WHERE, GROUP BY and HAVING.
+    std::unordered_set<std::string>             select_aliases;
     std::vector<std::string>                    errors;
     bool                                        valid;
 };

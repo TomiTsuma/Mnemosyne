@@ -108,13 +108,19 @@ protected:
 
     // ── Expression parsing helpers ──
     auto parse_expression() -> std::shared_ptr<ASTExpr>;
+    auto parse_and() -> std::shared_ptr<ASTExpr>;
     auto parse_comparison() -> std::shared_ptr<ASTExpr>;
     auto parse_term() -> std::shared_ptr<ASTExpr>;
+    auto parse_multiplicative() -> std::shared_ptr<ASTExpr>;
+    auto parse_unary() -> std::shared_ptr<ASTExpr>;
     auto parse_factor() -> std::shared_ptr<ASTExpr>;
+    auto parse_select_item() -> std::shared_ptr<ASTExpr>;
+    auto parse_select_list() -> std::vector<std::shared_ptr<ASTExpr>>;
     auto parse_expression_list() -> std::vector<std::shared_ptr<ASTExpr>>;
 
     // ── Clause parsing helpers ──
     auto parse_table_name() -> std::string;
+    auto parse_qualified_name() -> std::string;
     auto parse_name_or_keyword() -> std::string;
     auto parse_table_ref() -> std::pair<std::string, std::string>;
     auto parse_subquery() -> std::shared_ptr<QueryAST>;
@@ -122,6 +128,7 @@ protected:
     auto parse_database_name() -> std::string;
     auto parse_column_list() -> std::vector<std::string>;
     auto parse_column_definitions() -> std::vector<ColumnDef>;
+    auto parse_data_quality_rule_clauses(QueryAST::Create& create) -> void;
     auto parse_value_list() -> std::vector<std::vector<std::string>>;
     auto parse_value_row() -> std::vector<std::string>;
     auto parse_order_by_list() -> std::vector<OrderBy>;

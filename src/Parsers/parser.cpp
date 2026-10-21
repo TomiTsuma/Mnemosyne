@@ -38,6 +38,11 @@ auto Parser::parse_query() -> std::unique_ptr<QueryAST> {
     if (current_.type == TokenType::KeywordSelect) {
         ast->query_type = QueryAST::QueryType::SELECT;
         parse_select(ast);
+        if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+            throw common::Exception{
+                "Parser: unexpected token '" + current_.value + "' after SELECT",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
     } else if (current_.type == TokenType::KeywordInsert) {
         ast->query_type = QueryAST::QueryType::INSERT;
         parse_insert(ast);
@@ -126,7 +131,7 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
 
     // SELECT <columns> FROM <table>
     consume(); // consume SELECT
-    select.columns = parse_expression_list();
+    select.columns = parse_select_list();
 
     if (current_.type == TokenType::KeywordFrom) {
         consume(); // consume FROM
@@ -214,6 +219,7 @@ void Parser::parse_select(std::unique_ptr<QueryAST>& ast) {
     if (current_.type == TokenType::KeywordLimit) {
         consume(); // consume LIMIT
         select.limit = parse_limit();
+        select.has_limit = true;
     }
 }
 
@@ -227,13 +233,27 @@ void Parser::parse_insert(std::unique_ptr<QueryAST>& ast) {
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume INTO
-    insert.table = parse_table_name();
+    insert.table = parse_qualified_name();
     if (current_.type == TokenType::LParen) {
         insert.columns = parse_column_list();
     }
     if (current_.type == TokenType::KeywordValues) {
         consume(); // consume VALUES
         insert.values = parse_value_list();
+    } else if (current_.type == TokenType::KeywordSelect) {
+        auto select_ast = std::make_unique<QueryAST>();
+        select_ast->query_type = QueryAST::QueryType::SELECT;
+        parse_select(select_ast);
+        insert.select = std::move(select_ast);
+        if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+            throw common::Exception{
+                "Parser: unexpected token '" + current_.value + "' after INSERT ... SELECT",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+    } else {
+        throw common::Exception{
+            "Parser: expected VALUES or SELECT after INSERT INTO " + insert.table,
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 }
 
@@ -463,11 +483,18 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
         create.if_not_exists = parse_if_not_exists();
         create.tuning_job_name = parse_table_name();
         parse_model_clauses(create);
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        create.kind = QueryAST::Create::Kind::DataQualityRule;
+        create.if_not_exists = parse_if_not_exists();
+        create.rule_name = parse_table_name();
+        parse_data_quality_rule_clauses(create);
     } else if (current_.type == TokenType::KeywordTable) {
         consume(); // consume TABLE
         create.kind = QueryAST::Create::Kind::Table;
         create.if_not_exists = parse_if_not_exists();
-        create.table_name = parse_table_name();
+        create.table_name = parse_qualified_name();
         create.table = create.table_name;
         create.columns = parse_column_definitions();
         if (current_.type == TokenType::KeywordEngine) {
@@ -499,6 +526,96 @@ void Parser::parse_create(std::unique_ptr<QueryAST>& ast) {
             }
             create.replica_group_name = parse_table_name();
         }
+    } else {
+        throw common::Exception{
+            "Parser: unsupported CREATE target '" + current_.value + "'",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+}
+
+// CREATE DATA_QUALITY_RULE <name> ON <table> <check> [ACTION WARN|FAIL]
+//   check ::= UNIQUE <column>
+//           | RANGE <column> [MIN <number>] [MAX <number>]
+//           | EXPRESSION '<condition>'
+//           | MIN_ROWS <integer>
+// The words after ON are matched by text rather than as keywords so that columns named
+// range, action, min, ... keep working everywhere else.
+void Parser::parse_data_quality_rule_clauses(QueryAST::Create& create) {
+    const auto is_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+    const auto read_number = [this, &fail]() -> double {
+        bool negative = false;
+        if (current_.type == TokenType::Minus) {
+            negative = true;
+            consume();
+        }
+        if (current_.type != TokenType::IntegerLiteral && current_.type != TokenType::FloatLiteral) {
+            fail("Parser: expected a number, got '" + current_.value + "'");
+        }
+        const double value = std::stod(current_.value);
+        consume();
+        return negative ? -value : value;
+    };
+
+    if (current_.type != TokenType::KeywordOn) {
+        fail("Parser: expected ON <table> after the rule name");
+    }
+    consume(); // ON
+    create.rule_table = parse_qualified_name();
+
+    if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
+        fail("Parser: expected UNIQUE, RANGE, EXPRESSION or MIN_ROWS after ON <table>");
+    }
+    create.rule_check = upper_str(current_.value);
+    if (is_word("UNIQUE")) {
+        consume();
+        create.rule_column = parse_table_name();
+    } else if (is_word("RANGE")) {
+        consume();
+        create.rule_column = parse_table_name();
+        while (is_word("MIN") || is_word("MAX")) {
+            const bool is_min = is_word("MIN");
+            consume();
+            const double bound = read_number();
+            auto& slot = is_min ? create.rule_min : create.rule_max;
+            if (slot) {
+                fail(std::string{"Parser: duplicate "} + (is_min ? "MIN" : "MAX") + " in RANGE");
+            }
+            slot = bound;
+        }
+    } else if (is_word("EXPRESSION")) {
+        consume();
+        if (current_.type != TokenType::StringLiteral) {
+            fail("Parser: EXPRESSION needs a quoted condition, e.g. EXPRESSION 'amount >= 0'");
+        }
+        create.rule_expression = current_.value;
+        consume();
+    } else if (is_word("MIN_ROWS")) {
+        consume();
+        if (current_.type != TokenType::IntegerLiteral) {
+            fail("Parser: MIN_ROWS needs an integer");
+        }
+        create.rule_min_rows = std::stoull(current_.value);
+        consume();
+    } else {
+        fail("Parser: unknown data quality check '" + current_.value +
+             "'; expected UNIQUE, RANGE, EXPRESSION or MIN_ROWS");
+    }
+
+    if (is_word("ACTION")) {
+        consume();
+        if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
+            fail("Parser: expected WARN or FAIL after ACTION");
+        }
+        create.rule_action = upper_str(current_.value);
+        consume();
+    }
+    if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+        fail("Parser: unexpected token '" + current_.value + "' in CREATE DATA_QUALITY_RULE");
     }
 }
 
@@ -649,6 +766,17 @@ void Parser::parse_drop(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
         consume();
         drop.object_kind = QueryAST::ObjectKind::TuningJob;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        drop.object_kind = QueryAST::ObjectKind::DataQualityRule;
+        drop.if_exists = parse_if_exists();
+        drop.table = parse_table_name();
+    } else if (current_.type == TokenType::KeywordDatabase) {
+        consume(); // consume DATABASE
+        drop.object_kind = QueryAST::ObjectKind::Database;
         drop.if_exists = parse_if_exists();
         drop.table = parse_table_name();
     } else if (current_.type == TokenType::KeywordTable) {
@@ -995,8 +1123,7 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                 show.node_name = parse_table_name();
             }
         } else if (current_.type == TokenType::KeywordPartition ||
-                   (current_.type == TokenType::Identifier &&
-                    current_.value == "PARTITIONS")) {
+                   current_.type == TokenType::KeywordPartitions) {
             consume();
             show.show_type = QueryAST::Show::ShowType::NODE_PARTITIONS;
             if (current_.type == TokenType::Identifier ||
@@ -1315,6 +1442,10 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                 "Parser: expected VERSIONS / ENDPOINTS / METRICS / DRIFT after SHOW MODEL",
                 static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
         }
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULES") {
+        consume();
+        show.show_type = QueryAST::Show::ShowType::DATA_QUALITY_RULES;
     } else if (current_.type == TokenType::Identifier && current_.value == "FEATURE_SETS") {
         consume();
         show.show_type = QueryAST::Show::ShowType::FEATURE_SETS;
@@ -1397,6 +1528,10 @@ void Parser::parse_describe(std::unique_ptr<QueryAST>& ast) {
     } else if (current_.type == TokenType::Identifier && current_.value == "TUNING_JOB") {
         consume();
         describe.object_kind = QueryAST::ObjectKind::TuningJob;
+    } else if (current_.type == TokenType::Identifier &&
+               upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        describe.object_kind = QueryAST::ObjectKind::DataQualityRule;
     } else {
         describe.object_kind = QueryAST::ObjectKind::Table;
     }
@@ -1529,14 +1664,29 @@ void Parser::parse_use(std::unique_ptr<QueryAST>& ast) {
 
 // ── Expression parsing ──
 
+// Precedence, loosest to tightest: OR, AND, comparison, + -, * / %, unary minus.
 auto Parser::parse_expression() -> std::shared_ptr<ASTExpr> {
+    auto left = parse_and();
+
+    while (current_.type == TokenType::KeywordOr) {
+        auto op = std::make_shared<ASTBinaryOp>();
+        op->op = ASTBinaryOp::Op::Or;
+        consume();
+        auto right = parse_and();
+        op->left = left;
+        op->right = right;
+        left = op;
+    }
+
+    return left;
+}
+
+auto Parser::parse_and() -> std::shared_ptr<ASTExpr> {
     auto left = parse_comparison();
 
-    while (current_.type == TokenType::KeywordAnd ||
-           current_.type == TokenType::KeywordOr) {
+    while (current_.type == TokenType::KeywordAnd) {
         auto op = std::make_shared<ASTBinaryOp>();
-        op->op = current_.type == TokenType::KeywordAnd ?
-                  ASTBinaryOp::Op::And : ASTBinaryOp::Op::Or;
+        op->op = ASTBinaryOp::Op::And;
         consume();
         auto right = parse_comparison();
         op->left = left;
@@ -1596,45 +1746,103 @@ auto Parser::parse_comparison() -> std::shared_ptr<ASTExpr> {
     return left;
 }
 
+// Additive level (+, -).
 auto Parser::parse_term() -> std::shared_ptr<ASTExpr> {
-    auto left = parse_factor();
+    auto left = parse_multiplicative();
 
-    while (current_.type == TokenType::Plus ||
-           current_.type == TokenType::Minus ||
-           current_.type == TokenType::Star ||
-           current_.type == TokenType::Slash ||
-           current_.type == TokenType::Percent) {
+    while (current_.type == TokenType::Plus || current_.type == TokenType::Minus) {
         auto op = std::make_shared<ASTBinaryOp>();
-        switch (current_.type) {
-            case TokenType::Plus:   op->op = ASTBinaryOp::Op::Add;   break;
-            case TokenType::Minus:  op->op = ASTBinaryOp::Op::Sub;   break;
-            case TokenType::Star:   op->op = ASTBinaryOp::Op::Mul;   break;
-            case TokenType::Slash:  op->op = ASTBinaryOp::Op::Div;   break;
-            case TokenType::Percent: op->op = ASTBinaryOp::Op::Div;  break;
-            default: break;
-        }
+        op->op = current_.type == TokenType::Plus ? ASTBinaryOp::Op::Add : ASTBinaryOp::Op::Sub;
         consume();
-        auto right = parse_factor();
+        auto right = parse_multiplicative();
         op->left = left;
         op->right = right;
         left = op;
     }
 
-    if (current_.type == TokenType::KeywordAs) {
-        consume();
-        if (current_.type != TokenType::Identifier) {
-            throw common::Exception{
-                "Parser: expected alias name after AS",
-                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    return left;
+}
+
+auto Parser::parse_multiplicative() -> std::shared_ptr<ASTExpr> {
+    auto left = parse_unary();
+
+    while (current_.type == TokenType::Star ||
+           current_.type == TokenType::Slash ||
+           current_.type == TokenType::Percent) {
+        auto op = std::make_shared<ASTBinaryOp>();
+        switch (current_.type) {
+            case TokenType::Star:    op->op = ASTBinaryOp::Op::Mul; break;
+            case TokenType::Slash:   op->op = ASTBinaryOp::Op::Div; break;
+            default:                 op->op = ASTBinaryOp::Op::Mod; break;
         }
-        auto alias = std::make_shared<ASTAlias>();
-        alias->alias = current_.value;
         consume();
-        alias->expression = left;
-        return alias;
+        auto right = parse_unary();
+        op->left = left;
+        op->right = right;
+        left = op;
     }
 
     return left;
+}
+
+auto Parser::parse_unary() -> std::shared_ptr<ASTExpr> {
+    if (current_.type == TokenType::Minus) {
+        consume();
+        auto operand = parse_unary();
+        if (auto* lit = dynamic_cast<ASTLiteral*>(operand.get())) {
+            if (std::holds_alternative<int64_t>(lit->value)) {
+                lit->value = -std::get<int64_t>(lit->value);
+                return operand;
+            }
+            if (std::holds_alternative<double>(lit->value)) {
+                lit->value = -std::get<double>(lit->value);
+                return operand;
+            }
+        }
+        auto neg = std::make_shared<ASTUnaryOp>();
+        neg->op = ASTUnaryOp::Op::Neg;
+        neg->operand = std::move(operand);
+        return neg;
+    }
+    return parse_factor();
+}
+
+// One select-list item: an expression with an optional [AS] alias.
+auto Parser::parse_select_item() -> std::shared_ptr<ASTExpr> {
+    auto expr = parse_expression();
+
+    // After AS any word is a valid alias (e.g. "AS bucket", which is also a keyword); without
+    // AS only a plain identifier is, otherwise FROM, WHERE and friends would be taken as aliases.
+    const bool has_as = current_.type == TokenType::KeywordAs;
+    if (has_as) {
+        consume();
+    }
+    const bool is_word = !current_.value.empty() &&
+        (std::isalpha(static_cast<unsigned char>(current_.value.front())) || current_.value.front() == '_') &&
+        current_.type != TokenType::StringLiteral;
+    if (has_as ? is_word : current_.type == TokenType::Identifier) {
+        auto alias = std::make_shared<ASTAlias>();
+        alias->alias = current_.value;
+        consume();
+        alias->expression = std::move(expr);
+        return alias;
+    }
+    if (has_as) {
+        throw common::Exception{
+            "Parser: expected alias name after AS",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    return expr;
+}
+
+auto Parser::parse_select_list() -> std::vector<std::shared_ptr<ASTExpr>> {
+    std::vector<std::shared_ptr<ASTExpr>> items;
+    items.push_back(parse_select_item());
+    while (current_.type == TokenType::Comma) {
+        consume();
+        items.push_back(parse_select_item());
+    }
+    return items;
 }
 
 auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
@@ -1726,7 +1934,7 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
             auto func = std::make_shared<ASTFunction>();
             func->name = name;
             static const std::unordered_set<std::string> aggs = {
-                "COUNT", "SUM", "AVG", "MIN", "MAX"};
+                "COUNT", "SUM", "AVG", "MIN", "MAX", "QUANTILE", "MEDIAN", "PERCENTILE"};
             std::string upper = name;
             std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
             func->is_aggregate = aggs.count(upper) > 0;
@@ -1748,6 +1956,25 @@ auto Parser::parse_factor() -> std::shared_ptr<ASTExpr> {
                     static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
             }
             consume();
+            // Parametric call, e.g. quantile(0.9)(x): the first list holds the parameters.
+            if (current_.type == TokenType::LParen) {
+                consume();
+                func->parameters = std::move(func->args);
+                func->args.clear();
+                if (current_.type != TokenType::RParen) {
+                    func->args.push_back(parse_expression());
+                    while (current_.type == TokenType::Comma) {
+                        consume();
+                        func->args.push_back(parse_expression());
+                    }
+                }
+                if (current_.type != TokenType::RParen) {
+                    throw common::Exception{
+                        "Parser: expected ) after parametric function call",
+                        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+                }
+                consume();
+            }
             if (current_.type == TokenType::KeywordOver) {
                 consume();
                 if (current_.type != TokenType::LParen) {
@@ -1809,6 +2036,27 @@ auto Parser::parse_table_name() -> std::string {
     return name;
 }
 
+auto Parser::parse_qualified_name() -> std::string {
+    if (current_.type != TokenType::Identifier) {
+        throw common::Exception{
+            "Parser: expected table name",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    std::string name = current_.value;
+    consume();
+    if (current_.type == TokenType::Dot) {
+        consume(); // consume .
+        if (current_.type != TokenType::Identifier) {
+            throw common::Exception{
+                "Parser: expected identifier after .",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        name += "." + current_.value;
+        consume();
+    }
+    return name;
+}
+
 auto Parser::parse_name_or_keyword() -> std::string {
     if (current_.type == TokenType::IntegerLiteral ||
         current_.type == TokenType::FloatLiteral) {
@@ -1857,7 +2105,7 @@ auto Parser::parse_name_or_keyword() -> std::string {
 }
 
 auto Parser::parse_table_ref() -> std::pair<std::string, std::string> {
-    std::string table = parse_table_name();
+    std::string table = parse_qualified_name();
     std::string alias;
     if (current_.type == TokenType::Identifier) {
         alias = current_.value;
@@ -1967,14 +2215,29 @@ auto Parser::parse_value_row() -> std::vector<std::string> {
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
     consume(); // consume (
-    std::vector<std::string> row;
-    row.push_back(current_.value);
-    consume();
-    while (current_.type == TokenType::Comma) {
-        consume(); // consume ,
-        row.push_back(current_.value);
+
+    // Helper: consume one value, handling a leading unary minus.
+    auto read_one = [&]() -> std::string {
+        if (current_.type == TokenType::Minus) {
+            consume(); // consume -
+            std::string val = "-" + current_.value;
+            consume();
+            return val;
+        }
+        std::string val = current_.value;
         consume();
+        return val;
+    };
+
+    std::vector<std::string> row;
+    if (current_.type != TokenType::RParen) {
+        row.push_back(read_one());
+        while (current_.type == TokenType::Comma) {
+            consume(); // consume ,
+            row.push_back(read_one());
+        }
     }
+
     if (current_.type != TokenType::RParen) {
         throw common::Exception{
             "Parser: expected )",
@@ -1997,8 +2260,20 @@ auto Parser::parse_order_by_list() -> std::vector<OrderBy> {
 
 auto Parser::parse_order_by() -> OrderBy {
     OrderBy order;
+    const bool is_name = !current_.value.empty() && current_.type != TokenType::StringLiteral &&
+        (std::isalpha(static_cast<unsigned char>(current_.value.front())) || current_.value.front() == '_');
+    if (!is_name) {
+        throw common::Exception{
+            "Parser: ORDER BY supports column names and select aliases, got '" + current_.value + "'",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
     order.column = current_.value;
     consume();
+    if (current_.type == TokenType::Dot) {
+        consume(); // consume .
+        order.column += "." + current_.value;
+        consume();
+    }
     if (current_.type == TokenType::KeywordAsc || current_.type == TokenType::KeywordDesc) {
         order.direction = current_.type == TokenType::KeywordAsc ?
                   OrderBy::Direction::ASC : OrderBy::Direction::DESC;
@@ -2007,16 +2282,29 @@ auto Parser::parse_order_by() -> OrderBy {
     return order;
 }
 
+// Returns {offset, count}. Accepts "LIMIT n", "LIMIT n OFFSET m" and "LIMIT m, n" (offset first).
 auto Parser::parse_limit() -> std::pair<size_t, size_t> {
-    size_t count = static_cast<size_t>(std::stoll(current_.value));
-    consume();
-    size_t offset = 0;
+    const auto read_number = [this]() -> size_t {
+        if (current_.type != TokenType::IntegerLiteral) {
+            throw common::Exception{
+                "Parser: expected an integer in LIMIT/OFFSET",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+        }
+        const auto value = static_cast<size_t>(std::stoull(current_.value));
+        consume();
+        return value;
+    };
+
+    const size_t first = read_number();
     if (current_.type == TokenType::Comma) {
         consume(); // consume ,
-        offset = static_cast<size_t>(std::stoll(current_.value));
-        consume();
+        return {first, read_number()};
     }
-    return {offset, count};
+    if (current_.type == TokenType::KeywordOffset) {
+        consume(); // consume OFFSET
+        return {read_number(), first};
+    }
+    return {0, first};
 }
 
 auto Parser::consume_node_keyword() -> bool {
@@ -2167,6 +2455,11 @@ void Parser::parse_run(std::unique_ptr<QueryAST>& ast) {
         consume();
         ast->model_control.action = QueryAST::ModelControl::Action::RunTuningJob;
         ast->model_control.target_name = parse_table_name();
+        return;
+    }
+    if (current_.type == TokenType::Identifier && upper_str(current_.value) == "DATA_QUALITY_RULE") {
+        consume();
+        ast->quality_control.rule_name = parse_table_name();
         return;
     }
     if (!consume_pipeline_keyword()) {

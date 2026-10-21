@@ -36,3 +36,6 @@ configs/*.conf
 # Backup files
 *.bak
 *.tmp
+
+# ClickHouse→Mnemosyne benchmark (credentials + local data)
+clickhouse_mnemo_benchmark/

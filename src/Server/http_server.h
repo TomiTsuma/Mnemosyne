@@ -9,6 +9,7 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <mutex>
 #include <cstdint>
 
 #ifdef _WIN32
@@ -47,8 +48,17 @@ public:
     [[nodiscard]] auto port() const -> uint16_t { return port_; }
 
 private:
-    // Accept loop — runs in its own thread
+    // Accept loop — runs in its own thread; spawns a thread per connection
+    // so a slow/idle client can't block other connections from being served.
     void accept_loop();
+
+    // Reads one request off client_socket, dispatches it, writes the
+    // response, and closes the socket. Runs on its own thread per connection.
+#ifdef _WIN32
+    void handle_client(SOCKET client_socket);
+#else
+    void handle_client(int client_socket);
+#endif
 
     std::shared_ptr<HTTPHandler> handler_;
     uint16_t                     port_;
@@ -62,6 +72,11 @@ private:
 #endif
     std::thread    worker_thread_;
     std::atomic<bool> running_ = false;
+
+    // Context (interpreters::Context) shared by HTTPHandler has no internal
+    // synchronization, so request handling itself stays serialized even
+    // though connections are now accepted/read concurrently.
+    std::mutex handle_mutex_;
 };
 
 } // namespace mnemo::server

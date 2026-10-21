@@ -22,6 +22,7 @@
 #include "Interpreters/interpreter_alter_stream.h"
 #include "Interpreters/interpreter_test_connector.h"
 #include "Interpreters/interpreter_discover_query.h"
+#include "Interpreters/data_quality_runner.h"
 #include "Interpreters/pipeline_executor.h"
 #include "Pipelines/pipeline_scheduler.h"
 #include "Interpreters/context.h"
@@ -37,9 +38,24 @@
 #include <iomanip>
 #include <chrono>
 #include <ctime>
+#include <cmath>
+#include <charconv>
 #include <fstream>
 
 namespace mnemo::server {
+
+namespace {
+
+// Shortest decimal string that round-trips; ostream's default keeps only 6 digits.
+template <typename Float>
+auto format_floating(Float value) -> std::string
+{
+    char buffer[64];
+    const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
+    return std::string(buffer, result.ptr);
+}
+
+} // namespace
 
 // ── HTTPHandler ──
 
@@ -70,6 +86,10 @@ auto HTTPHandler::handle(const Request& req) -> Response {
         return Response::error(400, "Bad request: /schema/{db}/{table}");
     } else if (req.path == "/metrics") {
         return handle_metrics();
+    } else if (req.path == "/favicon.ico") {
+        return handle_static_asset(req.path);
+    } else if (req.path.rfind("/fonts/", 0) == 0) {
+        return handle_static_asset(req.path);
     } else if (req.path == "/settings") {
         return handle_settings();
     } else if (req.path == "/nodes" && req.method == "GET") {
@@ -126,6 +146,31 @@ auto HTTPHandler::handle_index() -> Response {
     std::string html{std::istreambuf_iterator<char>(file),
                      std::istreambuf_iterator<char>()};
     return Response::html(std::move(html));
+}
+
+auto HTTPHandler::handle_static_asset(std::string_view path) -> Response {
+    // Guard against path traversal outside public/.
+    if (path.find("..") != std::string_view::npos) {
+        return Response::error(400, "Bad request");
+    }
+    std::string file_path = "public" + std::string(path);
+    std::ifstream file(file_path, std::ios::binary);
+    if (!file.is_open()) {
+        return Response::error(404, "Not found: " + std::string(path));
+    }
+    std::string data{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+
+    Response r;
+    r.status_code = 200;
+    r.body = std::move(data);
+    if (path.ends_with(".ttf")) r.content_type = "font/ttf";
+    else if (path.ends_with(".woff2")) r.content_type = "font/woff2";
+    else if (path.ends_with(".woff")) r.content_type = "font/woff";
+    else if (path.ends_with(".css")) r.content_type = "text/css";
+    else if (path.ends_with(".js")) r.content_type = "application/javascript";
+    else if (path.ends_with(".ico")) r.content_type = "image/x-icon";
+    else r.content_type = "application/octet-stream";
+    return r;
 }
 
 auto HTTPHandler::handle_databases() -> Response {
@@ -225,16 +270,26 @@ namespace {
 auto escape_json_string(std::string_view value) -> std::string {
     std::string out;
     out.reserve(value.size() + 8);
-    for (const char c : value) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(value[i]);
         switch (c) {
-            case '"': out += "\\\""; break;
+            case '"':  out += "\\\""; break;
             case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b"; break;
-            case '\f': out += "\\f"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default: out += c; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (c < 0x20) {
+                    // Encode remaining control characters as \u00XX
+                    char buf[7];
+                    snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned>(c));
+                    out += buf;
+                } else {
+                    out += static_cast<char>(c);
+                }
+                break;
         }
     }
     return out;
@@ -419,7 +474,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                 }
                 case parsers::QueryAST::QueryType::RUN: {
                     using Action = parsers::QueryAST::ModelControl::Action;
-                    if (query_ast->model_control.action == Action::RunTrainingJob ||
+                    if (!query_ast->quality_control.rule_name.empty()) {
+                        auto block = interpreters::DataQualityRunner::execute_run(
+                            context_, *query_ast);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    } else if (query_ast->model_control.action == Action::RunTrainingJob ||
                         query_ast->model_control.action == Action::RunTuningJob) {
                         auto block = interpreters::InterpreterModelControl::execute(
                             context_, *query_ast);
@@ -497,6 +556,25 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                     }
                     break;
                 }
+                case parsers::QueryAST::QueryType::SHOW: {
+                    // Data quality rules are served here; every other SHOW variant is handled by
+                    // the planner path below (query_result.block is left empty for them).
+                    if (query_ast->show.show_type ==
+                            parsers::QueryAST::Show::ShowType::DATA_QUALITY_RULES) {
+                        auto block = interpreters::DataQualityRunner::execute_show();
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
+                case parsers::QueryAST::QueryType::DESCRIBE: {
+                    if (query_ast->describe.object_kind ==
+                            parsers::QueryAST::ObjectKind::DataQualityRule) {
+                        auto block = interpreters::DataQualityRunner::execute_describe(
+                            query_ast->describe.table_name);
+                        query_result.block = std::make_shared<core::Block>(std::move(block));
+                    }
+                    break;
+                }
                 default:
                     break;
             }
@@ -550,10 +628,14 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                         using T = std::decay_t<decltype(v)>;
                         if constexpr (std::is_same_v<T, std::monostate>) oss << "null";
                         else if constexpr (std::is_integral_v<T>) oss << v;
-                        else if constexpr (std::is_floating_point_v<T>) oss << v;
+                        else if constexpr (std::is_floating_point_v<T>) {
+                            // JSON has no NaN/Infinity literals — emit null instead
+                            if (std::isnan(v) || std::isinf(v)) oss << "null";
+                            else oss << format_floating(v);
+                        }
                         else if constexpr (std::is_same_v<T, bool>) oss << (v ? "true" : "false");
                         else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
-                            if (v) oss << "<ptr:" << v.get() << ">";
+                            if (v) oss << "null";
                             else   oss << "null";
                         }
                         else oss << "\"" << escape_json_string(std::string(std::begin(v), std::end(v))) << "\"";
@@ -590,7 +672,7 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                         using T = std::decay_t<decltype(v)>;
                         if constexpr (std::is_same_v<T, std::monostate>) oss << "\\N";
                         else if constexpr (std::is_integral_v<T>) oss << v;
-                        else if constexpr (std::is_floating_point_v<T>) oss << v;
+                        else if constexpr (std::is_floating_point_v<T>) oss << format_floating(v);
                         else if constexpr (std::is_same_v<T, bool>) oss << (v ? "true" : "false");
                         else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
                             if (v) oss << "<ptr:" << v.get() << ">";

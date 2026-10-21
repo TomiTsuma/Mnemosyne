@@ -389,12 +389,17 @@ auto S3Disk::create_dir(std::string_view path) -> bool {
     return true;
 }
 
-auto S3Disk::remove_dir(std::string_view path) -> bool {
-    // S3 has no directories to remove; deleting "everything under a prefix"
-    // would need a list + bulk-delete loop, which is out of scope here since
-    // nothing in FileStorage currently calls remove_dir on S3Disk.
-    (void)path;
-    return false;
+auto S3Disk::remove_dir(std::string_view path) -> bool
+{
+    // S3 has no directories: removing one means deleting every object under the
+    // prefix. list_files is flat, which matches how FileStorage lays out a table.
+    bool all_removed = true;
+    for (const auto& file : list_files(path))
+    {
+        const bool removed = remove(std::string{path} + "/" + file);
+        all_removed = all_removed && removed;
+    }
+    return all_removed;
 }
 
 auto S3Disk::stats() const -> DiskStats {

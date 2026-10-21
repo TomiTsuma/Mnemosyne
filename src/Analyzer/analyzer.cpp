@@ -49,6 +49,35 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
                                 for (const auto& [col_key, col_type] : nested_result.column_types) {
                                     result.column_types[col_key] = col_type;
                                 }
+                                // The view's own output names (aliases, expressions) are what
+                                // callers select, not only the base table's column names.
+                                for (const auto& item : view.definition.columns) {
+                                    const parsers::ASTExpr* base = item.get();
+                                    std::string output_name;
+                                    if (auto* view_alias = dynamic_cast<const parsers::ASTAlias*>(item.get())) {
+                                        output_name = view_alias->alias;
+                                        base = view_alias->expression.get();
+                                    } else if (auto* view_col = dynamic_cast<const parsers::ASTColumnRef*>(item.get())) {
+                                        output_name = view_col->column;
+                                    } else {
+                                        output_name = item->to_string();
+                                    }
+                                    if (output_name == "*" || result.column_types.contains(output_name)) {
+                                        continue;
+                                    }
+                                    datatypes::DataTypePtr output_type;
+                                    if (auto* base_col = dynamic_cast<const parsers::ASTColumnRef*>(base)) {
+                                        const auto known = result.column_types.find(base_col->column);
+                                        if (known != result.column_types.end()) {
+                                            output_type = known->second;
+                                        }
+                                    }
+                                    if (!output_type) {
+                                        output_type = datatypes::get_data_type("Float64");
+                                    }
+                                    result.column_types[output_name] = output_type;
+                                    result.columns[output_name] = Context::ColumnInfo{table, output_name};
+                                }
                                 return;
                             }
                         }
@@ -89,6 +118,12 @@ auto Analyzer::analyze(std::shared_ptr<parsers::QueryAST> ast) -> AnalyzeResult 
                 register_table(join.table, join.alias.empty() ? join.table : join.alias);
             }
             
+            for (const auto& col_expr : ast->select.columns) {
+                if (auto* alias = dynamic_cast<parsers::ASTAlias*>(col_expr.get())) {
+                    result.select_aliases.insert(alias->alias);
+                }
+            }
+
             // Resolve column references in expressions
             for (const auto& col_expr : ast->select.columns) {
                 auto expr_errors = resolve_expression_columns(result, col_expr);
@@ -288,7 +323,11 @@ std::vector<std::string> Analyzer::resolve_expression_columns(
             ? col_ref->column
             : col_ref->table + "." + col_ref->column;
 
-        if (!result.column_types.contains(key) &&
+        const bool is_select_alias =
+            col_ref->table.empty() && result.select_aliases.contains(col_ref->column);
+
+        if (!is_select_alias &&
+            !result.column_types.contains(key) &&
             !result.column_types.contains(alias_key) &&
             !result.column_types.contains(col_ref->column)) {
             errors.push_back("Unknown column: " +
