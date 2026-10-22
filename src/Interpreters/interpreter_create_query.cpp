@@ -561,12 +561,41 @@ auto InterpreterCreateQuery::do_create_task(
 
 auto InterpreterCreateQuery::do_create_trigger(
     Context& context, const parsers::QueryAST::Create& create) -> void {
-    (void)context;
     pipelines::TriggerEntry trigger;
     trigger.name = create.trigger_name;
     if (!create.trigger_schedule.empty()) {
         trigger.type = pipelines::TriggerType::Schedule;
         trigger.schedule = create.trigger_schedule;
+    } else if (!create.trigger_table.empty()) {
+        // A trigger on a table that does not exist could never fire, so a typo is refused.
+        // The table is stored as "database.table" so it keeps pointing at the same table when the
+        // session later switches database.
+        const auto qualified = ddl_utils::qualify_table_name(context, create.trigger_table);
+        const auto dot = qualified.find('.');
+        const auto database = context.get_database(qualified.substr(0, dot));
+        if (!database) {
+            throw common::Exception{
+                "Unknown database: " + qualified.substr(0, dot),
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        if (!database->table_exists(qualified.substr(dot + 1))) {
+            throw common::Exception{
+                "Unknown table: " + qualified,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        trigger.type = pipelines::TriggerType::TableInsert;
+        trigger.target = qualified;
+    } else if (!create.trigger_stream.empty()) {
+        if (!streaming::StreamManager::instance().has_stream(create.trigger_stream)) {
+            throw common::Exception{
+                "Unknown stream: " + create.trigger_stream,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+        }
+        trigger.type = pipelines::TriggerType::StreamEvent;
+        trigger.target = create.trigger_stream;
+    } else if (create.trigger_webhook) {
+        trigger.type = pipelines::TriggerType::Webhook;
+        trigger.secret = create.trigger_secret;
     } else {
         trigger.type = pipelines::TriggerType::Manual;
     }

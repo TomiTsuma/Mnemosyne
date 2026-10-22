@@ -194,3 +194,74 @@ TEST_CASE("Parser rejects tokens left over after SELECT", "[parser][errors]") {
     REQUIRE_THROWS(mnemo::tests::parse_sql("SELECT a FROM t ORDER BY a * 2"));
     REQUIRE_THROWS(mnemo::tests::parse_sql("SELECT a FROM t LIMIT x"));
 }
+
+// ── CREATE TRIGGER: event trigger grammar ──
+// A trigger with no event clause is manual; otherwise exactly one of SCHEDULE / ON INSERT INTO /
+// ON STREAM / WEBHOOK is set. The interpreter, not the parser, checks that the table or stream
+// exists.
+
+TEST_CASE("Parser parses a manual trigger", "[parser][trigger]") {
+    auto ast = mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p");
+    REQUIRE(ast != nullptr);
+    REQUIRE(ast->query_type == mnemo::parsers::QueryAST::QueryType::CREATE);
+    REQUIRE(ast->create.kind == mnemo::parsers::QueryAST::Create::Kind::Trigger);
+    REQUIRE(ast->create.trigger_name == "t");
+    REQUIRE(ast->create.pipeline_name == "p");
+    REQUIRE(ast->create.trigger_schedule.empty());
+    REQUIRE(ast->create.trigger_table.empty());
+    REQUIRE(ast->create.trigger_stream.empty());
+    REQUIRE_FALSE(ast->create.trigger_webhook);
+}
+
+TEST_CASE("Parser parses a schedule trigger", "[parser][trigger]") {
+    auto ast = mnemo::tests::parse_sql("CREATE TRIGGER nightly ON PIPELINE p SCHEDULE '0 0 * * *'");
+    REQUIRE(ast != nullptr);
+    REQUIRE(ast->create.kind == mnemo::parsers::QueryAST::Create::Kind::Trigger);
+    REQUIRE(ast->create.trigger_schedule == "0 0 * * *");
+    REQUIRE(ast->create.trigger_table.empty());
+}
+
+TEST_CASE("Parser parses a table-insert trigger", "[parser][trigger]") {
+    SECTION("unqualified table") {
+        auto ast = mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p ON INSERT INTO orders");
+        REQUIRE(ast->create.trigger_table == "orders");
+        REQUIRE(ast->create.trigger_stream.empty());
+    }
+    SECTION("qualified table keeps the database") {
+        auto ast = mnemo::tests::parse_sql(
+            "CREATE TRIGGER t ON PIPELINE p ON INSERT INTO sales.orders");
+        REQUIRE(ast->create.trigger_table == "sales.orders");
+    }
+}
+
+TEST_CASE("Parser parses a stream trigger", "[parser][trigger]") {
+    auto ast = mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p ON STREAM clicks");
+    REQUIRE(ast->create.trigger_stream == "clicks");
+    REQUIRE(ast->create.trigger_table.empty());
+    REQUIRE_FALSE(ast->create.trigger_webhook);
+}
+
+TEST_CASE("Parser parses a webhook trigger", "[parser][trigger]") {
+    SECTION("without a secret") {
+        auto ast = mnemo::tests::parse_sql("CREATE TRIGGER hook ON PIPELINE p WEBHOOK");
+        REQUIRE(ast->create.trigger_webhook);
+        REQUIRE(ast->create.trigger_secret.empty());
+    }
+    SECTION("with a secret") {
+        auto ast = mnemo::tests::parse_sql(
+            "CREATE TRIGGER hook ON PIPELINE p WEBHOOK SECRET 'my-token'");
+        REQUIRE(ast->create.trigger_webhook);
+        REQUIRE(ast->create.trigger_secret == "my-token");
+    }
+}
+
+TEST_CASE("Parser rejects malformed trigger clauses", "[parser][trigger][errors]") {
+    // ON INSERT without INTO.
+    REQUIRE_THROWS(mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p ON INSERT orders"));
+    // ON followed by neither INSERT INTO nor STREAM.
+    REQUIRE_THROWS(mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p ON orders"));
+    // WEBHOOK SECRET without a quoted token.
+    REQUIRE_THROWS(mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p WEBHOOK SECRET"));
+    // A mistyped event keyword must not be silently ignored as a manual trigger.
+    REQUIRE_THROWS(mnemo::tests::parse_sql("CREATE TRIGGER t ON PIPELINE p EVERY '5m'"));
+}

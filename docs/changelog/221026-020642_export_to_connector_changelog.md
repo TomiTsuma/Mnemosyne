@@ -1,9 +1,17 @@
-# EXPORT TABLE ... TO CONNECTOR
+---
+description: "`EXPORT TABLE ... TO CONNECTOR` with `APPEND` and `OVERWRITE` modes and a `write` operation on connector drivers."
+sidebar_label: "EXPORT to Connector"
+sidebar_position: 8
+slug: /changelog/221026-export-to-connector
+title: "EXPORT TABLE ... TO CONNECTOR"
+doc_type: changelog
+---
+# EXPORT TABLE ... TO CONNECTOR {#export-table-to-connector}
 
 **Branch:** `feature/export-to-connector`
 **Date:** 2026-10-22
 
-## Summary
+## Summary {#summary}
 
 `docs/PRDS/CONNECTOR_.md` §11 (Data Loading) specifies
 
@@ -16,7 +24,7 @@ nothing could be written back. This adds the statement and a `write` operation o
 driver interface. New `scripts/test_export_api.py` has 71 checks; all 19 other API suites pass
 and `mnemosyne_tests` shows the same 4 documented failures.
 
-## Syntax and behaviour
+## Syntax and behaviour {#syntax-and-behaviour}
 
 ```sql
 EXPORT TABLE <table> TO CONNECTOR <connector>[.<resource>] [MODE APPEND | OVERWRITE]
@@ -35,7 +43,7 @@ EXPORT TABLE <table> TO CONNECTOR <connector>[.<resource>] [MODE APPEND | OVERWR
 - **`EXPORT` is not a reserved word.** It is matched by text at the start of a statement, so a
   column or table named `export` still works.
 
-## REST driver
+## REST driver {#rest-driver}
 
 `RestConnector::write` sends the whole result as a JSON array of row objects to
 `<BASE_URL>/<resource>`: `POST` for `APPEND`, `PUT` for `OVERWRITE`, with the connector's API
@@ -50,7 +58,7 @@ key header if it has one. Any non-2xx response is an error carrying the status.
 - Appending zero rows sends nothing; overwriting with zero rows sends `[]`, which clears the
   resource.
 
-## Not done
+## Not done {#not-done}
 
 - **Postgres and S3 cannot be exported to.** Both drivers are still catalog-only stubs whose
   `read` also throws `NOT_IMPLEMENTED`; `write` does the same. Their capability lists already
@@ -62,12 +70,12 @@ key header if it has one. Any non-2xx response is an error carrying the status.
 - `CREATE CDC_SOURCE`, `CREATE STREAM ... SOURCE CONNECTOR` and the SaaS, streaming and AI
   connector categories remain open in the PRD.
 
-## Interface change
+## Interface change {#interface-change}
 
 `IConnector` gained a pure virtual `write(entry, resource, block, mode) -> size_t`; all three
 drivers implement it. The REST capability list now includes `WRITE`.
 
-## Files changed
+## Files changed {#files-changed}
 
 - `src/Connectors/connector_catalog.{h,cpp}` (`ExportMode`, REST `WRITE`), `i_connector.h`,
   `rest_connector.{h,cpp}`, `postgres_connector.{h,cpp}`, `s3_connector.{h,cpp}`.
@@ -75,7 +83,7 @@ drivers implement it. The REST capability list now includes `WRITE`.
 - `src/Interpreters/interpreter_export_query.{h,cpp}` (new); `src/Server/http_handler.cpp`.
 - `scripts/test_export_api.py` (new).
 
-## Verification
+## Verification {#verification}
 
 - `python3.11 scripts/test_export_api.py --no-launch` — **71/71**: the request actually sent
   (method, path, content type, API key, typed body with quotes escaped), a round trip back

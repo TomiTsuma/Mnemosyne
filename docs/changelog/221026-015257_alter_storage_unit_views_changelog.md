@@ -1,9 +1,17 @@
-# ALTER STORAGE_UNIT, ALTER VIEW, ALTER MATERIALIZED VIEW and scheduled refresh
+---
+description: "`ALTER STORAGE_UNIT`, `ALTER VIEW`, `ALTER MATERIALIZED VIEW` and the scheduler behind scheduled materialized view refresh."
+sidebar_label: "ALTER Storage Unit and Views"
+sidebar_position: 6
+slug: /changelog/221026-alter-storage-unit-views
+title: "ALTER STORAGE_UNIT, ALTER VIEW, ALTER MATERIALIZED VIEW and scheduled refresh"
+doc_type: changelog
+---
+# ALTER STORAGE_UNIT, ALTER VIEW, ALTER MATERIALIZED VIEW and scheduled refresh {#alter-storage-unit-alter-view-alter-materialized-view-and-scheduled-refresh}
 
 **Branch:** `feature/alter-storage-unit-and-views`
 **Date:** 2026-10-22
 
-## Summary
+## Summary {#summary}
 
 `docs/PRDS/STORAGE_UNIT.md`, `VIEW_.md` and `MATERIALIZED_VIEW_.md` each specify an `ALTER`
 statement that was not parsed:
@@ -18,7 +26,7 @@ All three now work, and `SET REFRESH EVERY` is backed by a real scheduler (the P
 scheduled refresh as Materialized View Phase 2). New `scripts/test_alter_api.py` has 133 checks.
 All 18 other API suites still pass, and `mnemosyne_tests` shows the same 4 documented failures.
 
-## What was added
+## What was added {#what-was-added}
 
 - **`ALTER STORAGE_UNIT <name> SET RETENTION <n> [DAY|DAYS] | FOREVER`.** The policy is stored
   on the unit and shown by `SHOW STORAGE_UNITS` (`retention` column) and `DESCRIBE
@@ -45,7 +53,7 @@ All 18 other API suites still pass, and `mnemosyne_tests` shows the same 4 docum
   Manual `REFRESH` now records its attempt too, and a view's first schedule counts from when it
   was populated.
 
-## Decisions worth knowing about
+## Decisions worth knowing about {#decisions-worth-knowing-about}
 
 - **`ALTER VIEW` validates by running the definitions.** After swapping the definition in, it
   executes the new one and every view that reads it, and restores the old definition if any
@@ -56,7 +64,7 @@ All 18 other API suites still pass, and `mnemosyne_tests` shows the same 4 docum
   Not fixed: `CREATE VIEW` still accepts a definition that reads such a column.
 - **One lock for everything that touches the shared `Context`.** The HTTP server serialised
   requests with a private mutex because `Context` and the catalogs have no locking. That mutex
-  is now `common::execution_mutex()` (`Common/execution_lock.h`) and the scheduler takes it for
+  is now `common::execution_mutex` (`Common/execution_lock.h`) and the scheduler takes it for
   each refresh, so a refresh can never overlap a request. The scheduler points the `Context` at
   the view's database for the refresh and restores the client's current database afterwards
   (RAII), so `USE` is not disturbed.
@@ -66,12 +74,12 @@ All 18 other API suites still pass, and `mnemosyne_tests` shows the same 4 docum
   `REFRESH`, `DESCRIBE`, `DROP`), so `ALTER` does too. The PRD's `MATERIALIZED_VIEW` is accepted
   by none of them; that is a separate, cross-cutting grammar change.
 
-## Not changed, but found
+## Not changed, but found {#not-changed-but-found}
 
 - **`PipelineScheduler` does not take the execution lock.** Scheduled pipeline runs execute on
   the scheduler thread against the same shared `Context` as request threads, so they can race
   with requests. Pre-existing; left alone because holding the lock for a whole pipeline run
-  changes behaviour. The fix is to take `common::execution_mutex()` in the run callback in
+  changes behaviour. The fix is to take `common::execution_mutex` in the run callback in
   `Server::start`.
 - A refresh of a non-memory materialized view truncates its table before writing, so a failure
   between the two loses the data. Pre-existing; the scheduler makes it more likely to be hit.
@@ -80,13 +88,13 @@ All 18 other API suites still pass, and `mnemosyne_tests` shows the same 4 docum
 - Materialized views that read an altered view are not checked: they hold materialized data and
   surface a break on their next refresh (`DEGRADED`, `last_error`).
 
-## Not done (still open in the three PRDs)
+## Not done (still open in the three PRDs) {#not-done-still-open-in-the-three-prds}
 
 Incremental, event-driven and continuous refresh; query rewrite to materialized views;
 adaptive refresh; retention enforcement, tiering policies, snapshots and `ALTER` properties
 other than `RETENTION` for storage units; view lineage, security and parameterised views.
 
-## Files changed
+## Files changed {#files-changed}
 
 - `src/Common/execution_lock.h`, `time_format.h` (new).
 - `src/Server/http_server.{h,cpp}` (shared lock), `server.cpp` (start/stop the scheduler),
@@ -99,7 +107,7 @@ other than `RETENTION` for storage units; view lineage, security and parameteris
   `interpreter_create_query.cpp`, `block_interpreter.cpp` — recording and output.
 - `scripts/test_alter_api.py` (new).
 
-## Verification
+## Verification {#verification}
 
 - Build: `cmake --build build --config Release --target mnemosyne_server` — 0 errors.
 - `python3.11 scripts/test_alter_api.py --no-launch` — **133/133**.

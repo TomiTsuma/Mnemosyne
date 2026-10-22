@@ -1,9 +1,17 @@
-# Fix a time-of-minute flake in the scheduler smoke test
+---
+description: "The scheduler smoke test failed about 10% of the time depending on the second of the minute; fixed in the test."
+sidebar_label: "Scheduler Smoke Test Flake"
+sidebar_position: 9
+slug: /changelog/221026-pipelines-test-scheduler-flake
+title: "Fix a time-of-minute flake in the scheduler smoke test"
+doc_type: changelog
+---
+# Fix a time-of-minute flake in the scheduler smoke test {#fix-a-time-of-minute-flake-in-the-scheduler-smoke-test}
 
 **Branch:** `feature/export-to-connector`
 **Date:** 2026-10-22
 
-## Problem
+## Problem {#problem}
 
 `test_scheduler_smoke` in `scripts/test_pipelines_api.py` created a schedule trigger whose cron
 expression names the *current* minute (`<minute> <hour> * * *`), then waited up to 12 seconds
@@ -15,7 +23,7 @@ It showed up as an unexplained 73/74 in a regression sweep that had passed 74/74
 earlier. It reproduced deterministically by creating the trigger at 02:03:59.6: no run within
 12 seconds.
 
-## Fix
+## Fix {#fix}
 
 If fewer than 10 seconds remain in the current minute, the test waits for the next minute
 before building the cron expression. Calling `test_scheduler_smoke` directly at 02:05:59.6, the

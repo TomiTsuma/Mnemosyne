@@ -3,6 +3,7 @@
 #include "Interpreters/interpreter_stream_control.h"
 #include "Interpreters/interpreter_ddl_utils.h"
 #include "Streaming/stream_manager.h"
+#include "Pipelines/pipeline_event_bus.h"
 #include "Columns/column_string.h"
 #include "Common/exceptions.h"
 
@@ -47,6 +48,9 @@ auto InterpreterStreamControl::execute_publish(Context& context, const parsers::
     uint64_t last_offset = 0;
     for (const auto& payload : payloads) {
         last_offset = mgr.publish_to_topic(query.stream_control.topic_name, payload);
+    }
+    for (const auto& stream : mgr.streams_bound_to_topic(query.stream_control.topic_name)) {
+        pipelines::PipelineEventBus::instance().stream_appended(stream);
     }
 
     auto offset_col = std::make_shared<columns::ColumnString>();

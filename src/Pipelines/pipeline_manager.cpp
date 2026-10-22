@@ -442,4 +442,44 @@ auto PipelineManager::mark_trigger_fired(std::string_view pipeline_name,
     }
 }
 
+auto PipelineManager::triggers_watching(TriggerType type, std::string_view target) const
+    -> std::vector<TriggerRef> {
+    std::lock_guard lock{mutex_};
+    std::vector<TriggerRef> out;
+    for (const auto& [name, pipeline] : pipelines_) {
+        for (const auto& trigger : pipeline.triggers) {
+            if (trigger.type == type && trigger.target == target) {
+                out.push_back({name, trigger.name});
+            }
+        }
+    }
+    return out;
+}
+
+auto PipelineManager::find_trigger(std::string_view pipeline_name,
+                                   std::string_view trigger_name) const
+    -> std::optional<TriggerEntry> {
+    std::lock_guard lock{mutex_};
+    const auto it = pipelines_.find(std::string{pipeline_name});
+    if (it == pipelines_.end()) {
+        return std::nullopt;
+    }
+    for (const auto& trigger : it->second.triggers) {
+        if (trigger.name == trigger_name) {
+            return trigger;
+        }
+    }
+    return std::nullopt;
+}
+
+auto PipelineManager::pipeline_status(std::string_view pipeline_name) const
+    -> std::optional<PipelineStatus> {
+    std::lock_guard lock{mutex_};
+    const auto it = pipelines_.find(std::string{pipeline_name});
+    if (it == pipelines_.end()) {
+        return std::nullopt;
+    }
+    return it->second.status;
+}
+
 } // namespace mnemo::pipelines

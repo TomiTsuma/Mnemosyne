@@ -12,6 +12,7 @@
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
 #include "Pipelines/pipeline_manager.h"
+#include "Pipelines/pipeline_event_bus.h"
 #include "DataQuality/data_quality_catalog.h"
 #include "Common/exceptions.h"
 #include <chrono>
@@ -110,6 +111,10 @@ auto execute_quality(Context& context, const pipelines::TaskEntry& task) -> std:
 
 auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
                            std::string_view trigger_name) -> pipelines::PipelineRunEntry {
+    // Writes made by this run's own tasks must not fire event triggers: a pipeline that inserts
+    // into the table it watches would otherwise run again forever.
+    pipelines::PipelineEventBus::RunScope no_events;
+
     auto& mgr = pipelines::PipelineManager::instance();
     const auto run_start = std::chrono::steady_clock::now();
     auto& run = mgr.begin_run(pipeline_name, trigger_name);
@@ -118,7 +123,8 @@ auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
     pipelines::RunStatus final_status = pipelines::RunStatus::Succeeded;
     try {
         const auto tasks = mgr.topological_task_order(pipeline_name);
-        for (const auto& task : tasks) {
+        for (size_t index = 0; index < tasks.size(); ++index) {
+            const auto& task = tasks[index];
             pipelines::TaskRunRecord record;
             record.task_name = task.name;
             record.stage_name = task.stage_name;
@@ -166,6 +172,16 @@ auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
                 record.error = task_error;
                 final_status = pipelines::RunStatus::Failed;
                 mgr.record_task_run(pipeline_name, run_id, record);
+                // The run stops at the first failure. Record the tasks it never reached, so the
+                // run history accounts for every task instead of just ending at the failed one.
+                for (size_t skipped = index + 1; skipped < tasks.size(); ++skipped) {
+                    pipelines::TaskRunRecord not_run;
+                    not_run.task_name = tasks[skipped].name;
+                    not_run.stage_name = tasks[skipped].stage_name;
+                    not_run.status = pipelines::TaskStatus::Skipped;
+                    not_run.detail = "not run: task " + task.name + " failed";
+                    mgr.record_task_run(pipeline_name, run_id, not_run);
+                }
                 break;
             }
             mgr.record_task_run(pipeline_name, run_id, record);

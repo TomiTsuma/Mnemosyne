@@ -23,7 +23,11 @@ enum class TaskType { Sql, BuiltIn, Quality };
 
 enum class TaskStatus { Pending, Running, Succeeded, Failed, Skipped };
 
-enum class TriggerType { Manual, Schedule };
+// Manual: only RUN PIPELINE. Schedule: a cron expression. TableInsert: rows were inserted into a
+// table. StreamEvent: an event was appended to a stream. Webhook: an HTTP POST to
+// /webhooks/<pipeline>/<trigger>. (Mnemo has no UPDATE or DELETE, so a table has only the insert
+// event.)
+enum class TriggerType { Manual, Schedule, TableInsert, StreamEvent, Webhook };
 
 enum class RunStatus { Pending, Running, Succeeded, Failed };
 
@@ -59,6 +63,11 @@ struct TriggerEntry {
     std::string name;
     TriggerType type = TriggerType::Manual;
     std::string schedule;
+    // TableInsert: the table as "database.table", resolved when the trigger was created.
+    // StreamEvent: the stream name. Unused otherwise.
+    std::string target;
+    // Webhook only: when set, a request must carry it in the X-Webhook-Token header. Never shown.
+    std::string secret;
     std::chrono::system_clock::time_point created_at{};
     std::chrono::system_clock::time_point updated_at{};
     std::chrono::system_clock::time_point last_fired_at{};

@@ -17,7 +17,7 @@
 | `status` | enum | `CREATING`, `VALIDATING`, `ACTIVE`, `DEGRADED`, `DISCONNECTED`, `DISABLED`, `ARCHIVED` |
 | `auth` | enum | `ANONYMOUS`, `USERNAME_PASSWORD`, `API_KEY`, `OAUTH2`, `JWT`, `CERTIFICATE`, `IAM_ROLE` |
 | `properties` | map | Type-specific config (`BASE_URL`, `HOST`, `BUCKET`, …) |
-| `capabilities` | list | e.g. `READ`, `SCHEMA_DISCOVERY` |
+| `capabilities` | list | e.g. `READ`, `WRITE`, `SCHEMA_DISCOVERY` |
 | `owner` | string | Optional owner |
 | `last_test` | object | `ok`, `latency_ms`, `message`, `tested_at` |
 | `created_at` | timestamp | Creation time |
@@ -112,6 +112,57 @@ JOIN local_customers l ON cast(c.id AS Int64) = l.id;
 
 See [../queries/connector-queries.md](../queries/connector-queries.md).
 
+## Load connector data into a table {#load-into-a-table}
+
+A REST connector returns every value as text. Loading it into a typed table converts each value
+to the column's type:
+
+```sql
+CREATE TABLE raw_orders (order_id Int64, customer_id Int64, total Float64);
+
+INSERT INTO raw_orders
+SELECT order_id, customer_id, total FROM CONNECTOR api_rest.orders;
+```
+
+The load is all-or-nothing: if one value does not fit its column (text that is not a number,
+or a fractional value for an integer column) the statement fails and nothing is written. See
+[../dml/README.md](../dml/README.md#insert-select).
+
+## EXPORT TABLE {#export-table}
+
+Writes a table, view or materialized view to a connector resource.
+
+```sql
+EXPORT TABLE orders TO CONNECTOR api_rest;                      -- resource "orders", APPEND
+EXPORT TABLE orders TO CONNECTOR api_rest.archive;              -- resource "archive"
+EXPORT TABLE orders TO CONNECTOR api_rest MODE OVERWRITE;
+EXPORT TABLE big_orders TO CONNECTOR api_rest;                  -- a view
+```
+
+```ebnf
+export ::= EXPORT TABLE table_name TO CONNECTOR connector_name [ '.' resource ]
+           [ MODE ( APPEND | OVERWRITE ) ]
+```
+
+The result is one row: `connector`, `resource`, `mode`, `rows`.
+
+| Mode | REST request | Effect |
+|------|--------------|--------|
+| `APPEND` (default) | `POST <BASE_URL>/<resource>` | Adds the rows to what is there |
+| `OVERWRITE` | `PUT <BASE_URL>/<resource>` | Replaces what is there |
+
+- The body is a JSON array with one object per row, sent in a single request, with the
+  connector's API key header if it has one. A response other than 2xx is an error that
+  includes the status.
+- `OVERWRITE` changes data in the external system, which is why `APPEND` is the default.
+  Appending zero rows sends nothing; overwriting with zero rows sends `[]`.
+- A materialized view exports what it currently holds, not a fresh run of its query: refresh it
+  first if you need current data.
+- `MODE MERGE` and `MODE UPSERT` are recognised but not supported yet and fail with an error.
+- Only **REST** connectors can be exported to. `POSTGRES` and `S3` connectors are catalog-only
+  today, so exporting to them fails with a "not implemented" error, just as reading from them
+  does.
+
 ## ALTER CONNECTOR
 
 ```sql
@@ -197,4 +248,4 @@ RUN PIPELINE crm_sync;
 ## Related
 
 - [pipelines.md](pipelines.md) — scheduled connector loads
-- `scripts/test_connectors_api.py`
+- `scripts/test_connectors_api.py`, `scripts/test_export_api.py`

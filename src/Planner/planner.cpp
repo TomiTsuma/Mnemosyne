@@ -452,6 +452,11 @@ std::shared_ptr<ExecutionPlan> Planner::plan_ddl(analyzer::DDLNode& node) {
             plan_node->show_type = "PIPELINE_RUNS";
             plan_node->table_name = node.pipeline_name;
             break;
+        case analyzer::DDLNode::Kind::ShowTaskRuns:
+            plan_node->node_type = PlanNode::Type::SHOW;
+            plan_node->show_type = "TASK_RUNS";
+            plan_node->table_name = node.pipeline_name;
+            break;
         case analyzer::DDLNode::Kind::ShowPipelineMetrics:
             plan_node->node_type = PlanNode::Type::SHOW;
             plan_node->show_type = "PIPELINE_METRICS";

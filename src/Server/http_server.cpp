@@ -127,8 +127,12 @@ static std::string make_http_response(int status_code, std::string_view body,
     std::ostringstream oss;
     switch (status_code) {
         case 200: oss << "HTTP/1.1 200 OK\r\n"; break;
+        case 202: oss << "HTTP/1.1 202 Accepted\r\n"; break;
         case 400: oss << "HTTP/1.1 400 Bad Request\r\n"; break;
+        case 401: oss << "HTTP/1.1 401 Unauthorized\r\n"; break;
         case 404: oss << "HTTP/1.1 404 Not Found\r\n"; break;
+        case 405: oss << "HTTP/1.1 405 Method Not Allowed\r\n"; break;
+        case 409: oss << "HTTP/1.1 409 Conflict\r\n"; break;
         case 500: oss << "HTTP/1.1 500 Internal Server Error\r\n"; break;
         default:    oss << "HTTP/1.1 " << status_code << " Unknown\r\n"; break;
     }

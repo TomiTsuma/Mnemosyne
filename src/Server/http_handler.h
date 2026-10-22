@@ -71,6 +71,7 @@ public:
     auto handle_nodes_list() -> Response;
     auto handle_nodes_register(std::string_view body) -> Response;
     auto handle_nodes_heartbeat(std::string_view body) -> Response;
+    auto handle_webhook(const Request& req) -> Response;
     auto handle_processors() -> Response;
     auto handle_settings() -> Response;
     auto handle_set(std::string_view key, std::string_view value) -> Response;

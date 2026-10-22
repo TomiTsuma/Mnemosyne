@@ -582,6 +582,9 @@ auto Analyzer::buildDDLNode(const parsers::QueryAST& query_ast)
                 case parsers::QueryAST::Show::ShowType::PIPELINE_RUNS:
                     node->kind = DDLNode::Kind::ShowPipelineRuns;
                     break;
+                case parsers::QueryAST::Show::ShowType::TASK_RUNS:
+                    node->kind = DDLNode::Kind::ShowTaskRuns;
+                    break;
                 case parsers::QueryAST::Show::ShowType::PIPELINE_METRICS:
                     node->kind = DDLNode::Kind::ShowPipelineMetrics;
                     break;

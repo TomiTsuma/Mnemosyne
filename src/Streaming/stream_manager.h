@@ -29,8 +29,6 @@ public:
     [[nodiscard]] auto has_stream(std::string_view name) const -> bool;
     [[nodiscard]] auto get_stream(std::string_view name) const -> const StreamEntry*;
     [[nodiscard]] auto list_streams() const -> std::vector<StreamEntry>;
-    [[nodiscard]] auto streams_bound_to_topic(std::string_view topic_name) const
-        -> std::vector<std::string>;
 
     auto create_consumer_group(ConsumerGroupEntry entry, bool if_not_exists) -> void;
     auto drop_consumer_group(std::string name, bool if_exists) -> void;
@@ -40,6 +38,9 @@ public:
 
     auto append_to_stream(std::string_view stream_name, std::string payload) -> uint64_t;
     auto publish_to_topic(std::string_view topic_name, std::string payload) -> uint64_t;
+    /// The streams a PUBLISH to this topic appends to, sorted by name.
+    [[nodiscard]] auto streams_bound_to_topic(std::string_view topic_name) const
+        -> std::vector<std::string>;
     auto subscribe(std::string_view stream_name, std::optional<std::string_view> consumer_group,
                    uint32_t limit, bool advance_offset) -> SubscribeResult;
 

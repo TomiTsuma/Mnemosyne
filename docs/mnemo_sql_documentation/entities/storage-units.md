@@ -24,6 +24,7 @@
 | `capacity_bytes` | uint64 | Total capacity |
 | `used_bytes` | uint64 | Bytes in use |
 | `available_bytes` | uint64 | Free space |
+| `retention` | string | `FOREVER` (default) or `<n> DAYS`; see [ALTER](#alter). Recorded, not enforced |
 | `owner` | string | Optional owner |
 | `reference_count` | size_t | Tables bound to this unit |
 | `created_at` | timestamp | Creation time |
@@ -95,9 +96,26 @@ SHOW STORAGE USAGE;
 DESCRIBE STORAGE_UNIT su_local;
 ```
 
-`DESCRIBE` returns fields including `name`, `type`, `status`, `path`/`bucket`, and `capabilities` (e.g. `block_storage`).
+`DESCRIBE` returns fields including `name`, `type`, `status`, `path`/`bucket`, `retention`,
+`retention_enforced` and `capabilities` (e.g. `block_storage`).
 
-Example `SHOW STORAGE_UNITS` columns: `name`, `type`, `status`, `path`, `used_bytes`, `capacity_bytes`.
+`SHOW STORAGE_UNITS` columns: `name`, `type`, `status`, `retention`. Use `DESCRIBE` or
+`SHOW STORAGE USAGE` for paths and sizes.
+
+## ALTER {#alter}
+
+```sql
+ALTER STORAGE_UNIT su_local SET RETENTION 365 DAYS;
+ALTER STORAGE_UNIT su_local SET RETENTION FOREVER;
+```
+
+`RETENTION` is the only property. It must be a whole number of days of at least 1, written with
+`DAY` or `DAYS`, or `FOREVER`.
+
+**The policy is recorded and reported only. Nothing expires data yet**, and `DESCRIBE` says so:
+`retention_enforced` is `false`. Do not rely on it to delete anything. A rejected statement
+(zero days, an unknown unit or property) changes nothing. See
+[ddl/alter.md](../ddl/alter.md#alter-storage-unit).
 
 ## DROP
 

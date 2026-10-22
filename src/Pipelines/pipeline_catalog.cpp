@@ -58,6 +58,9 @@ auto trigger_type_name(TriggerType type) -> std::string {
     switch (type) {
         case TriggerType::Manual: return "MANUAL";
         case TriggerType::Schedule: return "SCHEDULE";
+        case TriggerType::TableInsert: return "TABLE_INSERT";
+        case TriggerType::StreamEvent: return "STREAM_EVENT";
+        case TriggerType::Webhook: return "WEBHOOK";
     }
     return "UNKNOWN";
 }
@@ -84,6 +87,9 @@ auto parse_task_type(std::string_view name) -> TaskType {
 auto parse_trigger_type(std::string_view name) -> TriggerType {
     if (iequals(name, "MANUAL")) return TriggerType::Manual;
     if (iequals(name, "SCHEDULE")) return TriggerType::Schedule;
+    if (iequals(name, "TABLE_INSERT")) return TriggerType::TableInsert;
+    if (iequals(name, "STREAM_EVENT")) return TriggerType::StreamEvent;
+    if (iequals(name, "WEBHOOK")) return TriggerType::Webhook;
     throw common::Exception{
         "Unknown trigger type: " + std::string{name},
         static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
@@ -132,6 +138,12 @@ void validate_trigger_entry(const TriggerEntry& entry) {
     if (entry.type == TriggerType::Schedule && entry.schedule.empty()) {
         throw common::Exception{
             "Schedule trigger requires a cron schedule",
+            static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    }
+    if ((entry.type == TriggerType::TableInsert || entry.type == TriggerType::StreamEvent) &&
+        entry.target.empty()) {
+        throw common::Exception{
+            "Event trigger requires a table or stream to watch",
             static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
     }
 }

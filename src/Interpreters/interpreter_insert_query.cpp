@@ -4,6 +4,7 @@
 #include "Interpreters/interpreter_ddl_utils.h"
 #include "Interpreters/interpreter_select_query.h"
 #include "Streaming/stream_manager.h"
+#include "Pipelines/pipeline_event_bus.h"
 #include "Core/field.h"
 #include "Common/exceptions.h"
 #include <algorithm>
@@ -246,6 +247,8 @@ auto InterpreterInsertQuery::execute(Context& context, const parsers::QueryAST& 
         }
 
         storage->write(block);
+        pipelines::PipelineEventBus::instance().table_inserted(
+            ddl_utils::qualify_table_name(context, insert.table));
         return ddl_utils::make_ok_block();
     }
 
@@ -265,6 +268,7 @@ auto InterpreterInsertQuery::execute(Context& context, const parsers::QueryAST& 
             }
             stream_mgr.append_to_stream(insert.table, strip_quotes(row.front()));
         }
+        pipelines::PipelineEventBus::instance().stream_appended(insert.table);
         return ddl_utils::make_ok_block();
     }
 
@@ -277,6 +281,8 @@ auto InterpreterInsertQuery::execute(Context& context, const parsers::QueryAST& 
 
     auto block = build_insert_block(*storage, insert.columns, insert.values);
     storage->write(block);
+    pipelines::PipelineEventBus::instance().table_inserted(
+        ddl_utils::qualify_table_name(context, insert.table));
 
     return ddl_utils::make_ok_block();
 }

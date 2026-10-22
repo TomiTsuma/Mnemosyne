@@ -84,7 +84,7 @@ Keywords are case-insensitive. The lexer maps them to `TokenType` in `src/Parser
 
 ## Pipelines
 
-`PIPELINE`, `PIPELINES`, `STAGE`, `STAGES`, `TASK`, `TASKS`, `TRIGGER`, `TRIGGERS`, `RUN`, `PAUSE`, `RESUME`, `SCHEDULE`, `DEPENDS`, `BODY`, `OWNER`, `BUILTIN`, `BUILT_IN`, `PIPELINE_RUNS`, `FOR`
+`PIPELINE`, `PIPELINES`, `STAGE`, `STAGES`, `TASK`, `TASKS`, `TRIGGER`, `TRIGGERS`, `RUN`, `PAUSE`, `RESUME`, `SCHEDULE`, `WEBHOOK`, `SECRET`, `DEPENDS`, `BODY`, `OWNER`, `BUILTIN`, `BUILT_IN`, `PIPELINE_RUNS`, `FOR`
 
 ## Streams
 
@@ -110,6 +110,16 @@ Multi-word identifiers also recognized as tokens:
 ## Identifiers vs keywords
 
 Unrecognized words become `Identifier` tokens. Some entity names use `Identifier` with value `CONNECTOR` when not lexed as keyword alias—parser accepts both forms via helper functions (`consume_connector_keyword()`, etc.).
+
+## Words matched by text, not reserved {#matched-by-text}
+
+These are recognised where the grammar expects them, by their text, so they remain valid
+identifiers (column and table names) everywhere else:
+
+`EXPORT` (at the start of a statement), `TO`, `MODE`, `APPEND`, `OVERWRITE`, `MERGE`, `UPSERT`,
+`EVERY`, `MANUAL`, `SECOND`, `SECONDS`, `MINUTE`, `MINUTES`, `HOUR`, `HOURS`, `DAY`,
+`RETENTION`, `DATA_QUALITY_RULE`, `DATA_QUALITY_RULES`, `UNIQUE`, `RANGE`, `EXPRESSION`,
+`MIN_ROWS`, `ACTION`, `WARN`, `FAIL`, `QUARANTINE`, `QUALITY`
 
 ## Not keywords (not parsed as statements)
 

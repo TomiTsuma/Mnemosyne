@@ -115,7 +115,7 @@ Top-level statements recognized by the parser:
 | DDL | `CREATE`, `DROP`, `TRUNCATE`, `DETACH`, `ALTER`, `REFRESH` |
 | Session | `USE` |
 | Introspection | `SHOW`, `DESCRIBE`, `EXPLAIN` |
-| Infrastructure | `REGISTER`, `DRAIN`, `REMOVE`, `TEST`, `DISCOVER` |
+| Infrastructure | `REGISTER`, `DRAIN`, `REMOVE`, `TEST`, `DISCOVER`, `EXPORT` |
 | Pipelines | `RUN`, `PAUSE`, `RESUME` (pipelines); `RUN` (training/tuning jobs) |
 | Streaming | `PUBLISH`, `SUBSCRIBE` |
 | Model layer | `DEPLOY`, `PREDICT`, `EVALUATE`, `COMPARE`, `GENERATE` |
@@ -129,9 +129,13 @@ Runnable SQL examples live in `scripts/`:
 | `test_models_api.py` | Full ML lifecycle |
 | `test_tuning_api.py` | Hyperparameter tuning |
 | `test_pipelines_api.py` | ETL pipelines |
+| `test_pipeline_phase2_api.py` | `INSERT … SELECT`, data quality rules, `QUALITY` tasks |
 | `test_streams_api.py` | Topics, publish, subscribe |
 | `test_connectors_api.py` | REST/Postgres/S3 connectors |
-| `test_nodes_api.py` | Nodes and clusters |
+| `test_export_api.py` | `EXPORT TABLE … TO CONNECTOR` |
+| `test_nodes_api.py` | Nodes |
+| `test_clusters_api.py` | Clusters: membership, status, metrics |
+| `test_alter_api.py` | `ALTER` storage unit, view, materialized view; scheduled refresh |
 | `test_storage_units_api.py` | Storage units |
 | `test_replica_groups_api.py` | Replication |
 | `test_shard_groups_api.py` | Sharding |

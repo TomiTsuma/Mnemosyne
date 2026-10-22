@@ -7,7 +7,7 @@ Pipelines orchestrate staged, dependent tasks (SQL steps, built-in operations) w
 ```
 PIPELINE
   └── STAGE (ordered by ORDER n)
-        └── TASK (TYPE SQL | BUILT_IN, optional DEPENDS ON)
+        └── TASK (TYPE SQL | QUALITY | BUILT_IN, optional DEPENDS ON)
   └── TRIGGER (SCHEDULE cron)
   └── RUN (execution history)
 ```
@@ -62,8 +62,8 @@ Stages run in `ORDER` sequence; tasks within a stage respect `DEPENDS ON` DAG or
 |----------|------|-------------|
 | `name` | string | Task identifier |
 | `stage_name` | string | Parent stage |
-| `type` | enum | `SQL`, `BUILT_IN` |
-| `body` | string | SQL text (for `TYPE SQL`) |
+| `type` | enum | `SQL`, `QUALITY`, `BUILT_IN` |
+| `body` | string | SQL text (`TYPE SQL`) or comma-separated data quality rule names (`TYPE QUALITY`) |
 | `depends_on` | list | Task names that must complete first |
 | `max_retries` | uint32 | Retry limit |
 | `status` | enum | Per-run: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `SKIPPED` |
@@ -93,25 +93,159 @@ Task types:
 | Type | Use |
 |------|-----|
 | `SQL` | Execute Mnemo SQL in `BODY` |
+| `QUALITY` | Evaluate the data quality rules named in `BODY`; see [Data quality](#data-quality) |
 | `BUILT_IN` | Registered internal step (placeholder / system task) |
 
-## TRIGGER
+A `SQL` task can load data with `INSERT INTO … SELECT`, including from a connector:
 
-### Properties
+```sql
+CREATE TASK extract IN STAGE s IN PIPELINE orders_etl TYPE SQL
+    BODY 'INSERT INTO staging SELECT order_id, customer_id, total FROM CONNECTOR api.orders';
+```
+
+See [../dml/README.md](../dml/README.md#insert-select).
+
+## Data quality {#data-quality}
+
+A `DATA_QUALITY_RULE` is a named check on one table. Run it by hand, or put it in a pipeline
+with a `QUALITY` task to stop the pipeline when the data is bad.
+
+### CREATE DATA_QUALITY_RULE {#create-data-quality-rule}
+
+```sql
+CREATE DATA_QUALITY_RULE uniq_customer ON orders UNIQUE customer_id ACTION WARN;
+CREATE DATA_QUALITY_RULE total_nonneg  ON orders RANGE total MIN 0 ACTION FAIL;
+CREATE DATA_QUALITY_RULE total_capped  ON orders RANGE total MIN -10 MAX 100;
+CREATE DATA_QUALITY_RULE ids_positive  ON orders EXPRESSION 'order_id > 0';
+CREATE DATA_QUALITY_RULE has_rows      ON orders MIN_ROWS 4 ACTION FAIL;
+CREATE DATA_QUALITY_RULE IF NOT EXISTS has_rows ON orders MIN_ROWS 1;
+```
+
+```ebnf
+rule   ::= CREATE DATA_QUALITY_RULE [ IF NOT EXISTS ] name ON table check [ ACTION ( WARN | FAIL ) ]
+check  ::= UNIQUE column
+         | RANGE column [ MIN number ] [ MAX number ]
+         | EXPRESSION 'condition'
+         | MIN_ROWS integer
+```
+
+| Check | A violation is |
+|-------|----------------|
+| `UNIQUE col` | A row whose `col` value is shared with another row (the count is rows, not distinct values) |
+| `RANGE col MIN a MAX b` | A row with `col` below `a` or above `b`; at least one bound is required and `MIN` may not exceed `MAX` |
+| `EXPRESSION 'cond'` | A row for which the condition is not true; the condition must be a complete boolean expression |
+| `MIN_ROWS n` | The table has fewer than `n` rows; the count is the shortfall |
+
+`ACTION` defaults to `FAIL`. `ACTION QUARANTINE` is recognised but not supported yet and is
+rejected. The table name may be database-qualified; column names must be plain identifiers.
+A rule is created even if its table or column does not exist yet; running it then fails with an
+error naming what is missing, and never reports a pass.
+
+### Run, inspect, drop
+
+```sql
+RUN DATA_QUALITY_RULE total_nonneg;
+SHOW DATA_QUALITY_RULES;
+DESCRIBE DATA_QUALITY_RULE total_nonneg;
+DROP DATA_QUALITY_RULE total_nonneg;
+DROP DATA_QUALITY_RULE IF EXISTS total_nonneg;
+```
+
+`RUN` returns `rule`, `table`, `check`, `action`, `status`, `violations` and `message`.
+`status` is `PASSED` (no violations), `WARNED` (violations, action `WARN`) or `FAILED`
+(violations, action `FAIL`). A violation is a result, not an error. `SHOW` and `DESCRIBE`
+list each rule's definition and its last result as `last_status` (`NOT_RUN` until first run),
+`last_violations` and `last_message`. Rules are held in the server's catalog and are not
+written to disk.
+
+### QUALITY tasks {#quality-tasks}
+
+```sql
+CREATE TASK validate IN STAGE s IN PIPELINE orders_etl
+    TYPE QUALITY BODY 'staged_rows, staged_nonneg'
+    DEPENDS ON extract;
+```
+
+The body names one or more existing rules, separated by commas; a task naming an unknown rule,
+or none, is rejected when it is created. When the task runs it evaluates each rule in turn:
+
+- a `FAIL` rule with violations fails the task, which fails the run and stops it: no later task
+  runs, dependent or not;
+- a `WARN` rule with violations does not stop the pipeline.
+
+Each rule's result is recorded on the rule, so after a run `SHOW DATA_QUALITY_RULES` shows which
+rule warned or failed and how many rows. `SHOW TASK RUNS` shows it per task: a failed `QUALITY`
+task carries the rule and violation count in `error`, and a task whose rules only warned carries
+them in `detail`. See [Task run history](#task-run-history).
+
+## TRIGGER {#trigger}
+
+A trigger starts a pipeline run. A pipeline may have several triggers of different kinds.
+
+### Properties {#trigger-properties}
 
 | Property | Description |
 |----------|-------------|
 | `name` | Trigger identifier |
-| `type` | `MANUAL`, `SCHEDULE` |
-| `schedule` | Cron expression |
+| `type` | `MANUAL`, `SCHEDULE`, `TABLE_INSERT`, `STREAM_EVENT`, `WEBHOOK` |
+| `schedule` | Cron expression (`SCHEDULE` triggers) |
+| `target` | The watched `database.table` (`TABLE_INSERT`) or stream (`STREAM_EVENT`) |
 | `last_fired_at` | Last automatic run |
 
-### CREATE TRIGGER
+A `WEBHOOK` trigger may also carry a secret token, used to authenticate incoming calls. The token
+is never returned by `SHOW TRIGGERS` or `DESCRIBE`.
+
+### CREATE TRIGGER {#create-trigger}
+
+With no event clause the trigger is manual — the pipeline runs only on `RUN PIPELINE`. Otherwise
+exactly one event clause is given:
 
 ```sql
+-- Manual
+CREATE TRIGGER on_demand ON PIPELINE api_revenue_sync;
+
+-- Cron schedule
 CREATE TRIGGER nightly ON PIPELINE api_revenue_sync
     SCHEDULE '0 2 * * *';
+
+-- Run when rows are inserted into a table
+CREATE TRIGGER on_new_orders ON PIPELINE api_revenue_sync
+    ON INSERT INTO sales.orders;
+
+-- Run when an event is appended to a stream
+CREATE TRIGGER on_click ON PIPELINE api_revenue_sync
+    ON STREAM clickstream;
+
+-- Run when an HTTP POST reaches the webhook endpoint
+CREATE TRIGGER from_github ON PIPELINE api_revenue_sync
+    WEBHOOK SECRET 'shared-token';
 ```
+
+A mistyped event keyword is rejected rather than silently treated as a manual trigger.
+
+### Event triggers {#event-triggers}
+
+Event triggers run a pipeline in reaction to data, not a clock.
+
+* `ON INSERT INTO <table>` fires after any `INSERT INTO <table>`. The table is resolved against the
+  current database when the trigger is created and stored as `database.table`, so it keeps watching
+  the same table after a later `USE`. The table must already exist. (Mnemo has no `UPDATE` or
+  `DELETE`, so insert is the only table event.)
+* `ON STREAM <stream>` fires after an event is appended to the stream, whether by `INSERT INTO
+  <stream>` or by a `PUBLISH` to a topic the stream is bound to. The stream must already exist.
+* `WEBHOOK` fires on `POST /webhooks/<pipeline>/<trigger>`. The call returns `202 Accepted` as soon
+  as it is queued; the pipeline runs asynchronously and the request body is not passed to the tasks.
+  With `SECRET '<token>'` the request must carry the token in an `X-Webhook-Token` header, compared
+  in constant time; a missing or wrong token is `401`. A `POST` to a paused pipeline is `409`.
+
+A burst of events coalesces: events that arrive before the scheduler runs the pipeline produce a
+single run, not one run per event. A trigger whose pipeline is paused, is already running, or no
+longer exists is dropped, exactly like a missed schedule.
+
+Writes made by a pipeline's own tasks do not fire event triggers while that pipeline is running, so
+a pipeline that inserts into the table it watches does not re-trigger itself, and two pipelines
+cannot trigger each other in a loop. The trade-off is that one pipeline's output does not start
+another through an event trigger.
 
 ## Pipeline control
 
@@ -137,8 +271,13 @@ SHOW STAGES FROM PIPELINE api_revenue_sync;
 SHOW TASKS FROM PIPELINE api_revenue_sync;
 SHOW TRIGGERS FROM PIPELINE api_revenue_sync;
 SHOW PIPELINE RUNS FOR PIPELINE api_revenue_sync;
+SHOW TASK RUNS FOR PIPELINE api_revenue_sync;
 SHOW PIPELINE METRICS FOR PIPELINE api_revenue_sync;
 ```
+
+`SHOW PIPELINE_RUNS`, `SHOW PIPELINE_METRICS` and `SHOW TASK_RUNS` are accepted as one-word
+spellings. `FOR PIPELINE` is optional; without it the statement covers every pipeline. A word
+after `SHOW PIPELINE` other than `RUNS` or `METRICS` is a syntax error.
 
 ### Pipeline run record
 
@@ -147,7 +286,31 @@ SHOW PIPELINE METRICS FOR PIPELINE api_revenue_sync;
 | `run_id` | Unique run identifier |
 | `status` | `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED` |
 | `duration_ms` | Total wall time |
-| `task_runs` | Per-task status, error, duration |
+
+`SHOW PIPELINE RUNS` returns `run_id`, `pipeline`, `trigger`, `status` and `duration_ms`: one
+row per run. To see what each task did, use `SHOW TASK RUNS`.
+
+### Task run history {#task-run-history}
+
+```sql
+SHOW TASK RUNS FOR PIPELINE api_revenue_sync;
+```
+
+One row per task per run, oldest run first, in the order the tasks ran:
+
+| Column | Description |
+|--------|-------------|
+| `run_id`, `pipeline` | The run the row belongs to |
+| `stage`, `task` | Where the task is defined |
+| `status` | `SUCCEEDED`, `FAILED` or `SKIPPED` |
+| `duration_ms` | Wall time of the task, including retries |
+| `started_at` | UTC start time; empty for a `SKIPPED` task |
+| `error` | Why a `FAILED` task failed |
+| `detail` | A note: for a `SUCCEEDED` task, such as the data quality rules that warned; for a `SKIPPED` task, which task failed before it |
+
+A run stops at its first failed task. The tasks it never reached are recorded as `SKIPPED`, so
+every task of the run appears. `RUN PIPELINE` on a pipeline whose task dependencies form a cycle
+fails with an error before a run is created, so such an attempt has no rows here.
 
 ## DROP
 
@@ -239,7 +402,8 @@ def create_sql_task(client, name, stage, pipeline, sql, depends_on=()):
 | Issue | Behavior |
 |-------|----------|
 | Cyclic dependencies | `RUN PIPELINE` fails |
-| SQL error in task | Run status `FAILED`; error in `task_runs` |
+| SQL error in task | Run status `FAILED` and the run stops; the error is in `SHOW TASK RUNS` and later tasks are `SKIPPED` |
+| `FAIL` data quality rule violated | Run status `FAILED` and the run stops; see [Data quality](#data-quality) |
 | Missing pipeline | `RUN PIPELINE missing` → error |
 
 ## Related
@@ -247,4 +411,4 @@ def create_sql_task(client, name, stage, pipeline, sql, depends_on=()):
 - [connectors.md](connectors.md) — load external data in SQL tasks
 - [data-layer.md](data-layer.md) — views and materialized views
 - [../model-layer/workflows.md](../model-layer/workflows.md) — train after ETL
-- `scripts/test_pipelines_api.py`
+- `scripts/test_pipelines_api.py`, `scripts/test_pipeline_phase2_api.py`

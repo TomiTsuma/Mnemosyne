@@ -201,18 +201,6 @@ auto StreamManager::list_streams() const -> std::vector<StreamEntry> {
     return out;
 }
 
-auto StreamManager::streams_bound_to_topic(std::string_view topic_name) const
-    -> std::vector<std::string> {
-    std::lock_guard lock{mutex_};
-    std::vector<std::string> out;
-    for (const auto& [name, stream] : streams_) {
-        if (stream.topic_name == topic_name) {
-            out.push_back(name);
-        }
-    }
-    return out;
-}
-
 auto StreamManager::create_consumer_group(ConsumerGroupEntry entry, bool if_not_exists) -> void {
     std::lock_guard lock{mutex_};
     validate_consumer_group_entry(entry);
@@ -297,6 +285,19 @@ auto StreamManager::publish_to_topic(std::string_view topic_name, std::string pa
         last_offset = append_to_stream_unlocked(stream_name, payload);
     }
     return last_offset;
+}
+
+auto StreamManager::streams_bound_to_topic(std::string_view topic_name) const
+    -> std::vector<std::string> {
+    std::lock_guard lock{mutex_};
+    std::vector<std::string> bound;
+    for (const auto& [name, stream] : streams_) {
+        if (stream.topic_name == topic_name) {
+            bound.push_back(name);
+        }
+    }
+    std::ranges::sort(bound);
+    return bound;
 }
 
 auto StreamManager::subscribe(std::string_view stream_name,

@@ -48,6 +48,15 @@ inline auto resolve_current_database(Context& context) -> std::string {
     return "default";
 }
 
+/// "database.table" for a table named as the user wrote it: an already qualified name is kept,
+/// anything else is placed in the current database.
+inline auto qualify_table_name(Context& context, const std::string& table) -> std::string {
+    if (table.find('.') != std::string::npos) {
+        return table;
+    }
+    return resolve_current_database(context) + "." + table;
+}
+
 /// Resolve table storage from the current database (source of truth), refreshing context cache.
 inline auto require_catalog(Context& context) -> std::shared_ptr<databases::Database> {
     const auto db_name = resolve_current_database(context);

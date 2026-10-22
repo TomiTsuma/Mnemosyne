@@ -1,9 +1,17 @@
-# CLUSTER — membership, drop, status and metrics
+---
+description: "CLUSTER membership with `ALTER CLUSTER`, `DROP CLUSTER`, derived cluster status, and `SHOW CLUSTER STATUS` and `SHOW CLUSTER METRICS`."
+sidebar_label: "Cluster Management"
+sidebar_position: 5
+slug: /changelog/221026-cluster-management
+title: "CLUSTER — membership, drop, status and metrics"
+doc_type: changelog
+---
+# CLUSTER — membership, drop, status and metrics {#cluster-membership-drop-status-and-metrics}
 
 **Branch:** `feature/cluster-management`
 **Date:** 2026-10-22
 
-## Summary
+## Summary {#summary}
 
 `docs/PRDS/CLUSTER_.md` Phase 1 asks for single-node cluster support, node membership and
 cluster metadata. Before this change a cluster could be created, listed and described but not
@@ -14,7 +22,7 @@ names only, and there was no test suite for the entity at all.
 This change adds those statements and `scripts/test_clusters_api.py` (97 checks). All 17 other
 API suites still pass.
 
-## What was added
+## What was added {#what-was-added}
 
 - **`DROP CLUSTER [IF EXISTS] <name>`.** Member nodes are detached (their `cluster_id` is
   cleared) so none is left pointing at a cluster that no longer exists. The nodes themselves are
@@ -37,7 +45,7 @@ API suites still pass.
 - **`SHOW CLUSTER METRICS`**: capacity (CPU cores, memory, storage, GPUs) summed over members,
   average CPU utilisation, memory/storage used, and query/pipeline/stream throughput.
 
-## Decisions worth knowing about
+## Decisions worth knowing about {#decisions-worth-knowing-about}
 
 - **The self node's seeded `cluster_id` is not membership.** The server starts the self node
   with `cluster_id = "default"` and no cluster of that name exists, and `ALTER NODE ... SET
@@ -47,7 +55,7 @@ API suites still pass.
 - **Membership stays a node attribute** (`NodeEntry::cluster_id`), as it already was. A cluster
   is still just a name and creation time; richer metadata (type, owner, version) is not added.
 
-## Two latent bugs fixed on the way
+## Two latent bugs fixed on the way {#two-latent-bugs-fixed-on-the-way}
 
 - **`ALTER NODE ... SET STATUS <state>` was unreachable from SQL.** The interpreter handles the
   `STATUS` property, but `Parser::parse_name_or_keyword` did not accept `KeywordStatus`, so the
@@ -59,13 +67,13 @@ API suites still pass.
   field column stored an empty string. Rows now go through an `add_row(std::string,
   std::string)` helper, like the other `DESCRIBE` handlers.
 
-## Not done (still open in CLUSTER_.md)
+## Not done (still open in CLUSTER_.md) {#not-done-still-open-in-cluster-md}
 
 `CREATE RESOURCE_POOL`; operator-set `UPGRADING`/`MAINTENANCE` states; cluster type, owner and
 version metadata; model throughput in the metrics; workload scheduling, HA/failover, consensus
 and multi-region (PRD phases 2-5).
 
-## Files changed
+## Files changed {#files-changed}
 
 - `src/Nodes/cluster_catalog.h`, `node_manager.{h,cpp}` — `ClusterState`, `ClusterSummary`,
   `ClusterMembershipOp`, `drop_cluster`, `alter_cluster_membership`, `nodes_in_cluster`,
@@ -79,7 +87,7 @@ and multi-region (PRD phases 2-5).
 - `src/Server/http_handler.cpp` — `ALTER CLUSTER` dispatch.
 - `scripts/test_clusters_api.py` (new).
 
-## Verification
+## Verification {#verification}
 
 - Build: `cmake --build build --config Release --target mnemosyne_server` — 0 errors.
 - `python3.11 scripts/test_clusters_api.py --no-launch` — **97/97**.

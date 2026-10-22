@@ -29,6 +29,8 @@
 #include "Interpreters/data_quality_runner.h"
 #include "Interpreters/pipeline_executor.h"
 #include "Pipelines/pipeline_scheduler.h"
+#include "Pipelines/pipeline_event_bus.h"
+#include "Pipelines/pipeline_manager.h"
 #include "Interpreters/context.h"
 #include "Nodes/node_catalog.h"
 #include "Nodes/node_manager.h"
@@ -38,6 +40,8 @@
 #include "Analyzer/analyzer.h"
 #include "Planner/planner.h"
 #include "Common/exceptions.h"
+#include <algorithm>
+#include <cctype>
 #include <sstream>
 #include <iomanip>
 #include <chrono>
@@ -102,6 +106,8 @@ auto HTTPHandler::handle(const Request& req) -> Response {
         return handle_nodes_register(req.body);
     } else if (req.path == "/nodes/heartbeat" && req.method == "POST") {
         return handle_nodes_heartbeat(req.body);
+    } else if (req.path.rfind("/webhooks/", 0) == 0) {
+        return handle_webhook(req);
     } else if (req.path == "/query") {
         // Execute query from query params or body
         if (req.query_params.find("query") == req.query_params.end() && req.body.empty()) {
@@ -115,6 +121,86 @@ auto HTTPHandler::handle(const Request& req) -> Response {
     } else {
         return Response::error(404, "Not found: " + req.path);
     }
+}
+
+namespace {
+
+/// The value of a request header, found without regard to case (header names are
+/// case-insensitive) and stripped of the surrounding whitespace and line ending the request
+/// parser leaves on it.
+auto header_value(const std::unordered_map<std::string, std::string>& headers,
+                  std::string_view name) -> std::string {
+    const auto lower = [](std::string_view text) {
+        std::string out{text};
+        std::transform(out.begin(), out.end(), out.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return out;
+    };
+    const auto wanted = lower(name);
+    for (const auto& [key, value] : headers) {
+        if (lower(key) != wanted) {
+            continue;
+        }
+        const auto first = value.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            return {};
+        }
+        const auto last = value.find_last_not_of(" \t\r\n");
+        return value.substr(first, last - first + 1);
+    }
+    return {};
+}
+
+/// Compares in time that does not depend on where the strings first differ.
+auto secrets_equal(std::string_view a, std::string_view b) -> bool {
+    unsigned char difference = a.size() == b.size() ? 0 : 1;
+    // Not std::max: this file transitively includes the Windows socket headers, whose `max` macro
+    // breaks the call on MSVC.
+    const auto length = a.size() > b.size() ? a.size() : b.size();
+    for (size_t i = 0; i < length; ++i) {
+        const unsigned char x = i < a.size() ? static_cast<unsigned char>(a[i]) : 0;
+        const unsigned char y = i < b.size() ? static_cast<unsigned char>(b[i]) : 0;
+        difference |= static_cast<unsigned char>(x ^ y);
+    }
+    return difference == 0;
+}
+
+} // namespace
+
+// POST /webhooks/<pipeline>/<trigger>: queue a webhook trigger. The pipeline runs asynchronously, so
+// the answer is 202 as soon as the call is accepted. The request body is not passed to the tasks.
+auto HTTPHandler::handle_webhook(const Request& req) -> Response {
+    if (req.method != "POST") {
+        return Response::error_json(405, "Webhooks accept POST only");
+    }
+    const auto rest = req.path.substr(std::string_view{"/webhooks/"}.size());
+    const auto slash = rest.find('/');
+    if (slash == std::string::npos || slash == 0 || slash + 1 >= rest.size() ||
+        rest.find('/', slash + 1) != std::string::npos) {
+        return Response::error_json(400, "Expected /webhooks/{pipeline}/{trigger}");
+    }
+    const auto pipeline = rest.substr(0, slash);
+    const auto trigger_name = rest.substr(slash + 1);
+
+    auto& manager = pipelines::PipelineManager::instance();
+    const auto trigger = manager.find_trigger(pipeline, trigger_name);
+    if (!trigger || trigger->type != pipelines::TriggerType::Webhook) {
+        return Response::error_json(404, "No such webhook: " + pipeline + "/" + trigger_name);
+    }
+    if (!trigger->secret.empty() &&
+        !secrets_equal(header_value(req.headers, "X-Webhook-Token"), trigger->secret)) {
+        return Response::error_json(401, "Missing or invalid X-Webhook-Token");
+    }
+    if (manager.pipeline_status(pipeline) == pipelines::PipelineStatus::Paused) {
+        return Response::error_json(409, "Pipeline is paused: " + pipeline);
+    }
+
+    pipelines::PipelineEventBus::instance().webhook_received({pipeline, trigger_name});
+    // Both names were just found in the catalog, so they are plain identifiers and need no escaping.
+    auto response = Response::json("{\"accepted\": true, \"pipeline\": \"" + pipeline +
+                                   "\", \"trigger\": \"" + trigger_name + "\"}");
+    response.status_code = 202;
+    return response;
 }
 
 auto HTTPHandler::handle_ping() -> Response {

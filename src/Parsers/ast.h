@@ -370,6 +370,11 @@ public:
         std::string task_body;
         std::vector<std::string> task_depends_on;
         std::string trigger_schedule;
+        // Event triggers; at most one of schedule / table / stream / webhook is set.
+        std::string trigger_table;       // ON INSERT INTO <table>
+        std::string trigger_stream;      // ON STREAM <stream>
+        bool trigger_webhook = false;    // WEBHOOK
+        std::string trigger_secret;      // WEBHOOK SECRET '<token>'
         std::string stream_name;
         std::string topic_name;
         std::string consumer_group_name;
@@ -475,7 +480,7 @@ public:
             REPLICA_GROUPS, REPLICATION_STATUS,
             SHARD_GROUPS, SHARDS, SHARD_STATUS,
             CONNECTORS, CONNECTOR_CAPABILITIES, CONNECTOR_STATUS,
-            PIPELINES, STAGES, TASKS, TRIGGERS, PIPELINE_RUNS, PIPELINE_METRICS,
+            PIPELINES, STAGES, TASKS, TRIGGERS, PIPELINE_RUNS, TASK_RUNS, PIPELINE_METRICS,
             STREAMS, TOPICS, CONSUMER_GROUPS, STREAM_METRICS,
             // MODEL layer
             MODELS, MODEL_VERSIONS, MODEL_ENDPOINTS, MODEL_METRICS, MODEL_DRIFT,

@@ -1214,7 +1214,30 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
     auto& show = ast->show;
 
     consume(); // consume SHOW
-    if (current_.type == TokenType::KeywordPipelineRuns) {
+    // SHOW TASK RUNS [FOR PIPELINE p] (or TASK_RUNS): what each task did in each run.
+    if (current_.type != TokenType::StringLiteral &&
+        (upper_str(current_.value) == "TASK_RUNS" || upper_str(current_.value) == "TASK")) {
+        const bool two_words = upper_str(current_.value) == "TASK";
+        consume(); // TASK / TASK_RUNS
+        if (two_words) {
+            if (current_.type == TokenType::StringLiteral || upper_str(current_.value) != "RUNS") {
+                throw common::Exception{
+                    "Parser: expected RUNS after SHOW TASK",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            consume(); // RUNS
+        }
+        show.show_type = QueryAST::Show::ShowType::TASK_RUNS;
+        if (current_.type == TokenType::KeywordFor) {
+            consume();
+            if (!consume_pipeline_keyword()) {
+                throw common::Exception{
+                    "Parser: expected PIPELINE after FOR",
+                    static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+            }
+            show.pipeline_name = parse_table_name();
+        }
+    } else if (current_.type == TokenType::KeywordPipelineRuns) {
         consume();
         show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
         if (current_.type == TokenType::KeywordFor) {
@@ -1439,7 +1462,7 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
             }
         } else if (current_.type == TokenType::KeywordPipelineRuns ||
                    (current_.type == TokenType::Identifier &&
-                    current_.value == "PIPELINE_RUNS")) {
+                    (current_.value == "PIPELINE_RUNS" || upper_str(current_.value) == "RUNS"))) {
             consume();
             show.show_type = QueryAST::Show::ShowType::PIPELINE_RUNS;
             if (current_.type == TokenType::KeywordFor) {
@@ -1456,8 +1479,14 @@ void Parser::parse_show(std::unique_ptr<QueryAST>& ast) {
                     current_.value == "PIPELINES")) {
             consume();
             show.show_type = QueryAST::Show::ShowType::PIPELINES;
-        } else {
+        } else if (current_.type == TokenType::EndOfQuery || current_.type == TokenType::Semicolon) {
             show.show_type = QueryAST::Show::ShowType::PIPELINES;
+        } else {
+            // Anything else used to fall through to SHOW PIPELINES, so `SHOW PIPELINE RUNS` and
+            // `SHOW PIPELINE typo` silently listed pipelines instead of failing.
+            throw common::Exception{
+                "Parser: expected RUNS or METRICS after SHOW PIPELINE, got '" + current_.value + "'",
+                static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
         }
     } else if (current_.type == TokenType::KeywordPipelines ||
                (current_.type == TokenType::Identifier &&
@@ -2813,10 +2842,56 @@ void Parser::parse_task_properties(QueryAST::Create& create) {
     }
 }
 
+// After "CREATE TRIGGER t ON PIPELINE p", at most one of:
+//   SCHEDULE '<cron>'
+//   ON INSERT INTO <table>
+//   ON STREAM <stream>
+//   WEBHOOK [SECRET '<token>']
+// With none of them the trigger is manual. Anything left over is an error: it used to be ignored,
+// so a mistyped keyword silently produced a manual trigger.
 void Parser::parse_trigger_properties(QueryAST::Create& create) {
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+    const auto at_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+
     if (current_.type == TokenType::KeywordSchedule) {
         consume();
         create.trigger_schedule = parse_property_value();
+    } else if (current_.type == TokenType::KeywordOn) {
+        consume(); // ON
+        if (current_.type == TokenType::KeywordInsert) {
+            consume(); // INSERT
+            if (current_.type != TokenType::KeywordInto) {
+                fail("Parser: expected INTO after ON INSERT");
+            }
+            consume(); // INTO
+            create.trigger_table = parse_qualified_name();
+        } else if (consume_stream_keyword()) {
+            create.trigger_stream = parse_table_name();
+        } else {
+            fail("Parser: expected INSERT INTO <table> or STREAM <stream> after ON");
+        }
+    } else if (at_word("WEBHOOK")) {
+        consume(); // WEBHOOK
+        create.trigger_webhook = true;
+        if (at_word("SECRET")) {
+            consume(); // SECRET
+            if (current_.type != TokenType::StringLiteral) {
+                fail("Parser: SECRET needs a quoted token, e.g. SECRET 'my-token'");
+            }
+            create.trigger_secret = current_.value;
+            consume();
+            if (create.trigger_secret.empty()) {
+                fail("Parser: SECRET must not be empty");
+            }
+        }
+    }
+
+    if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+        fail("Parser: unexpected token '" + current_.value + "' in CREATE TRIGGER");
     }
 }
 

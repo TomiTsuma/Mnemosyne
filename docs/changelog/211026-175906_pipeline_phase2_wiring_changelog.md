@@ -1,9 +1,17 @@
-# Pipeline Layer Phase 2 — interpreter wiring
+---
+description: "Pipeline Layer Phase 2: `INSERT ... SELECT`, `DATA_QUALITY_RULE` and `QUALITY` tasks connected to the interpreters."
+sidebar_label: "Pipeline Phase 2 Wiring"
+sidebar_position: 4
+slug: /changelog/211026-pipeline-phase2-wiring
+title: "Pipeline Layer Phase 2 — interpreter wiring"
+doc_type: changelog
+---
+# Pipeline Layer Phase 2 — interpreter wiring {#pipeline-layer-phase-2-interpreter-wiring}
 
 **Branch:** `feature/pipeline-connector-tasks`
 **Date:** 2026-10-21
 
-## Summary
+## Summary {#summary}
 
 Phase 2 of the Pipeline Layer (per `docs/PRDS/PIPELINE_LAYER_.md`, roadmap Phase 2:
 Connectors, Data Quality Rules) had its SQL grammar and a complete `DATA_QUALITY_RULE`
@@ -16,7 +24,7 @@ This change connects the already-built backend and the already-parsed AST. After
 `test_pipeline_phase2_api.py` passes **136/136** and every other API suite stays green
 (no regressions).
 
-## What was missing vs. what already existed
+## What was missing vs. what already existed {#what-was-missing-vs-what-already-existed}
 
 Already in place (committed or staged on the branch), left untouched:
 
@@ -54,7 +62,7 @@ Missing — the interpreter/dispatch wiring added here:
   continue. QUALITY tasks are also validated at creation time (rules must exist and the body
   must name at least one) in `do_create_task`.
 
-## Files changed
+## Files changed {#files-changed}
 
 - `src/Interpreters/interpreter_insert_query.cpp` — `INSERT ... SELECT` + typed conversion.
 - `src/Interpreters/interpreter_create_query.cpp` — `CREATE DATA_QUALITY_RULE`, QUALITY-task
@@ -66,7 +74,7 @@ Missing — the interpreter/dispatch wiring added here:
 
 No backend, parser, or AST files were modified by this change.
 
-## Verification
+## Verification {#verification}
 
 - Build: `cmake --build build --config Release --target mnemosyne_server` — clean, 0 warnings.
 - `python3.11 scripts/test_pipeline_phase2_api.py --no-launch` — **136/136**.
