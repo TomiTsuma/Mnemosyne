@@ -13,7 +13,9 @@
 #include "Interpreters/pipeline_executor.h"
 #include "Interpreters/materialized_view_scheduler.h"
 #include "Models/model_manager.h"
+#include "Common/execution_lock.h"
 #include <iostream>
+#include <mutex>
 
 namespace mnemo::server {
 
@@ -39,6 +41,10 @@ void Server::start(uint16_t http_port, uint16_t tcp_port) {
     pipelines::PipelineScheduler::instance().set_run_callback(
         [this](std::string_view pipeline_name, std::string_view trigger_name) {
             try {
+                // A run executes SQL tasks against the shared Context, which has no locking of
+                // its own, so it must not overlap request handling (the same lock RUN PIPELINE
+                // holds when it arrives over HTTP). PipelineManager has its own mutex.
+                std::lock_guard<std::mutex> lock{common::execution_mutex()};
                 interpreters::PipelineExecutor::run(*context_, pipeline_name, trigger_name);
             } catch (const std::exception& ex) {
                 std::cerr << "[PipelineScheduler] run failed: " << ex.what() << "\n";

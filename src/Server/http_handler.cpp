@@ -25,6 +25,7 @@
 #include "Interpreters/interpreter_alter_view.h"
 #include "Interpreters/interpreter_test_connector.h"
 #include "Interpreters/interpreter_discover_query.h"
+#include "Interpreters/interpreter_export_query.h"
 #include "Interpreters/data_quality_runner.h"
 #include "Interpreters/pipeline_executor.h"
 #include "Pipelines/pipeline_scheduler.h"
@@ -472,6 +473,11 @@ auto HTTPHandler::execute_query(std::string_view query, std::string_view fmt) ->
                 }
                 case parsers::QueryAST::QueryType::DISCOVER: {
                     auto block = interpreters::InterpreterDiscoverQuery::execute(context_, *query_ast);
+                    query_result.block = std::make_shared<core::Block>(std::move(block));
+                    break;
+                }
+                case parsers::QueryAST::QueryType::EXPORT: {
+                    auto block = interpreters::InterpreterExportQuery::execute(context_, *query_ast);
                     query_result.block = std::make_shared<core::Block>(std::move(block));
                     break;
                 }

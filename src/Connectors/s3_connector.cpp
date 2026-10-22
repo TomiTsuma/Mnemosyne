@@ -41,4 +41,15 @@ auto S3Connector::read(const ConnectorEntry& entry, std::string_view resource,
         static_cast<int>(common::ErrorCode::NOT_IMPLEMENTED)};
 }
 
+auto S3Connector::write(const ConnectorEntry& entry, std::string_view resource,
+                        const core::Block& data, ExportMode mode) -> size_t {
+    (void)entry;
+    (void)resource;
+    (void)data;
+    (void)mode;
+    throw common::Exception{
+        "EXPORT TO S3 connector is not implemented in Phase 1",
+        static_cast<int>(common::ErrorCode::NOT_IMPLEMENTED)};
+}
+
 } // namespace mnemo::connectors

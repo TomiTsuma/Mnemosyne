@@ -63,6 +63,7 @@ protected:
     auto parse_remove(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_test(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_discover(std::unique_ptr<QueryAST>& ast) -> void;
+    auto parse_export(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_run(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_pause(std::unique_ptr<QueryAST>& ast) -> void;
     auto parse_resume(std::unique_ptr<QueryAST>& ast) -> void;

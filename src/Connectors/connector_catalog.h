@@ -34,6 +34,10 @@ enum class AuthMethod {
     IamRole
 };
 
+// How EXPORT TABLE ... TO CONNECTOR writes into the external resource. The PRD also lists MERGE
+// and UPSERT; those need a key and a driver that can update in place, and are refused for now.
+enum class ExportMode { Append, Overwrite };
+
 struct ConnectorTestResult {
     bool ok = false;
     uint64_t latency_ms = 0;
@@ -57,6 +61,10 @@ struct ConnectorEntry {
 [[nodiscard]] auto connector_type_name(ConnectorType type) -> std::string;
 [[nodiscard]] auto connector_status_name(ConnectorStatus status) -> std::string;
 [[nodiscard]] auto auth_method_name(AuthMethod auth) -> std::string;
+[[nodiscard]] auto export_mode_name(ExportMode mode) -> std::string;
+/// Case-insensitive. MERGE and UPSERT are recognised so the error can say they are not supported
+/// yet; any other word is a syntax error.
+[[nodiscard]] auto parse_export_mode(std::string_view name) -> ExportMode;
 [[nodiscard]] auto parse_connector_type(std::string_view name) -> ConnectorType;
 [[nodiscard]] auto parse_auth_method(std::string_view name) -> AuthMethod;
 [[nodiscard]] auto capabilities_for_type(ConnectorType type) -> std::vector<std::string>;

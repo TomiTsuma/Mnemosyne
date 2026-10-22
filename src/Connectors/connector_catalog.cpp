@@ -52,6 +52,28 @@ auto auth_method_name(AuthMethod auth) -> std::string {
     return "UNKNOWN";
 }
 
+auto export_mode_name(ExportMode mode) -> std::string {
+    switch (mode) {
+        case ExportMode::Append:    return "APPEND";
+        case ExportMode::Overwrite: return "OVERWRITE";
+    }
+    return "UNKNOWN";
+}
+
+auto parse_export_mode(std::string_view name) -> ExportMode {
+    const auto upper = to_upper(std::string{name});
+    if (upper == "APPEND") return ExportMode::Append;
+    if (upper == "OVERWRITE") return ExportMode::Overwrite;
+    if (upper == "MERGE" || upper == "UPSERT") {
+        throw common::Exception{
+            "EXPORT MODE " + upper + " is not supported yet; use APPEND or OVERWRITE",
+            static_cast<int>(common::ErrorCode::NOT_IMPLEMENTED)};
+    }
+    throw common::Exception{
+        "Unknown EXPORT MODE '" + std::string{name} + "'; expected APPEND or OVERWRITE",
+        static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+}
+
 auto parse_connector_type(std::string_view name) -> ConnectorType {
     const auto upper = to_upper(std::string{name});
     if (upper == "REST") return ConnectorType::Rest;
@@ -79,7 +101,7 @@ auto parse_auth_method(std::string_view name) -> AuthMethod {
 auto capabilities_for_type(ConnectorType type) -> std::vector<std::string> {
     switch (type) {
         case ConnectorType::Rest:
-            return {"READ", "SCHEMA_DISCOVERY"};
+            return {"READ", "WRITE", "SCHEMA_DISCOVERY"};
         case ConnectorType::Postgres:
             return {"READ", "WRITE", "SCHEMA_DISCOVERY", "CDC"};
         case ConnectorType::S3:
