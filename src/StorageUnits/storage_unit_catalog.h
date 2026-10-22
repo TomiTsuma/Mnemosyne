@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,12 @@ struct StorageUnitEntry {
     uint64_t capacity_bytes = 0;
     uint64_t used_bytes = 0;
     uint64_t available_bytes = 0;
+
+    // Retention policy (ALTER STORAGE_UNIT ... SET RETENTION). Unset means FOREVER. This is
+    // recorded and reported only: nothing expires data yet, so DESCRIBE reports
+    // retention_enforced = false.
+    std::optional<uint32_t> retention_days;
+
     std::chrono::system_clock::time_point created_at{};
     std::chrono::system_clock::time_point updated_at{};
     std::string owner;
@@ -46,6 +53,9 @@ struct StorageUnitEntry {
     std::shared_ptr<disks::IDisk> disk;
     size_t reference_count = 0;
 };
+
+/// "FOREVER", or "<n> DAYS" (always plural, so the text round-trips through SET RETENTION).
+[[nodiscard]] auto retention_name(const StorageUnitEntry& entry) -> std::string;
 
 void validate_storage_unit_entry(const StorageUnitEntry& entry);
 

@@ -423,7 +423,7 @@ public:
 
     struct Alter : ASTDDLQuery {
         enum class Target { Table, Node, ReplicaGroup, ShardGroup, Connector, Pipeline, Stream,
-                            Cluster };
+                            Cluster, StorageUnit, View, MaterializedView };
         Target target = Target::Table;
         std::vector<ASTAlterQuery::AlterCommand> commands;
         struct NodeSet {
@@ -442,6 +442,13 @@ public:
             std::string node;
         };
         std::vector<ClusterNodeOp> cluster_node_ops;
+        // ALTER STORAGE_UNIT <name> SET RETENTION <n> DAYS | FOREVER. For now RETENTION is the
+        // only property: property is "RETENTION", value is "<n>" or "FOREVER".
+        std::vector<NodeSet> storage_unit_sets;
+        // ALTER VIEW <name> AS SELECT ...: the replacement definition.
+        Select view_definition;
+        // ALTER MATERIALIZED VIEW <name> SET REFRESH EVERY <n> <unit> | MANUAL: MANUAL is 0.
+        uint64_t refresh_every_seconds = 0;
     } alter;
 
     struct RegisterNode {

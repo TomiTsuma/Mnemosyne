@@ -78,6 +78,17 @@ auto StorageUnitManager::drop_unit(std::string name, bool if_exists) -> void {
     units_.erase(it);
 }
 
+auto StorageUnitManager::set_retention(std::string_view name, std::optional<uint32_t> days) -> void {
+    auto* entry = get_unit(name);
+    if (!entry) {
+        throw common::Exception{
+            "Unknown storage unit: " + std::string{name},
+            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
+    }
+    entry->retention_days = days;
+    entry->updated_at = std::chrono::system_clock::now();
+}
+
 auto StorageUnitManager::acquire_disk(std::string_view name) -> std::shared_ptr<disks::IDisk> {
     auto* entry = get_unit(name);
     if (!entry || !entry->disk) {

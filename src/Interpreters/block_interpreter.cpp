@@ -34,6 +34,7 @@
 #include "FeatureSets/feature_set_manager.h"
 #include "FeatureSets/feature_set_catalog.h"
 #include "Common/exceptions.h"
+#include "Common/time_format.h"
 #include "Analyzer/query_tree.h"
 #include "DataTypes/data_type_factory.h"
 #include "Columns/column_vector.h"
@@ -398,15 +399,42 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 }
             } else if (node->show_type == "VIEWS" || node->show_type == "MATERIALIZED_VIEWS") {
                 auto catalog = ddl_utils::require_catalog(context_);
-                const auto names = node->show_type == "VIEWS"
+                auto names = node->show_type == "VIEWS"
                     ? catalog->view_names()
                     : catalog->materialized_view_names();
+                std::sort(names.begin(), names.end());
                 auto col = std::make_shared<columns::ColumnString>();
                 for (size_t i = 0; i < names.size(); ++i) {
                     col->insert_at(i, core::Field(names[i]));
                 }
                 auto block = std::make_shared<core::Block>();
                 block->add_column("name", col);
+                if (node->show_type == "MATERIALIZED_VIEWS") {
+                    // Refresh policy and outcome, after `name` so existing readers of the first
+                    // column are unaffected.
+                    auto status_col = std::make_shared<columns::ColumnString>();
+                    auto refresh_col = std::make_shared<columns::ColumnString>();
+                    auto interval_col = std::make_shared<columns::ColumnString>();
+                    auto refreshed_col = std::make_shared<columns::ColumnString>();
+                    auto error_col = std::make_shared<columns::ColumnString>();
+                    for (size_t i = 0; i < names.size(); ++i) {
+                        const auto view = catalog->get_materialized_view(names[i]);
+                        status_col->insert_at(i, core::Field(view->status));
+                        refresh_col->insert_at(
+                            i, core::Field(std::string{view->refresh_interval_seconds == 0
+                                                           ? "MANUAL" : "SCHEDULED"}));
+                        interval_col->insert_at(
+                            i, core::Field(std::to_string(view->refresh_interval_seconds)));
+                        refreshed_col->insert_at(
+                            i, core::Field(common::format_utc_timestamp(view->last_refreshed_at)));
+                        error_col->insert_at(i, core::Field(view->last_refresh_error));
+                    }
+                    block->add_column("status", status_col);
+                    block->add_column("refresh", refresh_col);
+                    block->add_column("refresh_interval_seconds", interval_col);
+                    block->add_column("last_refreshed_at", refreshed_col);
+                    block->add_column("last_error", error_col);
+                }
                 result_.block = block;
             } else if (node->show_type == "STORAGE_UNITS") {
                 auto& mgr = storage_units::StorageUnitManager::instance();
@@ -414,15 +442,18 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 auto name_col = std::make_shared<columns::ColumnString>();
                 auto type_col = std::make_shared<columns::ColumnString>();
                 auto status_col = std::make_shared<columns::ColumnString>();
+                auto retention_col = std::make_shared<columns::ColumnString>();
                 for (size_t i = 0; i < entries.size(); ++i) {
                     name_col->insert_at(i, core::Field(entries[i].name));
                     type_col->insert_at(i, core::Field(storage_units::storage_unit_type_name(entries[i].type)));
                     status_col->insert_at(i, core::Field(storage_units::storage_unit_status_name(entries[i].status)));
+                    retention_col->insert_at(i, core::Field(storage_units::retention_name(entries[i])));
                 }
                 auto block = std::make_shared<core::Block>();
                 block->add_column("name", name_col);
                 block->add_column("type", type_col);
                 block->add_column("status", status_col);
+                block->add_column("retention", retention_col);
                 result_.block = block;
             } else if (node->show_type == "CONNECTORS") {
                 auto& mgr = connectors::ConnectorManager::instance();
@@ -1625,6 +1656,9 @@ void BlockInterpreter::execute_ddl_command(std::shared_ptr<planner::PlanNode> no
                 add_row("used_bytes", std::to_string(entry->used_bytes));
                 add_row("available_bytes", std::to_string(entry->available_bytes));
                 add_row("reference_count", std::to_string(entry->reference_count));
+                add_row("retention", storage_units::retention_name(*entry));
+                // The policy is only recorded: no process expires data yet.
+                add_row("retention_enforced", "false");
                 const auto caps = storage_units::capabilities_for_type(entry->type);
                 add_row("capabilities", caps.empty() ? "" : caps.front());
                 auto out = std::make_shared<core::Block>();

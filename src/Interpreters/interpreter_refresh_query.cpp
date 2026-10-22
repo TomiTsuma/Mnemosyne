@@ -20,33 +20,42 @@ auto InterpreterRefreshQuery::execute(Context& context, const parsers::QueryAST&
             static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
     }
 
-    auto storage = ddl_utils::resolve_storage(context, name);
-    if (!storage) {
-        throw common::Exception{
-            "Materialized view storage missing: " + name,
-            static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
-    }
-
-    parsers::QueryAST select_query;
-    select_query.query_type = parsers::QueryAST::QueryType::SELECT;
-    select_query.select = entry->definition;
-    auto result = InterpreterSelectQuery::execute(context, select_query);
-
-    if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
-        mem->load_block(result);
-    } else {
-        storage->alter([](storages::IStorage& s) {
-            if (auto* mem = dynamic_cast<storages::MemoryStorage*>(&s)) {
-                mem->truncate();
-            }
-        });
-        if (!storage->write(result)) {
+    // Every attempt is recorded on the view, whether it was asked for by REFRESH or by the
+    // scheduler: success updates last_refreshed_at, failure leaves the view DEGRADED with the
+    // error, and either way the next scheduled refresh is measured from now.
+    try {
+        auto storage = ddl_utils::resolve_storage(context, name);
+        if (!storage) {
             throw common::Exception{
-                "Failed to refresh materialized view: " + name,
-                static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+                "Materialized view storage missing: " + name,
+                static_cast<int>(common::ErrorCode::UNKNOWN_TABLE)};
         }
+
+        parsers::QueryAST select_query;
+        select_query.query_type = parsers::QueryAST::QueryType::SELECT;
+        select_query.select = entry->definition;
+        auto result = InterpreterSelectQuery::execute(context, select_query);
+
+        if (auto mem = std::dynamic_pointer_cast<storages::MemoryStorage>(storage)) {
+            mem->load_block(result);
+        } else {
+            storage->alter([](storages::IStorage& s) {
+                if (auto* mem = dynamic_cast<storages::MemoryStorage*>(&s)) {
+                    mem->truncate();
+                }
+            });
+            if (!storage->write(result)) {
+                throw common::Exception{
+                    "Failed to refresh materialized view: " + name,
+                    static_cast<int>(common::ErrorCode::LOGICAL_ERROR)};
+            }
+        }
+    } catch (const std::exception& ex) {
+        db->record_materialized_view_refresh(name, ex.what());
+        throw;
     }
 
+    db->record_materialized_view_refresh(name, "");
     return ddl_utils::make_ok_block();
 }
 
