@@ -25,6 +25,16 @@ All notable changes to this project will be documented in this file.
 - HTTP JSON response escaping for string payloads containing quotes
 - Details: [docs/changelog/060626-streaming_layer_phase1_changelog.md](docs/changelog/060626-streaming_layer_phase1_changelog.md)
 
+### Added - Pipeline Event Triggers
+
+- Event-driven `TRIGGER` types beyond `MANUAL`/`SCHEDULE`: `ON INSERT INTO <table>` (`TABLE_INSERT`), `ON STREAM <stream>` (`STREAM_EVENT`), and `WEBHOOK [SECRET '<token>']`
+- New `PipelineEventBus` (`src/Pipelines/pipeline_event_bus.{h,cpp}`) coalesces a burst of events into one run per trigger and hands them to the scheduler; a thread-local `RunScope` suppresses events raised by a pipeline's own tasks, preventing self- and mutual-triggering loops
+- `PipelineScheduler` now waits on a condition variable and drains the event queue as soon as an event arrives, instead of only on the 5s cron tick
+- Webhook endpoint `POST /webhooks/<pipeline>/<trigger>`: async `202`, constant-time `X-Webhook-Token` check (`401`), `404`/`405`/`409` for unknown/non-POST/paused; request body is not passed to tasks
+- Event-trigger targets are validated at `CREATE` (unknown table/stream is refused) and table names qualified to `database.table` so a trigger survives a later `USE`
+- Tests: `CREATE TRIGGER` grammar in `tests/test_parsers.h`
+- Details: [docs/changelog/221026-165826_pipeline_event_triggers_changelog.md](docs/changelog/221026-165826_pipeline_event_triggers_changelog.md)
+
 ### Added - Pipeline Layer Phase 1
 
 - First-class `PIPELINE`, `STAGE`, `TASK`, and `TRIGGER` entities with catalog/manager in `src/Pipelines/`

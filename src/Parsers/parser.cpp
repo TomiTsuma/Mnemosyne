@@ -2842,10 +2842,56 @@ void Parser::parse_task_properties(QueryAST::Create& create) {
     }
 }
 
+// After "CREATE TRIGGER t ON PIPELINE p", at most one of:
+//   SCHEDULE '<cron>'
+//   ON INSERT INTO <table>
+//   ON STREAM <stream>
+//   WEBHOOK [SECRET '<token>']
+// With none of them the trigger is manual. Anything left over is an error: it used to be ignored,
+// so a mistyped keyword silently produced a manual trigger.
 void Parser::parse_trigger_properties(QueryAST::Create& create) {
+    const auto fail = [](const std::string& message) {
+        throw common::Exception{message, static_cast<int>(common::ErrorCode::SYNTAX_ERROR)};
+    };
+    const auto at_word = [this](std::string_view word) {
+        return current_.type != TokenType::StringLiteral && upper_str(current_.value) == word;
+    };
+
     if (current_.type == TokenType::KeywordSchedule) {
         consume();
         create.trigger_schedule = parse_property_value();
+    } else if (current_.type == TokenType::KeywordOn) {
+        consume(); // ON
+        if (current_.type == TokenType::KeywordInsert) {
+            consume(); // INSERT
+            if (current_.type != TokenType::KeywordInto) {
+                fail("Parser: expected INTO after ON INSERT");
+            }
+            consume(); // INTO
+            create.trigger_table = parse_qualified_name();
+        } else if (consume_stream_keyword()) {
+            create.trigger_stream = parse_table_name();
+        } else {
+            fail("Parser: expected INSERT INTO <table> or STREAM <stream> after ON");
+        }
+    } else if (at_word("WEBHOOK")) {
+        consume(); // WEBHOOK
+        create.trigger_webhook = true;
+        if (at_word("SECRET")) {
+            consume(); // SECRET
+            if (current_.type != TokenType::StringLiteral) {
+                fail("Parser: SECRET needs a quoted token, e.g. SECRET 'my-token'");
+            }
+            create.trigger_secret = current_.value;
+            consume();
+            if (create.trigger_secret.empty()) {
+                fail("Parser: SECRET must not be empty");
+            }
+        }
+    }
+
+    if (current_.type != TokenType::EndOfQuery && current_.type != TokenType::Semicolon) {
+        fail("Parser: unexpected token '" + current_.value + "' in CREATE TRIGGER");
     }
 }
 

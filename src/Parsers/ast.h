@@ -370,6 +370,11 @@ public:
         std::string task_body;
         std::vector<std::string> task_depends_on;
         std::string trigger_schedule;
+        // Event triggers; at most one of schedule / table / stream / webhook is set.
+        std::string trigger_table;       // ON INSERT INTO <table>
+        std::string trigger_stream;      // ON STREAM <stream>
+        bool trigger_webhook = false;    // WEBHOOK
+        std::string trigger_secret;      // WEBHOOK SECRET '<token>'
         std::string stream_name;
         std::string topic_name;
         std::string consumer_group_name;

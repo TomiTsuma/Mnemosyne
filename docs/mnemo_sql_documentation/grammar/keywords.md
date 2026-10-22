@@ -84,7 +84,7 @@ Keywords are case-insensitive. The lexer maps them to `TokenType` in `src/Parser
 
 ## Pipelines
 
-`PIPELINE`, `PIPELINES`, `STAGE`, `STAGES`, `TASK`, `TASKS`, `TRIGGER`, `TRIGGERS`, `RUN`, `PAUSE`, `RESUME`, `SCHEDULE`, `DEPENDS`, `BODY`, `OWNER`, `BUILTIN`, `BUILT_IN`, `PIPELINE_RUNS`, `FOR`
+`PIPELINE`, `PIPELINES`, `STAGE`, `STAGES`, `TASK`, `TASKS`, `TRIGGER`, `TRIGGERS`, `RUN`, `PAUSE`, `RESUME`, `SCHEDULE`, `WEBHOOK`, `SECRET`, `DEPENDS`, `BODY`, `OWNER`, `BUILTIN`, `BUILT_IN`, `PIPELINE_RUNS`, `FOR`
 
 ## Streams
 

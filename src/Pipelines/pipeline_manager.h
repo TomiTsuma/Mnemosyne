@@ -58,6 +58,23 @@ public:
     auto mark_trigger_fired(std::string_view pipeline_name,
                             std::string_view trigger_name) -> void;
 
+    /// A trigger of some pipeline; what the event bus queues and the scheduler runs.
+    struct TriggerRef {
+        std::string pipeline;
+        std::string trigger;
+        auto operator<=>(const TriggerRef&) const = default;
+    };
+    /// Every trigger of `type` whose target is exactly `target`, in any pipeline.
+    [[nodiscard]] auto triggers_watching(TriggerType type, std::string_view target) const
+        -> std::vector<TriggerRef>;
+    /// A copy of one trigger, or nullopt if the pipeline or trigger does not exist.
+    [[nodiscard]] auto find_trigger(std::string_view pipeline_name,
+                                    std::string_view trigger_name) const
+        -> std::optional<TriggerEntry>;
+    /// nullopt if the pipeline does not exist.
+    [[nodiscard]] auto pipeline_status(std::string_view pipeline_name) const
+        -> std::optional<PipelineStatus>;
+
 private:
     PipelineManager() = default;
 

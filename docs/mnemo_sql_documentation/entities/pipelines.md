@@ -178,23 +178,74 @@ rule warned or failed and how many rows. `SHOW TASK RUNS` shows it per task: a f
 task carries the rule and violation count in `error`, and a task whose rules only warned carries
 them in `detail`. See [Task run history](#task-run-history).
 
-## TRIGGER
+## TRIGGER {#trigger}
 
-### Properties
+A trigger starts a pipeline run. A pipeline may have several triggers of different kinds.
+
+### Properties {#trigger-properties}
 
 | Property | Description |
 |----------|-------------|
 | `name` | Trigger identifier |
-| `type` | `MANUAL`, `SCHEDULE` |
-| `schedule` | Cron expression |
+| `type` | `MANUAL`, `SCHEDULE`, `TABLE_INSERT`, `STREAM_EVENT`, `WEBHOOK` |
+| `schedule` | Cron expression (`SCHEDULE` triggers) |
+| `target` | The watched `database.table` (`TABLE_INSERT`) or stream (`STREAM_EVENT`) |
 | `last_fired_at` | Last automatic run |
 
-### CREATE TRIGGER
+A `WEBHOOK` trigger may also carry a secret token, used to authenticate incoming calls. The token
+is never returned by `SHOW TRIGGERS` or `DESCRIBE`.
+
+### CREATE TRIGGER {#create-trigger}
+
+With no event clause the trigger is manual — the pipeline runs only on `RUN PIPELINE`. Otherwise
+exactly one event clause is given:
 
 ```sql
+-- Manual
+CREATE TRIGGER on_demand ON PIPELINE api_revenue_sync;
+
+-- Cron schedule
 CREATE TRIGGER nightly ON PIPELINE api_revenue_sync
     SCHEDULE '0 2 * * *';
+
+-- Run when rows are inserted into a table
+CREATE TRIGGER on_new_orders ON PIPELINE api_revenue_sync
+    ON INSERT INTO sales.orders;
+
+-- Run when an event is appended to a stream
+CREATE TRIGGER on_click ON PIPELINE api_revenue_sync
+    ON STREAM clickstream;
+
+-- Run when an HTTP POST reaches the webhook endpoint
+CREATE TRIGGER from_github ON PIPELINE api_revenue_sync
+    WEBHOOK SECRET 'shared-token';
 ```
+
+A mistyped event keyword is rejected rather than silently treated as a manual trigger.
+
+### Event triggers {#event-triggers}
+
+Event triggers run a pipeline in reaction to data, not a clock.
+
+* `ON INSERT INTO <table>` fires after any `INSERT INTO <table>`. The table is resolved against the
+  current database when the trigger is created and stored as `database.table`, so it keeps watching
+  the same table after a later `USE`. The table must already exist. (Mnemo has no `UPDATE` or
+  `DELETE`, so insert is the only table event.)
+* `ON STREAM <stream>` fires after an event is appended to the stream, whether by `INSERT INTO
+  <stream>` or by a `PUBLISH` to a topic the stream is bound to. The stream must already exist.
+* `WEBHOOK` fires on `POST /webhooks/<pipeline>/<trigger>`. The call returns `202 Accepted` as soon
+  as it is queued; the pipeline runs asynchronously and the request body is not passed to the tasks.
+  With `SECRET '<token>'` the request must carry the token in an `X-Webhook-Token` header, compared
+  in constant time; a missing or wrong token is `401`. A `POST` to a paused pipeline is `409`.
+
+A burst of events coalesces: events that arrive before the scheduler runs the pipeline produce a
+single run, not one run per event. A trigger whose pipeline is paused, is already running, or no
+longer exists is dropped, exactly like a missed schedule.
+
+Writes made by a pipeline's own tasks do not fire event triggers while that pipeline is running, so
+a pipeline that inserts into the table it watches does not re-trigger itself, and two pipelines
+cannot trigger each other in a loop. The trade-off is that one pipeline's output does not start
+another through an event trigger.
 
 ## Pipeline control
 

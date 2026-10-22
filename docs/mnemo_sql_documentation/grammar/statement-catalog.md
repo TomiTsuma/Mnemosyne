@@ -35,7 +35,7 @@ See [dml/README.md](../dml/README.md#insert-select).
 | Stage | `CREATE STAGE s IN PIPELINE p [ORDER n]` |
 | Task | `CREATE TASK t IN STAGE s IN PIPELINE p TYPE SQL \| QUALITY \| BUILT_IN BODY '...' [DEPENDS ON t2]` |
 | Data quality rule | `CREATE DATA_QUALITY_RULE [IF NOT EXISTS] r ON t UNIQUE c \| RANGE c [MIN a] [MAX b] \| EXPRESSION '...' \| MIN_ROWS n [ACTION WARN \| FAIL]` |
-| Trigger | `CREATE TRIGGER tr ON PIPELINE p SCHEDULE 'cron'` |
+| Trigger | `CREATE TRIGGER tr ON PIPELINE p [SCHEDULE 'cron' \| ON INSERT INTO t \| ON STREAM s \| WEBHOOK [SECRET 'tok']]` |
 | Stream | `CREATE STREAM s [TOPIC t] [RETAIN n DAYS \| RETAIN FOREVER]` |
 | Topic | `CREATE TOPIC t [PARTITIONS n] [RETAIN ...]` |
 | Consumer group | `CREATE CONSUMER_GROUP g` |

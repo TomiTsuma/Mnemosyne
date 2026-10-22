@@ -96,7 +96,7 @@ create_target   ::= DATABASE identifier
                   | STAGE identifier IN PIPELINE identifier
                   | TASK identifier IN STAGE identifier IN PIPELINE identifier
                   | DATA_QUALITY_RULE identifier ON identifier quality_check [ ACTION ( WARN | FAIL ) ]
-                  | TRIGGER identifier ON PIPELINE identifier
+                  | TRIGGER identifier ON PIPELINE identifier [ trigger_event ]
                   | STREAM identifier [ TOPIC identifier ]
                   | TOPIC identifier
                   | CONSUMER_GROUP identifier | CONSUMER GROUP identifier
@@ -111,6 +111,11 @@ quality_check   ::= UNIQUE identifier
                   | RANGE identifier [ MIN number ] [ MAX number ]
                   | EXPRESSION string
                   | MIN_ROWS integer
+
+trigger_event   ::= SCHEDULE string
+                  | ON INSERT INTO qualified_name
+                  | ON STREAM identifier
+                  | WEBHOOK [ SECRET string ]
 
 create_body     ::= /* target-specific clauses; see statement-catalog.md */
 ```

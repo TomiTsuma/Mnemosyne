@@ -2,6 +2,7 @@
 
 #include "Pipelines/pipeline_scheduler.h"
 #include "Pipelines/cron_matcher.h"
+#include "Pipelines/pipeline_event_bus.h"
 #include "Pipelines/pipeline_manager.h"
 #include <thread>
 
@@ -39,24 +40,65 @@ void PipelineScheduler::tick() {
     }
 }
 
+void PipelineScheduler::dispatch_events() {
+    if (!run_callback_) return;
+    auto& mgr = PipelineManager::instance();
+    for (const auto& ref : PipelineEventBus::instance().take_pending()) {
+        const auto status = mgr.pipeline_status(ref.pipeline);
+        if (!status || *status == PipelineStatus::Paused || *status == PipelineStatus::Running) {
+            continue;
+        }
+        // The trigger may have been dropped between the event and now.
+        if (!mgr.find_trigger(ref.pipeline, ref.trigger)) {
+            continue;
+        }
+        mgr.mark_trigger_fired(ref.pipeline, ref.trigger);
+        run_callback_(ref.pipeline, ref.trigger);
+    }
+}
+
+void PipelineScheduler::wake() {
+    {
+        std::lock_guard lock{wake_mutex_};
+        wake_requested_ = true;
+    }
+    wake_cv_.notify_one();
+}
+
 void PipelineScheduler::start(std::chrono::seconds tick_interval) {
     if (running_.exchange(true)) {
         return;
     }
     tick_interval_ = tick_interval;
+    PipelineEventBus::instance().set_wake_callback([this]() { wake(); });
     tick_thread_ = std::thread([this]() {
+        std::unique_lock lock{wake_mutex_};
+        auto next_tick = std::chrono::steady_clock::now();
         while (running_) {
-            tick();
-            std::this_thread::sleep_for(tick_interval_);
+            lock.unlock();
+            // Cron is checked once per interval; events are handled on every wake-up.
+            if (std::chrono::steady_clock::now() >= next_tick) {
+                tick();
+                next_tick = std::chrono::steady_clock::now() + tick_interval_;
+            }
+            dispatch_events();
+            lock.lock();
+            wake_cv_.wait_until(lock, next_tick, [this]() { return !running_ || wake_requested_; });
+            wake_requested_ = false;
         }
     });
 }
 
 void PipelineScheduler::stop() {
-    running_ = false;
+    {
+        std::lock_guard lock{wake_mutex_};
+        running_ = false;
+    }
+    wake_cv_.notify_all();
     if (tick_thread_.joinable()) {
         tick_thread_.join();
     }
+    PipelineEventBus::instance().set_wake_callback(nullptr);
 }
 
 auto PipelineScheduler::is_running() const -> bool {

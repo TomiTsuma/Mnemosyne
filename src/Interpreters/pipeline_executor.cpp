@@ -12,6 +12,7 @@
 #include "Parsers/lexer.h"
 #include "Parsers/parser_query.h"
 #include "Pipelines/pipeline_manager.h"
+#include "Pipelines/pipeline_event_bus.h"
 #include "DataQuality/data_quality_catalog.h"
 #include "Common/exceptions.h"
 #include <chrono>
@@ -110,6 +111,10 @@ auto execute_quality(Context& context, const pipelines::TaskEntry& task) -> std:
 
 auto PipelineExecutor::run(Context& context, std::string_view pipeline_name,
                            std::string_view trigger_name) -> pipelines::PipelineRunEntry {
+    // Writes made by this run's own tasks must not fire event triggers: a pipeline that inserts
+    // into the table it watches would otherwise run again forever.
+    pipelines::PipelineEventBus::RunScope no_events;
+
     auto& mgr = pipelines::PipelineManager::instance();
     const auto run_start = std::chrono::steady_clock::now();
     auto& run = mgr.begin_run(pipeline_name, trigger_name);
